@@ -1,0 +1,32 @@
+{
+  "schema": "urn:oscalify:observer:proto-lock:v2",
+  "source": "../ckodex-oscalify/proto/oscal",
+  "mode": "workspace-read-only",
+  "note": "Hashes describe an intentionally reviewed source snapshot. The source checkout is never modified by this client.",
+  "source_revision": {
+    "head": "6f6b641133201cbb777740cd3b7e1c9ca508aa3a",
+    "worktree_dirty": false
+  },
+  "oscal_schema": {
+    "version": "1.2.3",
+    "source_commit": "e061961c7702afeabffdf5e59894d35e748dade1",
+    "release_zip_sha256": "sha256:eefb4ec5b1383d3b15fca27e0b63bc84b8661d6ee17e4f92acb437606e9ee982",
+    "manifest_sha256": "sha256:bbfda63891c65d0b429dce2d956441686d0eff18776975662daacf57e5c99580",
+    "reconciled_at": "2026-08-16T17:31:42Z"
+  },
+  "files": {
+    "assessment_plan/v1/assessment_plan.proto": "90efd02e1114947f17ba25fe314fe5237225baea9a482b4ebc66c3dcc0fda2ab",
+    "assessment_results/v1/assessment_results.proto": "2dffc150db9b405e59449d71afd84a5a812311df8c327c6715adc3b552c7aa6a",
+    "catalog/v1/catalog.proto": "72213e847cbd8d940f063845147107925c48b5261afc11eb9309a6b838bdcfdb",
+    "common/v1/common.proto": "7f65f97f18d75490fa63b4a15009cb1d73e498a83b082bd90dac2e427de68507",
+    "component_definition/v1/component.proto": "6d36250b4e25dda862ff59e7b36a40374c4293f049f180d23c31fbff3f164f9f",
+    "mapping/v1/mapping.proto": "df29bfdfbb9fe9a32e30b0ce922ccae700e49ef030c1c9fc12b352fb3849c653",
+    "poam/v1/poam.proto": "f3ffcc1c05e81cf1c5d35b9de5e610c19b638ec39c6a97716cd271386484be88",
+    "profile/v1/profile.proto": "a619f629005b4a2b5349b6ba234327ffddc3f8c8da38b1b315c8a20d28ac1b62",
+    "services/v1/governance_service.proto": "4d28736d8432c56aba7a2c2c4db0d6b074fe2d3a280b1669d1345ebd73e01643",
+    "services/v1/oscal_service.proto": "5fc1ab72c545bd69eddc022afd5bae48ad415c373334de12a20f1ba7ef23b639",
+    "services/v1/transparency_exchange_service.proto": "a015de4e961d21869f80b6af653593f1d0163787f4fb442a5c1c2ac87e1249cb",
+    "services/v1/transparency_graph_service.proto": "4fac7cf7925359c9d3ae63715b62eba8c316eea6dc291e7006fee16fa32b51c1",
+    "ssp/v1/ssp.proto": "173860dc33c042d795df0da54bb632cb6f5d93c01dcb3f993bb10389f8c53b9d"
+  }
+}

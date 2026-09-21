@@ -1,0 +1,25 @@
+catalog:
+  groups:
+  - class: family
+    controls:
+    - class: SP800-53
+      id: ac-1
+      params:
+      - id: ac-01_prm_1
+        label: organization-defined frequency
+      title: Policy and Procedures
+    - class: SP800-53
+      id: ac-2
+      params:
+      - id: ac-02_prm_1
+        label: account managers
+      title: Account Management
+    id: ac
+    title: Access Control
+  metadata:
+    last-modified: 2020-09-23T00:00:00Z
+    oscal-version: 1.2.3
+    published: 2020-09-23T00:00:00Z
+    title: NIST Special Publication 800-53 Revision 5 (Excerpt)
+    version: 5.0.0
+  uuid: 8b788647-767a-4ecb-ba3a-f2b7f719602a

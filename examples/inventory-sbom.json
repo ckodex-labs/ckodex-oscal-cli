@@ -1,0 +1,21 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "components": [
+    {
+      "name": "PostgreSQL Database Engine",
+      "version": "15.4",
+      "type": "application"
+    },
+    {
+      "name": "Envoy Ingress Proxy",
+      "version": "1.28.0",
+      "type": "application"
+    },
+    {
+      "name": "Redis Cache Tier",
+      "version": "7.2.4",
+      "type": "application"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+# Rust
+/target/
+target/
+*.profraw
+*.profdata
+*.rs.bk
+Cargo.lock.backup
+
+# Node & Frontend
+node_modules/
+.next/
+apps/workbench/out/*
+!apps/workbench/out/.gitkeep
+build/
+*.tsbuildinfo
+.npm
+.yarn
+
+# Tauri
+apps/workbench/src-tauri/target/
+
+# OS / Editor artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local CLI cache & run state
+/.oscal-cli/
+*.log
+*.tmp

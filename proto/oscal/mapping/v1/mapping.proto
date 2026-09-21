@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package oscal.mapping.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/mchorfa/xoscal/proto/oscal/mapping/v1;mappingv1";
+
+// MappingCollection is the OSCAL 1.2 mapping-collection document root.
+// Fields 3-15 predate the released Mapping model and are retained only for
+// wire compatibility; new code uses provenance, mappings, and back_matter.
+message MappingCollection {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.Metadata metadata = 2;
+  string matching_rationale = 3 [deprecated = true];
+  string status = 4 [deprecated = true];
+  MappingResourceReference source_resource = 5 [deprecated = true];
+  MappingResourceReference target_resource = 6 [deprecated = true];
+  repeated Map maps = 7 [deprecated = true];
+  repeated oscal.common.v1.Property props = 8 [deprecated = true];
+  repeated oscal.common.v1.Link links = 9 [deprecated = true];
+  repeated oscal.common.v1.MarkupMultiline remarks = 10 [deprecated = true];
+  MappingDescription mapping_description = 11 [deprecated = true];
+  GapSummary source_gap_summary = 12 [deprecated = true];
+  GapSummary target_gap_summary = 13 [deprecated = true];
+  ConfidenceScore confidence_score = 14 [deprecated = true];
+  Coverage coverage = 15 [deprecated = true];
+
+  MappingProvenance provenance = 16;
+  repeated ControlMapping mappings = 17;
+  oscal.common.v1.BackMatter back_matter = 18;
+}
+
+// ControlMapping represents one source-resource to target-resource mapping.
+message ControlMapping {
+  oscal.common.v1.UUID uuid = 1;
+  string method = 2;
+  string matching_rationale = 3;
+  string status = 4;
+  MappingResourceReference source_resource = 5;
+  MappingResourceReference target_resource = 6;
+  repeated Map maps = 7;
+  repeated oscal.common.v1.Property props = 8;
+  repeated oscal.common.v1.Link links = 9;
+  repeated oscal.common.v1.MarkupMultiline remarks = 10;
+  oscal.common.v1.MarkupMultiline mapping_description = 11;
+  GapSummary source_gap_summary = 12;
+  GapSummary target_gap_summary = 13;
+  ConfidenceScore confidence_score = 14;
+  Coverage coverage = 15;
+}
+
+// MappingResourceReference represents a mapped resource reference
+message MappingResourceReference {
+  string ns = 1;
+  string type = 2;
+  oscal.common.v1.URIReference href = 3;
+  repeated oscal.common.v1.Property props = 4;
+  repeated oscal.common.v1.Link links = 5;
+  repeated oscal.common.v1.MarkupMultiline remarks = 6;
+}
+
+// Map represents a mapping entry
+message Map {
+  oscal.common.v1.UUID uuid = 1;
+  string ns = 2;
+  string matching_rationale = 3;
+  oscal.common.v1.Token relationship = 4;
+  repeated MappingItem sources = 5;
+  repeated MappingItem targets = 6;
+  repeated QualifierItem qualifiers = 7;
+  ConfidenceScore confidence_score = 8;
+  Coverage coverage = 9;
+  repeated oscal.common.v1.Property props = 10;
+  repeated oscal.common.v1.Link links = 11;
+  repeated oscal.common.v1.MarkupMultiline remarks = 12;
+}
+
+// MappingItem represents a mapping entry item (source or target)
+message MappingItem {
+  string type = 1;
+  string id_ref = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// QualifierItem represents an OSCAL relationship qualifier. Fields 1-4 are
+// retained for wire compatibility with the pre-release mapping prototype.
+message QualifierItem {
+  string type = 1 [deprecated = true];
+  string id_ref = 2 [deprecated = true];
+  repeated oscal.common.v1.Property props = 3 [deprecated = true];
+  repeated oscal.common.v1.Link links = 4 [deprecated = true];
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+  string subject = 6;
+  string predicate = 7;
+  string category = 8;
+  oscal.common.v1.MarkupMultiline description = 9;
+}
+
+// ConfidenceScore is either a category or a percentage from 0 through 1.
+// Fields 1-5 are retained for wire compatibility with the prototype model.
+message ConfidenceScore {
+  double value = 1 [deprecated = true];
+  string method = 2 [deprecated = true];
+  repeated oscal.common.v1.Property props = 3 [deprecated = true];
+  repeated oscal.common.v1.Link links = 4 [deprecated = true];
+  repeated oscal.common.v1.MarkupMultiline remarks = 5 [deprecated = true];
+  string category = 6;
+  oscal.common.v1.Decimal percentage = 7;
+}
+
+// Coverage records target coverage and the method used to derive it.
+// Fields 1-5 are retained for wire compatibility with the prototype model.
+message Coverage {
+  double value = 1 [deprecated = true];
+  string method = 2 [deprecated = true];
+  repeated oscal.common.v1.Property props = 3 [deprecated = true];
+  repeated oscal.common.v1.Link links = 4 [deprecated = true];
+  repeated oscal.common.v1.MarkupMultiline remarks = 5 [deprecated = true];
+  string generation_method = 6;
+  oscal.common.v1.Decimal target_coverage = 7;
+}
+
+// GapSummary selects controls that are not mapped.
+// Fields 1-5 are retained for wire compatibility with the prototype model.
+message GapSummary {
+  int32 count = 1 [deprecated = true];
+  repeated string gaps = 2 [deprecated = true];
+  repeated oscal.common.v1.Property props = 3 [deprecated = true];
+  repeated oscal.common.v1.Link links = 4 [deprecated = true];
+  repeated oscal.common.v1.MarkupMultiline remarks = 5 [deprecated = true];
+  oscal.common.v1.UUID uuid = 6;
+  repeated SelectControlById unmapped_controls = 7;
+}
+
+// MappingDescription is the deprecated prototype wrapper. Released OSCAL uses
+// MarkupMultiline directly for mapping-description.
+message MappingDescription {
+  oscal.common.v1.MarkupMultiline description = 1;
+  repeated oscal.common.v1.Property props = 2;
+  repeated oscal.common.v1.Link links = 3;
+  repeated oscal.common.v1.MarkupMultiline remarks = 4;
+}
+
+// MappingProvenance records how the collection was produced and its status.
+message MappingProvenance {
+  string method = 1;
+  string matching_rationale = 2;
+  string status = 3;
+  ConfidenceScore confidence_score = 4;
+  Coverage coverage = 5;
+  oscal.common.v1.MarkupMultiline mapping_description = 6;
+  repeated oscal.common.v1.ResponsibleParty responsible_parties = 7;
+  repeated oscal.common.v1.Property props = 8;
+  repeated oscal.common.v1.Link links = 9;
+  repeated oscal.common.v1.MarkupMultiline remarks = 10;
+}
+
+// SelectControlById selects explicit or pattern-matched controls.
+message SelectControlById {
+  string with_child_controls = 1;
+  repeated oscal.common.v1.Token with_ids = 2;
+  repeated Matching matching = 3;
+}
+
+// Matching selects controls by a glob expression.
+message Matching {
+  string pattern = 1;
+  repeated oscal.common.v1.MarkupMultiline remarks = 2;
+}

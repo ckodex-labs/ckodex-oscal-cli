@@ -1,0 +1,228 @@
+syntax = "proto3";
+
+package oscal.poam.v1;
+
+import "common/v1/common.proto";
+
+option go_package = "github.com/mchorfa/xoscal/proto/oscal/poam/v1;poamv1";
+
+// PlanOfActionAndMilestones represents a plan of action and milestones item
+message PlanOfActionAndMilestones {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.Metadata metadata = 2;
+  ImportSsp import_ssp = 3;
+  LocalDefinitions local_definitions = 4;
+  // Deprecated: use poam_items instead. Kept for backward compatibility.
+  repeated Risk risks = 5 [deprecated = true];
+  oscal.common.v1.BackMatter back_matter = 6;
+  // poam_items is the OSCAL schema-required top-level array of POAM items.
+  repeated PoamItem poam_items = 7;
+}
+
+// ImportSsp represents an imported system security plan
+message ImportSsp {
+  oscal.common.v1.URIReference href = 1;
+  repeated oscal.common.v1.MarkupMultiline remarks = 2;
+}
+
+// LocalDefinitions represents local definitions for POAM
+message LocalDefinitions {
+  repeated Component components = 1;
+  repeated InventoryItem inventory_items = 2;
+  repeated User users = 3;
+}
+
+// Component represents a system component
+message Component {
+  oscal.common.v1.UUID uuid = 1;
+  string type = 2;
+  string title = 3;
+  string description = 4;
+  repeated oscal.common.v1.Property props = 5;
+  repeated oscal.common.v1.Link links = 6;
+  repeated oscal.common.v1.MarkupMultiline remarks = 7;
+}
+
+// InventoryItem represents an inventory item
+message InventoryItem {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.MarkupLine description = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// User represents a system user
+message User {
+  oscal.common.v1.UUID uuid = 1;
+  string title = 2;
+  string short_name = 3;
+  oscal.common.v1.MarkupMultiline description = 4;
+  repeated oscal.common.v1.Property props = 5;
+  repeated oscal.common.v1.Link links = 6;
+  repeated oscal.common.v1.MarkupMultiline remarks = 7;
+}
+
+// PoamItem represents a POAM item as defined by the pinned OSCAL schema.
+// Unlike Risk, poam-item is a simpler container with title, description,
+// and references to findings/observations/risks.
+message PoamItem {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  oscal.common.v1.MarkupMultiline description = 3;
+  repeated oscal.common.v1.Property props = 4;
+  repeated oscal.common.v1.Link links = 5;
+  repeated Origin origins = 6;
+  repeated RelatedFinding related_findings = 7;
+  repeated RelatedObservation related_observations = 8;
+  repeated RelatedRisk related_risks = 9;
+  repeated oscal.common.v1.MarkupMultiline remarks = 10;
+}
+
+// Origin represents the origin of a POAM item
+message Origin {
+  repeated OriginActor actors = 1;
+}
+
+// OriginActor represents an originating actor
+message OriginActor {
+  oscal.common.v1.UUID actor_uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// RelatedFinding represents a related finding
+message RelatedFinding {
+  oscal.common.v1.UUID finding_uuid = 1;
+}
+
+// RelatedRisk represents a related risk
+message RelatedRisk {
+  oscal.common.v1.UUID risk_uuid = 1;
+}
+
+// Risk represents a risk
+message Risk {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  oscal.common.v1.MarkupMultiline description = 3;
+  oscal.common.v1.MarkupMultiline statement = 4;
+  RiskStatus status = 5;
+  repeated MitigatingFactor mitigating_factors = 6;
+  oscal.common.v1.DateTime deadline = 7;
+  repeated Response remediations = 8;
+  RiskLog risk_log = 9;
+  repeated RelatedObservation related_observations = 10;
+  repeated oscal.common.v1.Property props = 11;
+  repeated oscal.common.v1.Link links = 12;
+  repeated oscal.common.v1.MarkupMultiline remarks = 13;
+}
+
+// RiskStatus represents risk status
+message RiskStatus {
+  string state = 1;
+  repeated oscal.common.v1.MarkupMultiline remarks = 2;
+}
+
+// MitigatingFactor represents a mitigating factor
+message MitigatingFactor {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.UUID implementation_uuid = 2;
+  oscal.common.v1.MarkupMultiline description = 3;
+  repeated oscal.common.v1.Property props = 4;
+  repeated oscal.common.v1.Link links = 5;
+  repeated SubjectReference subjects = 6;
+}
+
+// SubjectReference represents a subject reference
+message SubjectReference {
+  oscal.common.v1.UUID subject_uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// Response represents a risk response/remediation
+message Response {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  oscal.common.v1.MarkupMultiline description = 3;
+  oscal.common.v1.DateTime deadline = 4;
+  ResponseStatus status = 5;
+  repeated ResponsibleRole responsible_roles = 6;
+  repeated RelatedTask related_tasks = 7;
+  repeated SubjectReference subjects = 8;
+  repeated oscal.common.v1.Property props = 9;
+  repeated oscal.common.v1.Link links = 10;
+  repeated oscal.common.v1.MarkupMultiline remarks = 11;
+}
+
+// ResponseStatus represents response status
+message ResponseStatus {
+  string state = 1;
+  repeated oscal.common.v1.MarkupMultiline remarks = 2;
+}
+
+// ResponsibleRole represents a responsible role
+message ResponsibleRole {
+  oscal.common.v1.Token role_id = 1;
+  repeated oscal.common.v1.UUID party_uuids = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.MarkupMultiline remarks = 4;
+}
+
+// RelatedTask represents a related task
+message RelatedTask {
+  oscal.common.v1.UUID task_uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// RiskLog represents a risk log
+message RiskLog {
+  repeated RiskLogEntry entries = 1;
+}
+
+// RiskLogEntry represents a risk log entry
+message RiskLogEntry {
+  oscal.common.v1.UUID uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  oscal.common.v1.MarkupMultiline description = 3;
+  oscal.common.v1.DateTime start = 4;
+  oscal.common.v1.DateTime end = 5;
+  repeated oscal.common.v1.Property props = 6;
+  repeated oscal.common.v1.Link links = 7;
+  repeated LoggedBy logged_by = 8;
+  RiskStatus status_change = 9;
+  repeated RelatedResponse related_responses = 10;
+  repeated oscal.common.v1.MarkupMultiline remarks = 11;
+}
+
+// LoggedBy represents who logged the entry
+message LoggedBy {
+  oscal.common.v1.UUID party_uuid = 1;
+  oscal.common.v1.MarkupLine title = 2;
+  repeated oscal.common.v1.Property props = 3;
+  repeated oscal.common.v1.Link links = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// RelatedResponse represents a related risk response
+message RelatedResponse {
+  oscal.common.v1.UUID response_uuid = 1;
+  repeated oscal.common.v1.Property props = 2;
+  repeated oscal.common.v1.Link links = 3;
+  repeated RelatedTask related_tasks = 4;
+  repeated oscal.common.v1.MarkupMultiline remarks = 5;
+}
+
+// RelatedObservation represents a related observation
+message RelatedObservation {
+  oscal.common.v1.UUID observation_uuid = 1;
+  repeated oscal.common.v1.MarkupMultiline remarks = 2;
+}

@@ -1,0 +1,62 @@
+name: "Mizan Zero-Trust Compliance Pipeline"
+description: "Run continuous OSCAL compliance assessment, SLSA v1.2 in-toto attestation, and SARIF/GitLab security reporting."
+author: "CKODEX Labs"
+
+inputs:
+  jurisdiction:
+    description: "Compliance jurisdiction baseline (us, ca, eu, enterprise)"
+    required: false
+    default: "us"
+  sbom-file:
+    description: "Path to CycloneDX or SPDX SBOM JSON file"
+    required: false
+    default: ""
+  workload-file:
+    description: "Path to Kubernetes or cloud workload manifest JSON/YAML"
+    required: false
+    default: ""
+  subject:
+    description: "Subject artifact name for SLSA provenance"
+    required: false
+    default: "repo-artifact"
+  digest:
+    description: "Subject artifact SHA-256 digest"
+    required: false
+    default: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  output-dir:
+    description: "Directory where generated OSCAL, SLSA, SARIF, and GitLab artifacts will be stored"
+    required: false
+    default: "mizan-pipeline-output"
+
+outputs:
+  sarif-report:
+    description: "Path to generated OASIS SARIF v2.1.0 report"
+    value: "${{ inputs.output-dir }}/sarif-report.json"
+  gitlab-report:
+    description: "Path to generated GitLab Security Scanner report"
+    value: "${{ inputs.output-dir }}/gl-security-report.json"
+  slsa-provenance:
+    description: "Path to generated in-toto SLSA v1.2 provenance statement"
+    value: "${{ inputs.output-dir }}/slsa-provenance.json"
+  oscal-assessment:
+    description: "Path to generated OSCAL assessment results document"
+    value: "${{ inputs.output-dir }}/oscal-assessment-results.json"
+  evidence-bundle:
+    description: "Path to generated Level E4 Evidence Bundle with Merkle root"
+    value: "${{ inputs.output-dir }}/evidence-bundle.json"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Run Mizan Pipeline
+      shell: bash
+      run: |
+        ARGS=(pipeline run -j "${{ inputs.jurisdiction }}" --subject "${{ inputs.subject }}" --digest "${{ inputs.digest }}" -o "${{ inputs.output-dir }}")
+        if [ -n "${{ inputs.sbom-file }}" ] && [ -f "${{ inputs.sbom-file }}" ]; then
+          ARGS+=(--sbom "${{ inputs.sbom-file }}")
+        fi
+        if [ -n "${{ inputs.workload-file }}" ] && [ -f "${{ inputs.workload-file }}" ]; then
+          ARGS+=(-w "${{ inputs.workload-file }}")
+        fi
+        
+        mizan "${ARGS[@]}"

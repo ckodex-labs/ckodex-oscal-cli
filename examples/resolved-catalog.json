@@ -1,0 +1,35 @@
+{
+  "catalog": {
+    "groups": [
+      {
+        "class": "family",
+        "controls": [
+          {
+            "class": "SP800-53",
+            "id": "ac-1",
+            "params": [
+              {
+                "id": "ac-01_prm_1",
+                "label": "organization-defined frequency",
+                "values": [
+                  "at least annually"
+                ]
+              }
+            ],
+            "title": "Policy and Procedures"
+          }
+        ],
+        "id": "ac",
+        "title": "Access Control"
+      }
+    ],
+    "metadata": {
+      "last-modified": "2026-08-28T14:27:13.410523+00:00",
+      "oscal-version": "1.2.3",
+      "published": "2026-08-28T14:27:13.410523+00:00",
+      "title": "[Resolved] FedRAMP Moderate Baseline Profile",
+      "version": "1.0.0-resolved"
+    },
+    "uuid": "832439d8-5d67-44c1-ac4c-d1ab8ca838bb"
+  }
+}

@@ -1,0 +1,25 @@
+# ------------------------------------------------------------------------------
+# Mizan · GitLab CI Compliance & Security Gate Template
+# ------------------------------------------------------------------------------
+
+mizan-compliance-scan:
+  stage: test
+  image:
+    name: ghcr.io/ckodex-labs/mizan:latest
+    entrypoint: [""]
+  variables:
+    MIZAN_JURISDICTION: "us"
+    MIZAN_OUTPUT_DIR: "mizan-pipeline-output"
+  script:
+    - mkdir -p ${MIZAN_OUTPUT_DIR}
+    - /usr/local/bin/mizan pipeline run -j ${MIZAN_JURISDICTION} -o ${MIZAN_OUTPUT_DIR}
+  artifacts:
+    name: "mizan-compliance-reports"
+    when: always
+    paths:
+      - ${MIZAN_OUTPUT_DIR}/
+    reports:
+      secret_detection: ${MIZAN_OUTPUT_DIR}/gl-security-report.json
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

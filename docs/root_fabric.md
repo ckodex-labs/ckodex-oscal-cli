@@ -49,7 +49,7 @@ Federated tokens carrying claims are validated against configured identity provi
 ### 3. Multi-Tenant Isolation
 - **Tenant Context (`TenantContext`)**: Binds every incoming operation to an authenticated `TenantId` and `UserId`.
 - **Boundary Assertion**: Calls to `assert_same_tenant` guarantee that no cross-tenant read, write, or query can bleed across partitions.
-- **Quotas & Baselines**: Tenant quotas and default compliance jurisdictions (US NIST 800-53, Canadian CCCS ITSG-33, European BSI C5/NIS2) are strictly governed per tenant.
+- **Quotas & Baselines**: Tenant quotas and default compliance jurisdictions (US NIST 800-53, Canadian CCCS ITSG-33, European EUCS / ISO 27001) are strictly governed per tenant.
 
 ### 4. Role-Based & Attribute-Based Access Control (RBAC / ABAC)
 Roles and permissions are governed across key compliance actions:

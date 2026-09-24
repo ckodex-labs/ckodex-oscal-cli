@@ -24,7 +24,7 @@ fn test_e2e_tri_jurisdiction_catalog_federation() {
     let ca_json = serde_json::to_string(&ca_catalog.value).unwrap();
     assert!(ca_json.contains("ITSG-33"));
 
-    // 3. EU BSI C5 / ISO 27001
+    // 3. EU EUCS / ISO 27001
     let eu_catalog =
         EmbeddedCatalogProvider::get_catalog(Jurisdiction::EuEucsIso27001).expect("eu catalog");
     let eu_json = serde_json::to_string(&eu_catalog.value).unwrap();

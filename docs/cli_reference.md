@@ -79,7 +79,7 @@ mizan audit -n default -o assessment-results.json
 
 ### 5. Multi-Jurisdiction Catalogs & Profiles (`mizan catalog`, `mizan profile`, `mizan ssp`)
 ```bash
-# List built-in jurisdictions (US NIST 800-53, CA CCCS ITSG-33, EU BSI C5)
+# List built-in jurisdictions (US NIST 800-53, CA CCCS ITSG-33, EU EUCS / ISO 27001)
 mizan catalog list
 
 # Export built-in jurisdiction catalog to JSON or YAML

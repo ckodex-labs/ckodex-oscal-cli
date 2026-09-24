@@ -135,13 +135,11 @@ pub(super) fn capture_if_enabled<M1: Message, M2: Message>(
     response: &M2,
 ) -> Result<()> {
     if config.capture_enabled {
-        match crate::capture::write(config, method, request, response) {
-            Ok(manifest) => eprintln!(
-                "generated capture {} ({})",
-                manifest.id, manifest.response_sha256
-            ),
-            Err(error) => return Err(error),
-        }
+        let manifest = crate::capture::write(config, method, request, response)?;
+        eprintln!(
+            "generated capture {} ({})",
+            manifest.id, manifest.response_sha256
+        );
     }
     Ok(())
 }

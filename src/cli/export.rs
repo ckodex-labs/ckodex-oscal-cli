@@ -91,7 +91,7 @@ pub(super) fn run_export(args: &ExportCliArgs, format: OutputFormat) -> Result<(
                         "────────────────────────────────────────────────────────────────────────"
                     );
                     println!(
-                        "✅ Standalone air-gap evidence capsule generated. Open in any browser."
+                        "[OK] Standalone air-gap evidence capsule generated. Open in any browser."
                     );
                 }
             }

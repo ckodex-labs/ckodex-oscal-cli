@@ -178,10 +178,10 @@ pub(super) fn main_panel(app: &TuiApp, palette: Palette) -> Paragraph<'static> {
                 "  [Enterprise] Custom Inherited Overlays".to_owned(),
                 String::new(),
                 "Supply Chain & CI/CD Security:".to_owned(),
-                "  ✓ SLSA v1.2 & v1.0 Provenance Attestation".to_owned(),
-                "  ✓ CycloneDX & SPDX SBOM OSCAL Correlation".to_owned(),
-                "  ✓ OASIS SARIF v2.1.0 & GitLab Security Exporters".to_owned(),
-                "  ✓ Regorus Compliance Policy Rulepack Engine".to_owned(),
+                "  * SLSA v1.2 & v1.0 Provenance Attestation".to_owned(),
+                "  * CycloneDX & SPDX SBOM OSCAL Correlation".to_owned(),
+                "  * OASIS SARIF v2.1.0 & GitLab Security Exporters".to_owned(),
+                "  * Regorus Compliance Policy Rulepack Engine".to_owned(),
             ]);
             "Mizan Unified Compliance & Governance"
         }

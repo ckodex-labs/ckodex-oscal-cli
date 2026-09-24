@@ -24,7 +24,7 @@ pub(super) fn run_init(args: &InitCliArgs, format: OutputFormat) -> Result<()> {
 
             println!("Created Governance Artifacts:");
             for f in &report.created_files {
-                println!("  📄 {}", f.display());
+                println!("  [file] {}", f.display());
             }
 
             println!("\nNext Recommended Commands:");

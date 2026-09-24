@@ -60,7 +60,7 @@ export function Masthead({
                   : "border-ck-hairline-strong bg-ck-bg-1 text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent"
               }`}
             >
-              <span className="text-ck-accent">✨</span>
+              <span className="text-ck-accent text-xs">/</span>
               <span>Copilot</span>
               <span className="text-[9px] opacity-70 ml-0.5">⌘K</span>
             </button>
@@ -72,7 +72,6 @@ export function Masthead({
             title="Open Rust Core Rustdoc API Reference"
             className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden sm:flex"
           >
-            <span>📖</span>
             <span>API Docs</span>
           </a>
           <a
@@ -82,7 +81,6 @@ export function Masthead({
             title="Open Standalone Offline Cryptographic Evidence Capsule"
             className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden sm:flex"
           >
-            <span>🛡️</span>
             <span>Capsule</span>
           </a>
           <a
@@ -92,7 +90,6 @@ export function Masthead({
             title="GitHub Repository & Multi-Platform Release Binaries"
             className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden md:flex"
           >
-            <span>📦</span>
             <span>GitHub</span>
           </a>
           <LensSelector lens={lens} onLensChange={onLensChange} />

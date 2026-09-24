@@ -203,7 +203,7 @@ export function PipelineSurface({
                     : "text-red-700 dark:text-red-400 border-red-700/40"
                 }`}
               >
-                {isPassing ? "✓ ALL GATES SATISFIED" : "⊭ GATES BLOCKED"}
+                {isPassing ? "ALL GATES SATISFIED" : "GATES BLOCKED"}
               </Badge>
             </div>
 
@@ -465,7 +465,7 @@ mizan compliance-pipeline · schema pinned oscal 1.2.3
                   </>
                 ) : (
                   <span className="text-green-700 dark:text-green-400 font-semibold">
-                    ✓ Pre-commit verification clean. Ready to push to origin.
+                    [OK] Pre-commit verification clean. Ready to push to origin.
                   </span>
                 )}
               </div>

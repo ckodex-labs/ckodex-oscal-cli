@@ -48,25 +48,25 @@ export function PromotionModal({
           <div className="flex items-center justify-between">
             <span>1. OSCAL Metaschema 1.2.3 Deterministic Validation</span>
             <span className="text-green-700 dark:text-green-400 font-bold">
-              ✓ PASS (4 DOCS)
+              [PASS] 4 DOCS
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>2. SLSA v1.2 In-Toto Provenance Merkle Root</span>
             <span className="text-green-700 dark:text-green-400 font-bold">
-              ✓ VALID (SHA256)
+              [VALID] SHA256
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>3. Zero Overdue High-Severity POA&amp;M Gaps</span>
             <span className="text-green-700 dark:text-green-400 font-bold">
-              ✓ VERIFIED
+              [VERIFIED]
             </span>
           </div>
           <div className="flex items-center justify-between">
             <span>4. Responsible Roles Assigned on All Requirements</span>
             <span className="text-green-700 dark:text-green-400 font-bold">
-              ✓ COMPLETE
+              [COMPLETE]
             </span>
           </div>
         </div>

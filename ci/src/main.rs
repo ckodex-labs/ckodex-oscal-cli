@@ -80,7 +80,7 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
             .sync()
             .await?;
         let _ = lint_container;
-        println!("✓ Stage 1 Passed: Clippy and rustfmt checks verified.");
+        println!("[OK] Stage 1 Passed: Clippy and rustfmt checks verified.");
     }
 
     if matches!(action, CiAction::Test | CiAction::All) {
@@ -91,7 +91,7 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
             .sync()
             .await?;
         let _ = test_container;
-        println!("✓ Stage 2 Passed: All workspace tests passed.");
+        println!("[OK] Stage 2 Passed: All workspace tests passed.");
     }
 
     if matches!(action, CiAction::Build | CiAction::All) {
@@ -102,7 +102,7 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
             .sync()
             .await?;
         let _ = build_container;
-        println!("✓ Stage 3 Passed: Fat-LTO release binaries compiled.");
+        println!("[OK] Stage 3 Passed: Fat-LTO release binaries compiled.");
     }
 
     if matches!(action, CiAction::Workbench | CiAction::All) {
@@ -119,7 +119,7 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
             .sync()
             .await?;
         let _ = node_container;
-        println!("✓ Stage 4 Passed: Workbench lint and production build verified.");
+        println!("[OK] Stage 4 Passed: Workbench lint and production build verified.");
     }
 
     if matches!(action, CiAction::Badge | CiAction::All) {
@@ -182,11 +182,11 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
             .sync()
             .await?;
         let _ = badge_container;
-        println!("✓ Stage 5 Passed: shieldcn-zig badges generated.");
+        println!("[OK] Stage 5 Passed: shieldcn-zig badges generated.");
     }
 
     println!("===============================================");
-    println!("✅ All Mizan CI/CD Dagger stages PASSED.");
+    println!("[SUCCESS] All Mizan CI/CD Dagger stages PASSED.");
     println!("===============================================");
 
     Ok(())

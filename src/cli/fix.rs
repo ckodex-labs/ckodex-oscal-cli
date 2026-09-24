@@ -36,9 +36,9 @@ pub(super) fn run_fix(args: &FixCliArgs, format: OutputFormat) -> Result<()> {
             }
 
             if report.applied && !report.dry_run {
-                println!("✅ Manifest remediated and written to disk successfully.");
+                println!("[OK] Manifest remediated and written to disk successfully.");
             } else if report.applied && report.dry_run {
-                println!("💡 Run without --dry-run to apply this remediation patch.");
+                println!("[NOTE] Run without --dry-run to apply this remediation patch.");
             }
         }
     }

@@ -417,7 +417,7 @@ export function CicdSbomPanel() {
                   $ mizan export sarif -i catalog.json -o mizan-sarif.json
                 </div>
                 <div className="text-green-700 dark:text-green-400 mt-1">
-                  ✓ Exported 9 controls to SARIF v2.1.0 schema with rule-level
+                  [OK] Exported 9 controls to SARIF v2.1.0 schema with rule-level
                   NIST URIs
                 </div>
               </div>
@@ -449,7 +449,7 @@ export function CicdSbomPanel() {
                   gl-security-report.json
                 </div>
                 <div className="text-green-700 dark:text-green-400 mt-1">
-                  ✓ Formatted scanner ID: mizan-compliance-scanner (v15.0.0)
+                  [OK] Formatted scanner ID: mizan-compliance-scanner (v15.0.0)
                 </div>
               </div>
               <Button
@@ -511,7 +511,7 @@ export function CicdSbomPanel() {
                 oscal-component-definition.json
               </div>
               <div className="text-green-700 dark:text-green-400 mt-1">
-                ✓ Generated OSCAL Component Definition (UUID:
+                [OK] Generated OSCAL Component Definition (UUID:
                 7a82b94e-5c61-4fa2-9382-3f81e6b01429)
               </div>
             </div>

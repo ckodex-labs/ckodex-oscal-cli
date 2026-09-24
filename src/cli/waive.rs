@@ -63,7 +63,7 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
                     }
                     _ => {
                         println!(
-                            "✅ Derogation waiver '{}' revoked successfully.",
+                            "[OK] Derogation waiver '{}' revoked successfully.",
                             revoked.id
                         );
                         println!("  Rule:    {}", revoked.rule_id);

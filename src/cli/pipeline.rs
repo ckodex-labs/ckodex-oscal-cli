@@ -85,7 +85,7 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
                         println!("\nActive Derogation Waivers Applied:");
                         for w in &report.active_waivers {
                             println!(
-                                "  ⚠️  [{}] Leased via {} (Expires in {})",
+                                "  [WARN] [{}] Leased via {} (Expires in {})",
                                 w.rule_id,
                                 w.id,
                                 w.time_remaining_display()
@@ -97,10 +97,10 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
                     if !report.violation_details.is_empty() {
                         println!("\nActionable Violations Detected:");
                         for v in &report.violation_details {
-                            println!("  ❌ [{}] {}", v.rule_id, v.message);
+                            println!("  [FAIL] [{}] {}", v.rule_id, v.message);
                             println!("     Target: {}", v.target);
-                            println!("     💡 Quick-Fix:   {}", v.remediation_fix);
-                            println!("     🛡️  Waive Fault: {}", v.remediation_waive);
+                            println!("     Fix:   {}", v.remediation_fix);
+                            println!("     Waive: {}", v.remediation_waive);
                         }
                         println!();
                     }

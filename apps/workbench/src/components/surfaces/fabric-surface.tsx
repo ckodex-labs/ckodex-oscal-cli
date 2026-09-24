@@ -179,7 +179,7 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-2 min-w-0">
-                <span className="shrink-0">🏢</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">[T]</span>
                 <span className="whitespace-nowrap">
                   Tenants ({tenants.length})
                 </span>
@@ -273,7 +273,7 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-1.5 min-w-0">
-                <span className="shrink-0">🔒</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">[P]</span>
                 <span className="whitespace-nowrap">Active Partition</span>
               </h2>
               <Badge
@@ -366,7 +366,7 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-2 min-w-0">
-                <span className="shrink-0">🪪</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">[W]</span>
                 <span className="whitespace-nowrap">
                   Workloads ({workloads.length})
                 </span>

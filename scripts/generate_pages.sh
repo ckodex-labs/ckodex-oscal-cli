@@ -81,13 +81,13 @@ touch "${PUBLIC_DIR}/.nojekyll"
 # 6. Verify Public Assets
 echo ">> [6/6] Verifying Portal Assets..."
 if [[ -f "${PUBLIC_DIR}/index.html" ]] && [[ -f "${PUBLIC_DIR}/capsule.html" ]] && [[ -d "${PUBLIC_DIR}/_next" ]]; then
-    echo "✓ Portal generation verified successfully with Next.js 16 assets."
+    echo "[OK] Portal generation verified successfully with Next.js 16 assets."
     ls -lh "${PUBLIC_DIR}"
 else
-    echo "❌ Error: Missing required public artifacts."
+    echo "[ERROR] Missing required public artifacts."
     exit 1
 fi
 
 echo "=========================================================="
-echo "✅ Pages & Workbench artifacts ready in ${PUBLIC_DIR}"
+echo "[SUCCESS] Pages & Workbench artifacts ready in ${PUBLIC_DIR}"
 echo "=========================================================="

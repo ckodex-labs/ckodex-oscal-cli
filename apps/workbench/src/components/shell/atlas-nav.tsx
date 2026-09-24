@@ -293,10 +293,10 @@ export function AtlasNav({
           className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
         >
           <span className="flex items-center gap-2">
-            <span className="text-ck-accent text-xs">📖</span>
+            <span className="text-ck-accent text-xs">[doc]</span>
             <span className="text-[11px]">Rust API Docs</span>
           </span>
-          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">{"->"}</span>
         </a>
         <a
           href="./capsule.html"
@@ -305,10 +305,10 @@ export function AtlasNav({
           className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
         >
           <span className="flex items-center gap-2">
-            <span className="text-green-500 text-xs">🛡️</span>
+            <span className="text-green-500 text-xs">[sec]</span>
             <span className="text-[11px]">Evidence Capsule</span>
           </span>
-          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">{"->"}</span>
         </a>
         <a
           href="https://github.com/ckodex-labs/ckodex-oscal-cli/releases"
@@ -317,10 +317,10 @@ export function AtlasNav({
           className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
         >
           <span className="flex items-center gap-2">
-            <span className="text-ck-fg-mute text-xs">📦</span>
+            <span className="text-ck-fg-mute text-xs">[pkg]</span>
             <span className="text-[11px]">Binary Releases</span>
           </span>
-          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">{"->"}</span>
         </a>
       </div>
 

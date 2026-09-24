@@ -37,7 +37,7 @@ export function JurisdictionSlsaPanel() {
       standard: "NIST SP 800-53 Rev 5 & FedRAMP Rev 5 High",
       tag: "SP800-53r5",
       controls: 9,
-      icon: "🇺🇸",
+      icon: "[US]",
       description:
         "Standard federal baseline with FedRAMP PMO parameters and moderate/high continuous monitoring.",
     },
@@ -46,7 +46,7 @@ export function JurisdictionSlsaPanel() {
       standard: "CCCS ITSG-33 Protected B / Medium / Medium (PBMM)",
       tag: "ITSG-33",
       controls: 4,
-      icon: "🇨🇦",
+      icon: "[CA]",
       description:
         "Canadian Centre for Cyber Security federal cloud security framework with Canadian data residency boundary rules.",
     },
@@ -55,7 +55,7 @@ export function JurisdictionSlsaPanel() {
       standard: "EUCS & ISO/IEC 27001:2022 Controls Mapping",
       tag: "EUCS-High",
       controls: 4,
-      icon: "🇪🇺",
+      icon: "[EU]",
       description:
         "European Cybersecurity Scheme with strict sovereign cloud isolation, EU key custody, and ISO 27001:2022 alignment.",
     },
@@ -64,7 +64,7 @@ export function JurisdictionSlsaPanel() {
       standard: "Company Sovereign Zero-Trust Overlay Baseline",
       tag: "Enterprise-Core",
       controls: 6,
-      icon: "🏢",
+      icon: "[ENT]",
       description:
         "Custom corporate overlay inheriting federal baselines with internal FIDO2 hardware MFA and internal KMS rules.",
     },

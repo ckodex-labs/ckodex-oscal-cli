@@ -212,7 +212,7 @@ export function AtlasSurface({
                 : "hover:bg-ck-bg-2"
             }`}
           >
-            {pulseActive ? "⚡ Radiating Pulse…" : "Replay Change Pulse"}
+            {pulseActive ? "Radiating Pulse..." : "Replay Change Pulse"}
           </Button>
         </div>
       </div>
@@ -497,7 +497,7 @@ export function AtlasSurface({
             <div className="absolute top-3 left-3 bg-ck-bg-1 border border-ck-accent px-3 py-1.5 shadow-md flex items-center gap-2.5 font-mono text-xs animate-in fade-in duration-150 z-10">
               <span className="w-2 h-2 rounded-full bg-ck-accent animate-ping" />
               <span className="font-bold text-ck-accent text-[11px]">
-                ⚡ RADIATING CHANGE PULSE
+                RADIATING CHANGE PULSE
               </span>
               <span className="text-ck-fg-2 text-[11px]">
                 Profile MER-MOD parameter update radiating across 10 control

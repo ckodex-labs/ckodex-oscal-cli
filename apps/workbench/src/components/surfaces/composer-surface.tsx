@@ -708,7 +708,7 @@ export function ComposerSurface({
               <div className="flex items-center justify-between bg-ck-bg-2 p-2.5 border border-ck-hairline">
                 <div className="flex items-center gap-2">
                   <span className="text-green-700 dark:text-green-400 font-bold text-[10px]">
-                    ✓ CONSTRAINT HOLDS
+                    [OK] CONSTRAINT HOLDS
                   </span>
                   <span className="text-ck-fg-2 text-[11px]">
                     Responsible-role · T. Mori (Platform Engineering)
@@ -895,7 +895,7 @@ export function ComposerSurface({
               className="w-full h-7 text-xs font-mono border-ck-hairline-strong hover:bg-ck-bg-0"
             >
               {commitSuccess
-                ? "✓ Profile Committed to Git"
+                ? "[OK] Profile Committed to Git"
                 : `Commit → Version 1.4.3`}
             </Button>
           </div>

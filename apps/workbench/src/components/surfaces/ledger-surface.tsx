@@ -97,7 +97,7 @@ export function LedgerSurface({ evidence }: LedgerSurfaceProps) {
           onClick={handleSample}
           className="h-7 text-xs font-mono"
         >
-          🎲 Spot Audit Sample
+          Spot Audit Sample
         </Button>
       </div>
 

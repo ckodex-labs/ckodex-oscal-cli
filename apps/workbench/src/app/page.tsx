@@ -347,7 +347,7 @@ export default function WorkbenchPage() {
             title="Close Copilot (Esc)"
             className="absolute top-2.5 right-4 z-40 text-ck-fg-mute hover:text-ck-fg-1 font-mono text-xs px-2 py-0.5 border border-ck-hairline-strong bg-ck-bg-0"
           >
-            ✕ Close Copilot
+            [X] Close Copilot
           </button>
           <ChatPanel
             selectedControl={selectedControlId}

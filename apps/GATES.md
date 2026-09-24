@@ -40,11 +40,11 @@
 - [x] G7 Bridge label collisions = 0 ;; ;; bbox intersection probe
   Was 2/2 (meta↔rel grazes at Δmid 56–64px). Fix: row pitch 68→84px (≥64px label block), label boxes 150→140w, cluster threshold 40→64. Re-measured fresh: collIso 0 · collCsf 0 · ov 0.
 - [x] G8 Decay bars monotonic with age ;; ;; probe
-  (6min,90)(55min,90)(3h,90)(26h,90)(12d,87)(74d,72)(160d,50)(335d,7) — non-increasing with age ✓.
+  (6min,90)(55min,90)(3h,90)(26h,90)(12d,87)(74d,72)(160d,50)(335d,7) — non-increasing with age [PASS].
 - [x] G9 Composer diff reacts + decision gate intercepts ;; ;; DOM probe
   a1 toggle: AFTER line c "90 days"→"30 days", "1 alterations", 401 ms · a3 toggle: .ck-decision opened, alterations stayed 0 (nothing applied), Esc closed it, receipt line names "resolved · profile MER-MOD · remove AC-2(9)".
 - [x] G10 Esc chain order ;; ;; scripted probe
-  decision open → Esc closed (decideEscClosed:true) · chip + lens menu both open → Esc closed menu, chip stayed (esc1) · Esc closed chip (esc2) · earlier: Esc closed inspector last. Order: decision > lens > chip > edge > inspector ✓.
+  decision open → Esc closed (decideEscClosed:true) · chip + lens menu both open → Esc closed menu, chip stayed (esc1) · Esc closed chip (esc2) · earlier: Esc closed inspector last. Order: decision > lens > chip > edge > inspector [PASS].
 
 ## ABANDON
 none

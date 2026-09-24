@@ -57,7 +57,7 @@ pub(super) fn run_sync(args: &SyncArgs, format: OutputFormat) -> Result<()> {
                 println!(
                     "────────────────────────────────────────────────────────────────────────"
                 );
-                println!("✅ Auditor statuses and notes merged into OSCAL AST preserving UUIDs.");
+                println!("[OK] Auditor statuses and notes merged into OSCAL AST preserving UUIDs.");
             }
         }
         return Ok(());

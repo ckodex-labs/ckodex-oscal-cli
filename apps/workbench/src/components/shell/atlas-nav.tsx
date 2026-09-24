@@ -281,6 +281,49 @@ export function AtlasNav({
         ))}
       </div>
 
+      {/* Documentation & Live Evidence Links */}
+      <div className="border-t border-ck-hairline pt-3 space-y-1 text-[11px]">
+        <span className="text-[10px] uppercase font-bold text-ck-fg-mute tracking-wider block px-1 pb-0.5">
+          Documentation & Evidence
+        </span>
+        <a
+          href="./docs/api/mizan/index.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-ck-accent text-xs">📖</span>
+            <span className="text-[11px]">Rust API Docs</span>
+          </span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+        </a>
+        <a
+          href="./capsule.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-green-500 text-xs">🛡️</span>
+            <span className="text-[11px]">Evidence Capsule</span>
+          </span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+        </a>
+        <a
+          href="https://github.com/ckodex-labs/ckodex-oscal-cli/releases"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-between px-2 py-1 text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors rounded-xs"
+        >
+          <span className="flex items-center gap-2">
+            <span className="text-ck-fg-mute text-xs">📦</span>
+            <span className="text-[11px]">Binary Releases</span>
+          </span>
+          <span className="text-[9px] text-ck-fg-mute font-mono">↗</span>
+        </a>
+      </div>
+
       {/* Repo of Record Footer */}
       <div className="border-t border-ck-hairline pt-3 space-y-1 text-[11px]">
         <span className="text-[10px] uppercase font-bold text-ck-fg-mute block">

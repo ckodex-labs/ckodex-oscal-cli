@@ -65,6 +65,36 @@ export function Masthead({
               <span className="text-[9px] opacity-70 ml-0.5">⌘K</span>
             </button>
           )}
+          <a
+            href="./docs/api/mizan/index.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Rust Core Rustdoc API Reference"
+            className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden sm:flex"
+          >
+            <span>📖</span>
+            <span>API Docs</span>
+          </a>
+          <a
+            href="./capsule.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Open Standalone Offline Cryptographic Evidence Capsule"
+            className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden sm:flex"
+          >
+            <span>🛡️</span>
+            <span>Capsule</span>
+          </a>
+          <a
+            href="https://github.com/ckodex-labs/ckodex-oscal-cli"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="GitHub Repository & Multi-Platform Release Binaries"
+            className="px-2 py-1 border border-ck-hairline-strong bg-ck-bg-1 font-mono text-[11px] text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-accent transition-colors rounded-xs flex items-center gap-1 hidden md:flex"
+          >
+            <span>📦</span>
+            <span>GitHub</span>
+          </a>
           <LensSelector lens={lens} onLensChange={onLensChange} />
           <ThemeToggle theme={theme} onThemeChange={onThemeChange} />
           {onOpenShortcuts && (

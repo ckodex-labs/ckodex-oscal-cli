@@ -16,25 +16,84 @@ concurrency:
 
 jobs:
   build:
-    name: Build Documentation & Portal
+    name: Build Next.js Workbench & Evidence Portal
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
       - name: Install Protoc
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Rustdoc API Documentation
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/workbench/package-lock.json
+
+      - name: Build Mizan Core CLI
+        run: cargo build --release --bin mizan
+
+      - name: Generate Rustdoc API Documentation
         run: |
           cargo doc --workspace --no-deps
           mkdir -p public/docs/api
           cp -r target/doc/* public/docs/api/
+
+      - name: Generate Badges & Offline Merkle Capsule
+        run: |
+          mkdir -p public/badges
+          target/release/mizan export badge \
+            --label "OSCAL Metaschema" \
+            --message "v1.2.3 Validated" \
+            --color blue \
+            --variant secondary \
+            --wcag 3 \
+            --output public/badges/badge-oscal.md
+
+          target/release/mizan export badge \
+            --label "SLSA Level" \
+            --message "3 In-Toto" \
+            --color emerald \
+            --variant secondary \
+            --wcag 3 \
+            --output public/badges/badge-slsa.md
+
+          target/release/mizan export badge \
+            --from-document examples/sample-catalog.json \
+            --variant secondary \
+            --wcag 3 \
+            --output public/badges/badge-fedramp.md
+
+          target/release/mizan export capsule \
+            -a <(echo '{"assessment-results":{"uuid":"mizan-gh-pages-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}') \
+            -o public/capsule.html
+
+      - name: Install Workbench Dependencies
+        working-directory: apps/workbench
+        run: npm ci
+
+      - name: Build & Export Next.js 16 Workbench
+        working-directory: apps/workbench
+        env:
+          NEXT_OUTPUT_EXPORT: "true"
+        run: npm run build
+
+      - name: Merge Workbench into Public Distribution
+        run: |
+          cp -r apps/workbench/out/* public/
+          touch public/.nojekyll
+          echo "Portal contents:"
+          ls -la public/
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@v3

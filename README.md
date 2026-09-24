@@ -11,6 +11,11 @@
   <img src="https://shieldcn.dev/badge/license-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="License: Apache-2.0" />
 </p>
 
+> 🌐 **Live Interactive Workbench**: [https://ckodex-labs.github.io/ckodex-oscal-cli/](https://ckodex-labs.github.io/ckodex-oscal-cli/)  
+> 📖 **Rustdoc API Documentation**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan/index.html](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan/index.html)  
+> 🛡️ **Offline Merkle Evidence Capsule**: [https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html](https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html)  
+> 📦 **Multi-Platform Binary Releases**: [GitHub Releases v0.1.0](https://github.com/ckodex-labs/ckodex-oscal-cli/releases)
+
 ---
 
 ## Overview
@@ -29,7 +34,29 @@ It provides complete drop-in parity with NIST `oscal-cli`, augmented with:
 
 ## Quickstart
 
-### Installation
+### Pre-Built Binaries (Linux, macOS, Windows)
+
+Download the release binary matching your target architecture directly from [GitHub Releases](https://github.com/ckodex-labs/ckodex-oscal-cli/releases):
+
+```bash
+# Linux x86_64 (glibc)
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf mizan-v0.1.0-x86_64-unknown-linux-gnu.tar.gz && sudo mv mizan-v0.1.0-x86_64-unknown-linux-gnu/mizan /usr/local/bin/
+
+# Linux ARM64
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-aarch64-unknown-linux-gnu.tar.gz
+tar -xzf mizan-v0.1.0-aarch64-unknown-linux-gnu.tar.gz && sudo mv mizan-v0.1.0-aarch64-unknown-linux-gnu/mizan /usr/local/bin/
+
+# macOS Apple Silicon (ARM64)
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-aarch64-apple-darwin.tar.gz
+tar -xzf mizan-v0.1.0-aarch64-apple-darwin.tar.gz && sudo mv mizan-v0.1.0-aarch64-apple-darwin/mizan /usr/local/bin/
+
+# macOS Intel (x86_64)
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-x86_64-apple-darwin.tar.gz
+tar -xzf mizan-v0.1.0-x86_64-apple-darwin.tar.gz && sudo mv mizan-v0.1.0-x86_64-apple-darwin/mizan /usr/local/bin/
+```
+
+### Build from Source
 
 ```bash
 # Clone the repository

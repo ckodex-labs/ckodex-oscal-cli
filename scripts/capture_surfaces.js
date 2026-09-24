@@ -2,7 +2,7 @@ const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const outDir = '/Users/mchorfa/.gemini/antigravity/brain/5e99d96d-294d-4a66-b4ec-63a6a7fcef2a';
+const outDir = process.env.OUT_DIR || path.resolve(__dirname, '../target/screenshots');
 
 async function capture() {
   const browser = await chromium.launch({ headless: true });

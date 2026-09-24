@@ -12,9 +12,12 @@ function getMizanBinary(): { bin: string; argsPrefix: string[] } {
     return { bin: customBin, argsPrefix: [] };
   }
 
-  const cacheBin = "/Users/mchorfa/.cache/cargo-target/debug/mizan";
-  if (fs.existsSync(cacheBin)) {
-    return { bin: cacheBin, argsPrefix: [] };
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  if (homeDir) {
+    const cacheBin = path.join(homeDir, ".cache/cargo-target/debug/mizan");
+    if (fs.existsSync(cacheBin)) {
+      return { bin: cacheBin, argsPrefix: [] };
+    }
   }
 
   const localBin = path.resolve(PROJECT_ROOT, "target/debug/mizan");

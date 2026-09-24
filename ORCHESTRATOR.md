@@ -147,7 +147,7 @@ absent from the client surface and remain explicit policy-denial test cases.
 
 - Direct local implementation is a logged exception because no delegated
   executor surface is available in this workspace.
-- Scope is limited to `/Users/mchorfa/Documents/projects/runbase/ckodex-oscal-cli`.
+- Scope is limited to the repository root.
 - The vendored snapshot and any `OSCALIFY_PROTO_ROOT` override are immutable
   protocol inputs. The current graph snapshot was intentionally refreshed from
   read-only source input; future proto drift fails the client build and audit

@@ -12,7 +12,7 @@ run. The observed candidate facts are:
 | Field | Observed value |
 | --- | --- |
 | Client | `oscal-cli` `0.1.0` |
-| Client root | `/Users/mchorfa/Documents/projects/runbase/ckodex-oscal-cli` |
+| Client root | `.` (repository root) |
 | OSCALify source HEAD | `6f6b641133201cbb777740cd3b7e1c9ca508aa3a` |
 | Last committed graph-proto revision | `f88047e10ea39988a02d33f7114fd01525b48c1f` |
 | Graph proto SHA-256 | `4fac7cf7925359c9d3ae63715b62eba8c316eea6dc291e7006fee16fa32b51c1` |

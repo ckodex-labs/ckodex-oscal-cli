@@ -274,6 +274,12 @@ pub enum Command {
     Pipeline(PipelineCliArgs),
     /// Enterprise Root Fabric: Multi-tenancy, SPIFFE/SPIRE identity, OIDC & partitioned datastore.
     Fabric(FabricCliArgs),
+    /// Create, list, or revoke time-bounded cryptographic derogation waivers.
+    Waive(WaiveCliArgs),
+    /// Automatically remediate and patch policy violations in Kubernetes manifests and Dockerfiles.
+    Fix(FixCliArgs),
+    /// Auto-discover compliance controls from codebases (Dockerfiles, k8s, lockfiles) and scaffold governance.
+    Init(InitCliArgs),
     /// Launch the Mizan interactive desktop workbench (Tauri / Browser GUI).
     Gui,
     /// Launch the Mizan interactive desktop workbench (Tauri / Browser GUI).
@@ -340,6 +346,7 @@ pub mod fabrictenant;
 pub mod federatecli;
 pub mod fedramp;
 pub mod fedrampcli;
+pub mod fixcli;
 pub mod framework;
 pub mod fsmcli;
 pub mod graph;
@@ -347,6 +354,7 @@ pub mod graphedge;
 pub mod graphnode;
 pub mod health;
 pub mod import;
+pub mod initcli;
 pub mod inspect;
 pub mod lint;
 pub mod mappingcli;
@@ -369,6 +377,7 @@ pub mod sync;
 pub mod template;
 pub mod txcli;
 pub mod validate;
+pub mod waivecli;
 
 pub use self::assemble::AssembleArgs;
 pub use self::assessmentplancli::AssessmentPlanCliAction;
@@ -408,6 +417,7 @@ pub use self::federatecli::FederateCliAction;
 pub use self::federatecli::FederateCliArgs;
 pub use self::fedramp::FedrampAction;
 pub use self::fedrampcli::FedrampCliArgs;
+pub use self::fixcli::FixCliArgs;
 pub use self::framework::FrameworkAction;
 pub use self::framework::FrameworkArgs;
 pub use self::fsmcli::FsmCliAction;
@@ -419,6 +429,7 @@ pub use self::graphnode::GraphNodeAction;
 pub use self::health::HealthArgs;
 pub use self::import::ImportAction;
 pub use self::import::ImportArgs;
+pub use self::initcli::InitCliArgs;
 pub use self::inspect::InspectArgs;
 pub use self::lint::LintArgs;
 pub use self::mappingcli::MappingCliAction;
@@ -452,6 +463,7 @@ pub use self::template::TemplateArgs;
 pub use self::txcli::TxCliAction;
 pub use self::txcli::TxCliArgs;
 pub use self::validate::ValidateArgs;
+pub use self::waivecli::{WaiveCliAction, WaiveCliArgs};
 
 #[cfg(test)]
 mod tests;

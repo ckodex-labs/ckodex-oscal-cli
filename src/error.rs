@@ -112,7 +112,7 @@ pub(crate) fn redact_endpoint(endpoint: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{redact_endpoint, AppError, IncoherenceKind};
+    use super::{AppError, IncoherenceKind, redact_endpoint};
     use tonic::{Code, Status};
 
     #[test]

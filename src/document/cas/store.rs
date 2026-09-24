@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 
-use crate::error::{io_error, AppError, Result};
+use crate::error::{AppError, Result, io_error};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CasStats {

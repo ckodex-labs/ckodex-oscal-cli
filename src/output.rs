@@ -6,10 +6,10 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::{
+    PROTO_DESCRIPTOR_SET,
     config::OutputFormat,
     error::{AppError, Result},
     valence::CrudResult,
-    PROTO_DESCRIPTOR_SET,
 };
 
 /// Escape terminal control characters without changing structured output.

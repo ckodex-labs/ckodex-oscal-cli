@@ -3,6 +3,14 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface PromotionModalProps {
   isOpen: boolean;
@@ -15,29 +23,28 @@ export function PromotionModal({
   onClose,
   onConfirmPromote,
 }: PromotionModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="border border-ck-hairline-strong bg-ck-bg-1 max-w-lg w-full p-6 shadow-2xl space-y-4 font-mono text-xs animate-in fade-in zoom-in-95">
-        <div className="flex items-baseline justify-between border-b border-ck-hairline pb-2">
-          <h2 className="font-serif text-2xl font-normal text-ck-fg-1">
-            Governed Promotion · Stage → Production
-          </h2>
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] uppercase text-green-700 dark:text-green-400"
-          >
-            Gate Checklist
-          </Badge>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-lg border-ck-hairline-strong bg-ck-bg-1 p-6 font-mono text-xs shadow-2xl">
+        <DialogHeader className="border-b border-ck-hairline pb-2">
+          <div className="flex items-baseline justify-between pr-6">
+            <DialogTitle className="font-serif text-2xl font-normal text-ck-fg-1">
+              Governed Promotion · Stage → Production
+            </DialogTitle>
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] uppercase text-green-700 dark:text-green-400"
+            >
+              Gate Checklist
+            </Badge>
+          </div>
+          <DialogDescription className="font-sans text-xs text-ck-fg-2 mt-1">
+            Promotion is a governed architectural act. The following cryptographic
+            and schema invariants must hold before release commit tags are signed.
+          </DialogDescription>
+        </DialogHeader>
 
-        <p className="font-sans text-xs text-ck-fg-2">
-          Promotion is a governed architectural act. The following cryptographic
-          and schema invariants must hold before release commit tags are signed.
-        </p>
-
-        <div className="space-y-2 bg-ck-bg-0 p-3 border border-ck-hairline">
+        <div className="space-y-2 bg-ck-bg-0 p-3 border border-ck-hairline my-2">
           <div className="flex items-center justify-between">
             <span>1. OSCAL Metaschema 1.2.3 Deterministic Validation</span>
             <span className="text-green-700 dark:text-green-400 font-bold">
@@ -64,7 +71,7 @@ export function PromotionModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-ck-hairline pt-3">
+        <DialogFooter className="border-t border-ck-hairline pt-3 gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -84,8 +91,8 @@ export function PromotionModal({
           >
             Promote to Production →
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

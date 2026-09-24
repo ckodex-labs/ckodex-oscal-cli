@@ -10,7 +10,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
         TenantMetadata, TrustDomain,
     };
 
-    let engine = RootFabricEngine::new().with_spiffe(
+    let mut engine = RootFabricEngine::new().with_spiffe(
         TrustDomain::new("meridian.runbase.io")
             .map_err(|e| AppError::Configuration(e.to_string()))?,
     );
@@ -61,12 +61,16 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                             "Registered Tenants in Root Fabric (Total: {})",
                             tenants.len()
                         );
-                        println!("────────────────────────────────────────────────────────────────────────");
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
                         println!(
                             "{:<18} {:<28} {:<12} {:<10}",
                             "TENANT ID", "DISPLAY NAME", "TIER", "QUOTA (GB)"
                         );
-                        println!("────────────────────────────────────────────────────────────────────────");
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
                         for t in tenants {
                             println!(
                                 "{:<18} {:<28} {:<12} {:<10}",
@@ -76,7 +80,9 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                                 t.max_storage_bytes / (1024 * 1024 * 1024)
                             );
                         }
-                        println!("────────────────────────────────────────────────────────────────────────");
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
                     }
                 }
                 Ok(())
@@ -99,18 +105,27 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                     created_at: chrono::Utc::now().to_rfc3339(),
                 };
 
-                println!("Tenant Created & Registered in Root Fabric");
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                println!("  Tenant ID:          {}", metadata.tenant_id.as_str());
-                println!("  Display Name:       {}", metadata.display_name);
-                println!("  Service Tier:       {}", metadata.tier);
-                println!("  Storage Quota:      {} GB", quota_gb);
-                println!("  Jurisdiction:       {}", metadata.default_jurisdiction);
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
+                engine.tenant_manager.register_tenant(metadata.clone());
+
+                match format {
+                    OutputFormat::Json | OutputFormat::Jsonl => {
+                        println!("{}", serde_json::to_string_pretty(&metadata).unwrap());
+                    }
+                    _ => {
+                        println!("Tenant Created & Registered in Root Fabric");
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
+                        println!("  Tenant ID:          {}", metadata.tenant_id.as_str());
+                        println!("  Display Name:       {}", metadata.display_name);
+                        println!("  Service Tier:       {}", metadata.tier);
+                        println!("  Storage Quota:      {} GB", quota_gb);
+                        println!("  Jurisdiction:       {}", metadata.default_jurisdiction);
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
+                    }
+                }
                 Ok(())
             }
             FabricTenantAction::Inspect { id } => {

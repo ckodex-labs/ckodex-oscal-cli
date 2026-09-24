@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::path::Path;
 
 use crate::{
@@ -188,11 +188,13 @@ mod tests {
         let root = doc.root_object().unwrap();
         let comps = root.get("components").and_then(Value::as_array).unwrap();
         assert_eq!(comps.len(), 2);
-        assert!(comps[0]
-            .get("title")
-            .unwrap()
-            .as_str()
-            .unwrap()
-            .contains("tokio@1.43.0"));
+        assert!(
+            comps[0]
+                .get("title")
+                .unwrap()
+                .as_str()
+                .unwrap()
+                .contains("tokio@1.43.0")
+        );
     }
 }

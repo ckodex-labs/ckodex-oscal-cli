@@ -49,4 +49,13 @@ pub enum CatalogCliAction {
         #[arg(long, short = 'o')]
         output: PathBuf,
     },
+    /// Export an OSCAL catalog or profile to an auditor-friendly spreadsheet CSV matrix.
+    ExportMatrix {
+        /// Jurisdiction to export (us, ca, eu, enterprise).
+        #[arg(long, short = 'j', default_value = "us")]
+        jurisdiction: String,
+        /// Output CSV file path.
+        #[arg(long, short = 'o')]
+        output: PathBuf,
+    },
 }

@@ -1,13 +1,36 @@
 import { spawn } from "child_process";
 import path from "path";
+import fs from "fs";
 import { BlastRadiusReport, FedrampReport, MergeReport } from "./oscal-types";
 
 // Path to project root containing the Rust oscal-cli executable
 const PROJECT_ROOT = path.resolve(process.cwd(), "../..");
 
+function getMizanBinary(): { bin: string; argsPrefix: string[] } {
+  const customBin = process.env.MIZAN_BIN;
+  if (customBin && fs.existsSync(customBin)) {
+    return { bin: customBin, argsPrefix: [] };
+  }
+
+  const cacheBin = "/Users/mchorfa/.cache/cargo-target/debug/mizan";
+  if (fs.existsSync(cacheBin)) {
+    return { bin: cacheBin, argsPrefix: [] };
+  }
+
+  const localBin = path.resolve(PROJECT_ROOT, "target/debug/mizan");
+  if (fs.existsSync(localBin)) {
+    return { bin: localBin, argsPrefix: [] };
+  }
+
+  return { bin: "cargo", argsPrefix: ["run", "--quiet", "--bin", "mizan", "--"] };
+}
+
 export async function callOscalCli(args: string[]): Promise<string> {
+  const { bin, argsPrefix } = getMizanBinary();
+  const fullArgs = [...argsPrefix, ...args];
+
   return new Promise((resolve, reject) => {
-    const child = spawn("cargo", ["run", "--quiet", "--", ...args], {
+    const child = spawn(/*turbopackIgnore: true*/ bin, fullArgs, {
       cwd: PROJECT_ROOT,
       env: { ...process.env, RUST_LOG: "error" },
     });
@@ -27,7 +50,7 @@ export async function callOscalCli(args: string[]): Promise<string> {
       if (code === 0) {
         resolve(stdout.trim());
       } else {
-        reject(new Error(`oscal-cli failed (${code}): ${stderr || stdout}`));
+        reject(new Error(`mizan CLI failed (${code}): ${stderr || stdout}`));
       }
     });
 

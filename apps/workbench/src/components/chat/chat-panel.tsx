@@ -10,9 +10,8 @@ import {
   BlastRadiusReport,
   FedrampReport,
   MergeReport,
+  LensMode,
 } from "@/lib/oscal-types";
-
-import { LensMode } from "@/lib/oscal-types";
 
 interface ChatPanelProps {
   selectedControl?: string;
@@ -30,7 +29,7 @@ export function ChatPanel({
       id: "welcome",
       role: "assistant",
       content:
-        "Welcome to **Mizan Compliance Workbench**. I am your OSCAL compliance kernel copilot. I can compute blast radiuses, audit FedRAMP PMO baselines, perform 3-way GitOps AST merges, and draft control implementation prose.",
+        "Welcome to **Mizan Compliance Workbench**. I am your OSCAL compliance kernel copilot connected directly to the native `mizan` CLI binary. I can compute real topological blast radiuses, validate FedRAMP PMO baselines, perform 3-way GitOps AST merges, and inspect active workspaces.",
     },
   ]);
   const [input, setInput] = React.useState("");
@@ -51,130 +50,147 @@ export function ChatPanel({
     setInput("");
     setLoading(true);
 
-    // Mock/Simulated agent response with tool invocations
-    setTimeout(() => {
+    try {
       let assistantMsg: ChatMessage;
-
       const lower = promptToSend.toLowerCase();
+
       if (
         lower.includes("blast") ||
         lower.includes("radius") ||
-        lower.includes("ac-1")
+        lower.includes("ac-1") ||
+        lower.includes("ac-2")
       ) {
-        const mockReport: BlastRadiusReport = {
-          target_id: "ac-1",
-          target_kind: "control",
-          risk_exposure_score: 7.8,
-          is_critical_path: true,
-          documents_analyzed: ["sample-catalog.json", "ssp-prod.json"],
-          direct_dependents: ["ac-2", "ac-3", "ia-2"],
-          transitive_dependents: ["ia-5", "sc-7", "si-4", "cm-2"],
-          downstream_impact_paths: [
-            ["ac-1", "ac-2", "ia-2", "ssp-prod.json"],
-            ["ac-1", "ac-3", "cm-2", "ssp-prod.json"],
-          ],
-        };
+        const target = lower.includes("ac-2") ? "ac-2" : (selectedControl || "ac-1");
+        const res = await fetch("/api/cli", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: "blast-radius",
+            args: ["examples/sample-catalog.json", "--target", target],
+          }),
+        });
+        const json = await res.json();
+        const report = (json.success ? json.data : null) as BlastRadiusReport | null;
+
         assistantMsg = {
           id: String(Date.now() + 1),
           role: "assistant",
-          content:
-            "I executed a multi-model **Blast Radius Analysis** for target `ac-1` across your active workspace. Here are the propagation metrics and dependent critical paths:",
-          toolInvocations: [
-            {
-              toolName: "compute_blast_radius",
-              args: { target: "ac-1" },
-              result: mockReport,
-            },
-          ],
+          content: report
+            ? `Executed live \`mizan blast-radius\` on \`examples/sample-catalog.json\` for target \`${target}\`:\n\n- Risk exposure score: **${report.risk_exposure_score ?? 0}**\n- Critical path: **${report.is_critical_path ? "YES" : "NO"}**\n- Direct dependents: **${report.direct_dependents?.length ?? 0}**\n- Transitive dependents: **${report.transitive_dependents?.length ?? 0}**`
+            : `Failed to compute blast radius: ${json.error || "Unknown error"}`,
+          toolInvocations: report
+            ? [
+                {
+                  toolName: "compute_blast_radius",
+                  args: { target, file: "examples/sample-catalog.json" },
+                  result: report,
+                },
+              ]
+            : undefined,
         };
       } else if (
         lower.includes("fedramp") ||
         lower.includes("pmo") ||
         lower.includes("audit")
       ) {
-        const mockFedramp: FedrampReport = {
-          document_kind: "System Security Plan (SSP)",
-          baseline: "moderate",
-          passed: false,
-          rule_count_evaluated: 85,
-          violation_count: 2,
-          findings: [
-            {
-              rule_id: "FEDRAMP-AC-02-01",
-              severity: "high",
-              title: "Missing account manager designation parameter",
-              detail:
-                "Parameter ac-02_prm_1 must specify organization-defined account managers.",
-              target: "ac-2",
-            },
-            {
-              rule_id: "FEDRAMP-IA-05-01",
-              severity: "medium",
-              title: "MFA authenticator assurance level unspecified",
-              detail:
-                "Authenticator management requires AAL2 or AAL3 declaration.",
-              target: "ia-5",
-            },
-          ],
-        };
+        const res = await fetch("/api/cli", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: "fedramp",
+            args: ["validate", "examples/sample-catalog.json", "--baseline", "moderate"],
+          }),
+        });
+        const json = await res.json();
+        const report = (json.success ? json.data : null) as FedrampReport | null;
+
+        const isCompliant = report?.passed ?? report?.is_compliant;
         assistantMsg = {
           id: String(Date.now() + 1),
           role: "assistant",
-          content:
-            "I evaluated your active SSP against the **FedRAMP Moderate PMO Baseline Rules**. 2 rule violations were detected:",
-          toolInvocations: [
-            {
-              toolName: "validate_fedramp",
-              args: { baseline: "moderate" },
-              result: mockFedramp,
-            },
-          ],
+          content: report
+            ? `Executed live \`mizan fedramp validate\` on \`examples/sample-catalog.json\` against **FedRAMP Moderate** baseline:\n\n- Compliance verdict: **${isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}**\n- Rules evaluated: **${report.total_rules_checked ?? report.rule_count_evaluated ?? 0}**\n- Violations: **${report.failed_rules ?? report.violation_count ?? report.findings?.length ?? 0}**`
+            : `Failed to evaluate FedRAMP baseline: ${json.error || "Unknown error"}`,
+          toolInvocations: report
+            ? [
+                {
+                  toolName: "validate_fedramp",
+                  args: { baseline: "moderate", file: "examples/sample-catalog.json" },
+                  result: report,
+                },
+              ]
+            : undefined,
         };
       } else if (lower.includes("sync") || lower.includes("merge")) {
-        const mockMerge: MergeReport = {
-          strategy: "Manual",
-          controls_merged: 2,
-          added_from_upstream: ["ac-3"],
-          preserved_local_additions: ["custom-1"],
-          updated_from_upstream: [],
-          retained_local_modifications: [],
-          conflicts: [
-            {
-              control_id: "ac-2",
-              field: "title/prose",
-              local_summary:
-                "Account Management (90-day automated key rotation policy)",
-              upstream_summary:
-                "Account Management (NIST SP 800-53 r5 update with supervisor notification)",
-              resolution: "Marked with <<<<<<< LOCAL ======= UPSTREAM >>>>>>>",
-            },
-          ],
-          is_clean: false,
-        };
+        const res = await fetch("/api/cli", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: "sync",
+            args: [
+              "--base",
+              "examples/sample-catalog.json",
+              "--upstream",
+              "examples/resolved-catalog.json",
+              "--local",
+              "examples/sample-catalog.json",
+              "--strategy",
+              "manual",
+            ],
+          }),
+        });
+        const json = await res.json();
+        const report = (json.success ? json.data : null) as MergeReport | null;
+
         assistantMsg = {
           id: String(Date.now() + 1),
           role: "assistant",
-          content:
-            "I ran a **3-Way GitOps AST Merge** across Base, Upstream, and Local. 1 conflict requires your resolution:",
-          toolInvocations: [
-            {
-              toolName: "sync_and_merge",
-              args: { strategy: "manual" },
-              result: mockMerge,
-            },
-          ],
+          content: report
+            ? `Executed live \`mizan sync\` 3-Way AST Merge across Base, Upstream, and Local:\n\n- Merge clean: **${report.is_clean ? "YES" : "NO"}**\n- Controls merged: **${report.controls_merged ?? 0}**\n- Conflicts: **${report.conflicts?.length ?? 0}**`
+            : `Failed to execute 3-way sync: ${json.error || "Unknown error"}`,
+          toolInvocations: report
+            ? [
+                {
+                  toolName: "sync_and_merge",
+                  args: { strategy: "manual" },
+                  result: report,
+                },
+              ]
+            : undefined,
         };
       } else {
+        const res = await fetch("/api/cli", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            command: "inspect",
+            args: ["examples/sample-catalog.json"],
+          }),
+        });
+        const json = await res.json();
         assistantMsg = {
           id: String(Date.now() + 1),
           role: "assistant",
-          content: `Understood: "${promptToSend}". I have queried the local Metaschema catalog ledger. All controls and schemas are validated according to OSCAL 1.2.3.`,
+          content: json.success
+            ? `Executed query against local OSCAL kernel substrate for prompt: "${promptToSend}"\n\n\`\`\`json\n${JSON.stringify(json.data, null, 2)}\n\`\`\``
+            : `Kernel query returned: ${json.error || "Unable to inspect local document."}`,
         };
       }
 
       setMessages((prev) => [...prev, assistantMsg]);
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: String(Date.now() + 1),
+          role: "assistant",
+          content: `Kernel execution error: ${errMsg}`,
+        },
+      ]);
+    } finally {
       setLoading(false);
-    }, 600);
+    }
   };
 
   return (
@@ -188,7 +204,7 @@ export function ChatPanel({
           </span>
         </div>
         <span className="font-mono text-[10px] text-ck-fg-mute uppercase">
-          MCP stdio connected
+          Live Native CLI Substrate
         </span>
       </div>
 

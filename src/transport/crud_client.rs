@@ -1,4 +1,4 @@
-use tonic::{client::Grpc, codegen::http::uri::PathAndQuery, transport::Channel, Request};
+use tonic::{Request, client::Grpc, codegen::http::uri::PathAndQuery, transport::Channel};
 use tonic_prost::ProstCodec;
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
     health::{HealthCheckRequest, HealthCheckResponse},
     policy::{Gate, GovernanceModel, MethodClass, OscalModel, RpcMethod},
     proto::oscal::services::v1 as svc,
-    transport::{attach_token, connect_channel, MAX_MESSAGE_BYTES},
+    transport::{MAX_MESSAGE_BYTES, attach_token, connect_channel},
     valence::{CrudResult, Valence},
 };
 

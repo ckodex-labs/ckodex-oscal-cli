@@ -1,13 +1,13 @@
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{fs, path::Path};
 
 use crate::{
     document::{
         parser::OscalDocument,
         schema::DocumentKind,
-        validator::{validate_document, ValidationOptions},
+        validator::{ValidationOptions, validate_document},
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 pub fn export_to_csv(doc: &OscalDocument, output_path: Option<&Path>) -> Result<String> {
@@ -244,45 +244,44 @@ fn collect_controls_from_value(document_value: &Value, destination_list: &mut Ve
 fn export_ssp_to_csv(root: &Map<String, Value>) -> Result<String> {
     let mut out =
         String::from("control_id,title,parameters,implementation_status,components,description\n");
-    if let Some(ctrl_imp) = root.get("control-implementation") {
-        if let Some(reqs) = ctrl_imp
+    if let Some(ctrl_imp) = root.get("control-implementation")
+        && let Some(reqs) = ctrl_imp
             .get("implemented-requirements")
             .and_then(Value::as_array)
-        {
-            for req in reqs {
-                let id = req.get("control-id").and_then(Value::as_str).unwrap_or("");
-                let desc = req.get("description").and_then(Value::as_str).unwrap_or("");
+    {
+        for req in reqs {
+            let id = req.get("control-id").and_then(Value::as_str).unwrap_or("");
+            let desc = req.get("description").and_then(Value::as_str).unwrap_or("");
 
-                let mut status = "implemented".to_string();
-                if let Some(props) = req.get("props").and_then(Value::as_array) {
-                    for p in props {
-                        if p.get("name").and_then(Value::as_str) == Some("status") {
-                            if let Some(v) = p.get("value").and_then(Value::as_str) {
-                                status = v.to_string();
-                            }
-                        }
+            let mut status = "implemented".to_string();
+            if let Some(props) = req.get("props").and_then(Value::as_array) {
+                for p in props {
+                    if p.get("name").and_then(Value::as_str) == Some("status")
+                        && let Some(v) = p.get("value").and_then(Value::as_str)
+                    {
+                        status = v.to_string();
                     }
                 }
-
-                let mut comp_ids = Vec::new();
-                if let Some(by_comps) = req.get("by-components").and_then(Value::as_array) {
-                    for bc in by_comps {
-                        if let Some(cuuid) = bc.get("component-uuid").and_then(Value::as_str) {
-                            comp_ids.push(cuuid.to_string());
-                        }
-                    }
-                }
-
-                out.push_str(&format!(
-                    "{},{},{},{},{},{}\n",
-                    escape_csv(id),
-                    escape_csv(id),
-                    escape_csv(""),
-                    escape_csv(&status),
-                    escape_csv(&comp_ids.join("; ")),
-                    escape_csv(desc)
-                ));
             }
+
+            let mut comp_ids = Vec::new();
+            if let Some(by_comps) = req.get("by-components").and_then(Value::as_array) {
+                for bc in by_comps {
+                    if let Some(cuuid) = bc.get("component-uuid").and_then(Value::as_str) {
+                        comp_ids.push(cuuid.to_string());
+                    }
+                }
+            }
+
+            out.push_str(&format!(
+                "{},{},{},{},{},{}\n",
+                escape_csv(id),
+                escape_csv(id),
+                escape_csv(""),
+                escape_csv(&status),
+                escape_csv(&comp_ids.join("; ")),
+                escape_csv(desc)
+            ));
         }
     }
     Ok(out)
@@ -397,30 +396,27 @@ fn build_control_from_csv_row(headers: &[String], row: &[String]) -> Option<Valu
         .unwrap_or("");
 
     let mut parts = Vec::new();
-    if let Some(stmt_idx) = find_header_idx(headers, &["statement", "description", "requirement"]) {
-        if let Some(stmt) = row.get(stmt_idx) {
-            if !stmt.trim().is_empty() {
-                parts.push(json!({
-                    "id": format!("{id}_smt"),
-                    "name": "statement",
-                    "prose": stmt.trim()
-                }));
-            }
-        }
+    if let Some(stmt_idx) = find_header_idx(headers, &["statement", "description", "requirement"])
+        && let Some(stmt) = row.get(stmt_idx)
+        && !stmt.trim().is_empty()
+    {
+        parts.push(json!({
+            "id": format!("{id}_smt"),
+            "name": "statement",
+            "prose": stmt.trim()
+        }));
     }
 
     if let Some(guide_idx) =
         find_header_idx(headers, &["guidance", "supplemental_guidance", "remarks"])
+        && let Some(guide) = row.get(guide_idx)
+        && !guide.trim().is_empty()
     {
-        if let Some(guide) = row.get(guide_idx) {
-            if !guide.trim().is_empty() {
-                parts.push(json!({
-                    "id": format!("{id}_gdn"),
-                    "name": "guidance",
-                    "prose": guide.trim()
-                }));
-            }
-        }
+        parts.push(json!({
+            "id": format!("{id}_gdn"),
+            "name": "guidance",
+            "prose": guide.trim()
+        }));
     }
 
     let mut ctrl = json!({
@@ -612,4 +608,209 @@ fn parse_csv_line(line: &str) -> Vec<String> {
     }
     fields.push(current.trim().to_string());
     fields
+}
+
+pub fn export_matrix_csv(doc: &OscalDocument, output_path: Option<&Path>) -> Result<String> {
+    let root_object = doc
+        .root_object()
+        .ok_or_else(|| AppError::Configuration("Document has no valid root object".to_owned()))?;
+
+    let mut csv_buffer =
+        String::from("control_id,family,title,baseline,status,statement,guidance,auditor_notes\n");
+    let mut controls = Vec::new();
+    let root_val = Value::Object(root_object.clone());
+    collect_controls_from_value(&root_val, &mut controls);
+
+    for control in controls {
+        let id = control.get("id").and_then(Value::as_str).unwrap_or("");
+        let family = control.get("class").and_then(Value::as_str).unwrap_or("");
+        let title = control.get("title").and_then(Value::as_str).unwrap_or("");
+
+        let mut baseline = "MODERATE";
+        let mut status = "IMPLEMENTED";
+        let mut auditor_notes = "";
+
+        if let Some(props) = control.get("props").and_then(Value::as_array) {
+            for p in props {
+                let name = p.get("name").and_then(Value::as_str).unwrap_or("");
+                let val = p.get("value").and_then(Value::as_str).unwrap_or("");
+                if name == "baseline" {
+                    baseline = val;
+                } else if name == "status" || name == "implementation_status" {
+                    status = val;
+                } else if name == "auditor_notes" || name == "notes" {
+                    auditor_notes = val;
+                }
+            }
+        }
+
+        let mut statement = String::new();
+        let mut guidance = String::new();
+        if let Some(parts) = control.get("parts").and_then(Value::as_array) {
+            for part in parts {
+                let name = part.get("name").and_then(Value::as_str).unwrap_or("");
+                let prose = part.get("prose").and_then(Value::as_str).unwrap_or("");
+                if name == "statement" {
+                    statement = prose.to_string();
+                } else if name == "guidance" {
+                    guidance = prose.to_string();
+                }
+            }
+        }
+
+        csv_buffer.push_str(&format!(
+            "{},{},{},{},{},{},{},{}\n",
+            escape_csv(id),
+            escape_csv(family),
+            escape_csv(title),
+            escape_csv(baseline),
+            escape_csv(status),
+            escape_csv(&statement),
+            escape_csv(&guidance),
+            escape_csv(auditor_notes)
+        ));
+    }
+
+    if let Some(destination_path) = output_path {
+        fs::write(destination_path, &csv_buffer).map_err(|err| io_error(destination_path, err))?;
+    }
+
+    Ok(csv_buffer)
+}
+
+pub fn sync_matrix_csv(
+    doc: &OscalDocument,
+    csv_content: &str,
+    output_path: Option<&Path>,
+) -> Result<OscalDocument> {
+    let mut lines = csv_content.lines().filter(|line| !line.trim().is_empty());
+    let header_line = lines
+        .next()
+        .ok_or_else(|| AppError::Configuration("CSV file is empty".to_owned()))?;
+
+    let headers: Vec<String> = parse_csv_line(header_line)
+        .into_iter()
+        .map(|header| header.trim().to_lowercase())
+        .collect();
+
+    let id_idx = headers
+        .iter()
+        .position(|h| h == "control_id" || h == "id")
+        .ok_or_else(|| {
+            AppError::Configuration("Missing control_id column in matrix CSV".to_string())
+        })?;
+    let status_idx = headers
+        .iter()
+        .position(|h| h == "status" || h == "implementation_status");
+    let notes_idx = headers
+        .iter()
+        .position(|h| h == "auditor_notes" || h == "notes");
+    let baseline_idx = headers.iter().position(|h| h == "baseline");
+
+    use std::collections::HashMap;
+    let mut updates: HashMap<String, ControlFieldUpdates> = HashMap::new();
+
+    for line in lines {
+        let row = parse_csv_line(line);
+        if let Some(ctrl_id) = row.get(id_idx).map(|s| s.trim())
+            && !ctrl_id.is_empty()
+        {
+            let st = status_idx
+                .and_then(|i| row.get(i))
+                .map(|s| s.trim().to_string());
+            let nt = notes_idx
+                .and_then(|i| row.get(i))
+                .map(|s| s.trim().to_string());
+            let bl = baseline_idx
+                .and_then(|i| row.get(i))
+                .map(|s| s.trim().to_string());
+            updates.insert(ctrl_id.to_lowercase(), (st, nt, bl));
+        }
+    }
+
+    let mut new_val = doc.value.clone();
+    update_controls_in_value(&mut new_val, &updates);
+
+    let merged_doc = OscalDocument::from_value(new_val, output_path.map(|p| p.to_path_buf()))?;
+    if let Some(destination_path) = output_path {
+        let json_str = serde_json::to_string_pretty(&merged_doc.value)
+            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        fs::write(destination_path, &json_str).map_err(|err| io_error(destination_path, err))?;
+    }
+    Ok(merged_doc)
+}
+
+pub type ControlFieldUpdates = (Option<String>, Option<String>, Option<String>);
+
+fn update_controls_in_value(
+    val: &mut Value,
+    updates: &std::collections::HashMap<String, ControlFieldUpdates>,
+) {
+    if let Some(obj) = val.as_object_mut() {
+        if let Some(controls) = obj.get_mut("controls").and_then(Value::as_array_mut) {
+            for control in controls {
+                if let Some(c_obj) = control.as_object_mut() {
+                    let cid = c_obj
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_lowercase();
+                    if let Some((st, nt, bl)) = updates.get(&cid) {
+                        let props = c_obj
+                            .entry("props".to_string())
+                            .or_insert_with(|| Value::Array(Vec::new()));
+                        if let Some(prop_arr) = props.as_array_mut() {
+                            if let Some(status_val) = st
+                                && !status_val.is_empty()
+                            {
+                                if let Some(existing) = prop_arr.iter_mut().find(|p| {
+                                    p.get("name").and_then(Value::as_str) == Some("status")
+                                }) {
+                                    existing["value"] = json!(status_val);
+                                } else {
+                                    prop_arr.push(json!({ "name": "status", "value": status_val }));
+                                }
+                            }
+                            if let Some(notes_val) = nt
+                                && !notes_val.is_empty()
+                            {
+                                if let Some(existing) = prop_arr.iter_mut().find(|p| {
+                                    p.get("name").and_then(Value::as_str) == Some("auditor_notes")
+                                }) {
+                                    existing["value"] = json!(notes_val);
+                                } else {
+                                    prop_arr.push(
+                                        json!({ "name": "auditor_notes", "value": notes_val }),
+                                    );
+                                }
+                            }
+                            if let Some(bl_val) = bl
+                                && !bl_val.is_empty()
+                            {
+                                if let Some(existing) = prop_arr.iter_mut().find(|p| {
+                                    p.get("name").and_then(Value::as_str) == Some("baseline")
+                                }) {
+                                    existing["value"] = json!(bl_val);
+                                } else {
+                                    prop_arr.push(json!({ "name": "baseline", "value": bl_val }));
+                                }
+                            }
+                        }
+                    }
+                }
+                update_controls_in_value(control, updates);
+            }
+        }
+        if let Some(groups) = obj.get_mut("groups").and_then(Value::as_array_mut) {
+            for group in groups {
+                update_controls_in_value(group, updates);
+            }
+        }
+        if let Some(catalog) = obj.get_mut("catalog") {
+            update_controls_in_value(catalog, updates);
+        }
+        if let Some(profile) = obj.get_mut("profile") {
+            update_controls_in_value(profile, updates);
+        }
+    }
 }

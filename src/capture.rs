@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     config::AppConfig,
-    error::{io_error, redact_endpoint, Result},
+    error::{Result, io_error, redact_endpoint},
 };
 
 static CAPTURE_COUNTER: AtomicU64 = AtomicU64::new(0);

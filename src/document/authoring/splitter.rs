@@ -4,7 +4,7 @@ use std::{fs, path::Path};
 
 use crate::{
     document::parser::OscalDocument,
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -84,43 +84,42 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         files_created += 1;
     }
 
-    if let Some(sys_imp) = root_obj.get("system-implementation") {
-        if let Some(comps) = sys_imp.get("components").and_then(Value::as_array) {
-            let comps_dir = out_dir.join("components");
-            fs::create_dir_all(&comps_dir).map_err(|e| io_error(&comps_dir, e))?;
-            for comp in comps {
-                let comp_title = comp.get("title").and_then(Value::as_str).unwrap_or("comp");
-                let slug = comp_title
-                    .to_lowercase()
-                    .replace(|c: char| !c.is_alphanumeric(), "_");
-                let file_path = comps_dir.join(format!("{slug}.yaml"));
-                let comp_str = serde_yaml::to_string(comp).map_err(|e| {
-                    AppError::Configuration(format!("Failed to serialize component: {e}"))
-                })?;
-                fs::write(&file_path, &comp_str).map_err(|e| io_error(&file_path, e))?;
-                files_created += 1;
-                components_split += 1;
-            }
+    if let Some(sys_imp) = root_obj.get("system-implementation")
+        && let Some(comps) = sys_imp.get("components").and_then(Value::as_array)
+    {
+        let comps_dir = out_dir.join("components");
+        fs::create_dir_all(&comps_dir).map_err(|e| io_error(&comps_dir, e))?;
+        for comp in comps {
+            let comp_title = comp.get("title").and_then(Value::as_str).unwrap_or("comp");
+            let slug = comp_title
+                .to_lowercase()
+                .replace(|c: char| !c.is_alphanumeric(), "_");
+            let file_path = comps_dir.join(format!("{slug}.yaml"));
+            let comp_str = serde_yaml::to_string(comp).map_err(|e| {
+                AppError::Configuration(format!("Failed to serialize component: {e}"))
+            })?;
+            fs::write(&file_path, &comp_str).map_err(|e| io_error(&file_path, e))?;
+            files_created += 1;
+            components_split += 1;
         }
     }
 
-    if let Some(ctrl_imp) = root_obj.get("control-implementation") {
-        if let Some(reqs) = ctrl_imp
+    if let Some(ctrl_imp) = root_obj.get("control-implementation")
+        && let Some(reqs) = ctrl_imp
             .get("implemented-requirements")
             .and_then(Value::as_array)
-        {
-            let reqs_dir = out_dir.join("control-implementation");
-            fs::create_dir_all(&reqs_dir).map_err(|e| io_error(&reqs_dir, e))?;
-            for req in reqs {
-                let cid = req
-                    .get("control-id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("req");
-                let file_path = reqs_dir.join(format!("{cid}.md"));
-                write_implemented_req_markdown(&file_path, req)?;
-                files_created += 1;
-                controls_split += 1;
-            }
+    {
+        let reqs_dir = out_dir.join("control-implementation");
+        fs::create_dir_all(&reqs_dir).map_err(|e| io_error(&reqs_dir, e))?;
+        for req in reqs {
+            let cid = req
+                .get("control-id")
+                .and_then(Value::as_str)
+                .unwrap_or("req");
+            let file_path = reqs_dir.join(format!("{cid}.md"));
+            write_implemented_req_markdown(&file_path, req)?;
+            files_created += 1;
+            controls_split += 1;
         }
     }
 

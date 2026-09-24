@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{
     collections::{BTreeMap, HashMap},
     fs,
@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     document::parser::OscalDocument,
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -39,20 +39,19 @@ pub fn deduplicate_document(
 
     if let Some(root_obj) = cloned_val.get_mut(root_key).and_then(Value::as_object_mut) {
         // 1. Deduplicate Metadata Parties
-        if let Some(meta) = root_obj.get_mut("metadata").and_then(Value::as_object_mut) {
-            if let Some(parties) = meta.get_mut("parties").and_then(Value::as_array_mut) {
-                let (cleaned_parties, party_remap, count) =
-                    dedup_parties(parties, &mut modifications);
-                *parties = cleaned_parties;
-                parties_dedup = count;
+        if let Some(meta) = root_obj.get_mut("metadata").and_then(Value::as_object_mut)
+            && let Some(parties) = meta.get_mut("parties").and_then(Value::as_array_mut)
+        {
+            let (cleaned_parties, party_remap, count) = dedup_parties(parties, &mut modifications);
+            *parties = cleaned_parties;
+            parties_dedup = count;
 
-                // Re-map party-uuids in responsible-parties
-                if let Some(resp_parties) = meta
-                    .get_mut("responsible-parties")
-                    .and_then(Value::as_array_mut)
-                {
-                    remap_responsible_parties(resp_parties, &party_remap);
-                }
+            // Re-map party-uuids in responsible-parties
+            if let Some(resp_parties) = meta
+                .get_mut("responsible-parties")
+                .and_then(Value::as_array_mut)
+            {
+                remap_responsible_parties(resp_parties, &party_remap);
             }
         }
 
@@ -60,17 +59,14 @@ pub fn deduplicate_document(
         if let Some(back_matter) = root_obj
             .get_mut("back-matter")
             .and_then(Value::as_object_mut)
-        {
-            if let Some(resources) = back_matter
+            && let Some(resources) = back_matter
                 .get_mut("resources")
                 .and_then(Value::as_array_mut)
-            {
-                let (cleaned_resources, remap, count) =
-                    dedup_resources(resources, &mut modifications);
-                *resources = cleaned_resources;
-                resources_dedup = count;
-                resource_remap = remap;
-            }
+        {
+            let (cleaned_resources, remap, count) = dedup_resources(resources, &mut modifications);
+            *resources = cleaned_resources;
+            resources_dedup = count;
+            resource_remap = remap;
         }
 
         // 3. Deduplicate Controls in Catalog / Group
@@ -96,13 +92,12 @@ pub fn deduplicate_document(
         } else if let Some(sys_imp) = root_obj
             .get_mut("system-implementation")
             .and_then(Value::as_object_mut)
+            && let Some(comps) = sys_imp.get_mut("components").and_then(Value::as_array_mut)
         {
-            if let Some(comps) = sys_imp.get_mut("components").and_then(Value::as_array_mut) {
-                let (cleaned_comps, remap, count) = dedup_components(comps, &mut modifications);
-                *comps = cleaned_comps;
-                components_dedup = count;
-                comp_remap = remap;
-            }
+            let (cleaned_comps, remap, count) = dedup_components(comps, &mut modifications);
+            *comps = cleaned_comps;
+            components_dedup = count;
+            comp_remap = remap;
         }
 
         if !comp_remap.is_empty() {
@@ -188,10 +183,10 @@ fn remap_responsible_parties(resp_parties: &mut [Value], party_remap: &HashMap<S
     for rp in resp_parties {
         if let Some(party_uuids) = rp.get_mut("party-uuids").and_then(Value::as_array_mut) {
             for pu in party_uuids.iter_mut() {
-                if let Some(u_str) = pu.as_str() {
-                    if let Some(target) = party_remap.get(u_str) {
-                        *pu = json!(target);
-                    }
+                if let Some(u_str) = pu.as_str()
+                    && let Some(target) = party_remap.get(u_str)
+                {
+                    *pu = json!(target);
                 }
             }
         }
@@ -240,14 +235,12 @@ fn dedup_resources(
 fn remap_resource_links(val: &mut Value, resource_remap: &HashMap<String, String>) {
     match val {
         Value::Object(obj) => {
-            if let Some(href) = obj.get_mut("href") {
-                if let Some(href_str) = href.as_str() {
-                    if let Some(uuid_part) = href_str.strip_prefix('#') {
-                        if let Some(canonical) = resource_remap.get(uuid_part) {
-                            *href = json!(format!("#{canonical}"));
-                        }
-                    }
-                }
+            if let Some(href) = obj.get_mut("href")
+                && let Some(href_str) = href.as_str()
+                && let Some(uuid_part) = href_str.strip_prefix('#')
+                && let Some(canonical) = resource_remap.get(uuid_part)
+            {
+                *href = json!(format!("#{canonical}"));
             }
             for (_, v) in obj {
                 remap_resource_links(v, resource_remap);
@@ -299,21 +292,18 @@ fn remap_component_uuids(root: &mut Map<String, Value>, comp_remap: &HashMap<Str
     if let Some(ctrl_imp) = root
         .get_mut("control-implementation")
         .and_then(Value::as_object_mut)
-    {
-        if let Some(reqs) = ctrl_imp
+        && let Some(reqs) = ctrl_imp
             .get_mut("implemented-requirements")
             .and_then(Value::as_array_mut)
-        {
-            for req in reqs {
-                if let Some(by_comps) = req.get_mut("by-components").and_then(Value::as_array_mut) {
-                    for bc in by_comps {
-                        if let Some(cuuid) = bc.get_mut("component-uuid") {
-                            if let Some(u_str) = cuuid.as_str() {
-                                if let Some(target) = comp_remap.get(u_str) {
-                                    *cuuid = json!(target);
-                                }
-                            }
-                        }
+    {
+        for req in reqs {
+            if let Some(by_comps) = req.get_mut("by-components").and_then(Value::as_array_mut) {
+                for bc in by_comps {
+                    if let Some(cuuid) = bc.get_mut("component-uuid")
+                        && let Some(u_str) = cuuid.as_str()
+                        && let Some(target) = comp_remap.get(u_str)
+                    {
+                        *cuuid = json!(target);
                     }
                 }
             }

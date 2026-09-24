@@ -47,6 +47,9 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
                     println!("  SBOM Components:    {}", report.sbom_components_count);
                     println!("  Rules Evaluated:    {}", report.evaluated_rules_count);
                     println!("  Passed Rules:       {}", report.passed_rules_count);
+                    if report.waived_rules_count > 0 {
+                        println!("  Waived (Derogation):{}", report.waived_rules_count);
+                    }
                     println!("  Violations:         {}", report.violations_count);
                     println!("  Evidence Merkle:    {}", report.merkle_root);
                     println!("  CAS Objects Cached: {}", report.cas_objects_written);
@@ -77,6 +80,30 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
                     println!(
                         "────────────────────────────────────────────────────────────────────────"
                     );
+
+                    if !report.active_waivers.is_empty() {
+                        println!("\nActive Derogation Waivers Applied:");
+                        for w in &report.active_waivers {
+                            println!(
+                                "  ⚠️  [{}] Leased via {} (Expires in {})",
+                                w.rule_id,
+                                w.id,
+                                w.time_remaining_display()
+                            );
+                            println!("     Reason: \"{}\"", w.reason);
+                        }
+                    }
+
+                    if !report.violation_details.is_empty() {
+                        println!("\nActionable Violations Detected:");
+                        for v in &report.violation_details {
+                            println!("  ❌ [{}] {}", v.rule_id, v.message);
+                            println!("     Target: {}", v.target);
+                            println!("     💡 Quick-Fix:   {}", v.remediation_fix);
+                            println!("     🛡️  Waive Fault: {}", v.remediation_waive);
+                        }
+                        println!();
+                    }
                 }
             }
             Ok(())

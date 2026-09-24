@@ -1,7 +1,7 @@
 use crate::{
     capture,
     config::{AppConfig, Theme},
-    error::{redact_endpoint, Result},
+    error::{Result, redact_endpoint},
     output,
     proto::oscal::{
         common::v1::Uuid,
@@ -17,16 +17,16 @@ use crate::{
 use crossterm::{
     event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use prost::Message;
 use ratatui::{
+    Terminal,
     backend::CrosstermBackend,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Tabs, Wrap},
-    Terminal,
 };
 use serde_json::Value;
 use sha2::Digest;

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     fs,
     path::{Path, PathBuf},
@@ -10,12 +10,13 @@ use crate::{
         attestation::{SlsaProvenanceBuilder, SlsaVersion},
         cas::CasStore,
         catalog::{EmbeddedCatalogProvider, Jurisdiction},
-        evidence::{bundle::ObservationProof, EvidenceBundle},
+        evidence::{EvidenceBundle, bundle::ObservationProof},
         export::{GitLabReportExporter, SarifExporter},
         fsm::EvidenceLevel,
         parser::OscalDocument,
         policy::rulepack::BuiltinRulepack,
         sbom::cyclonedx::SbomImporter,
+        waiver::{DerogationLease, WaiverManager},
     },
     error::{AppError, Result},
 };
@@ -32,6 +33,15 @@ pub struct PipelineConfig {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PipelineViolationDetail {
+    pub rule_id: String,
+    pub message: String,
+    pub target: String,
+    pub remediation_fix: String,
+    pub remediation_waive: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PipelineExecutionReport {
     pub timestamp: String,
     pub jurisdiction: String,
@@ -39,7 +49,10 @@ pub struct PipelineExecutionReport {
     pub sbom_components_count: usize,
     pub evaluated_rules_count: usize,
     pub passed_rules_count: usize,
+    pub waived_rules_count: usize,
     pub violations_count: usize,
+    pub active_waivers: Vec<DerogationLease>,
+    pub violation_details: Vec<PipelineViolationDetail>,
     pub merkle_root: String,
     pub cas_objects_written: usize,
     pub slsa_provenance_path: PathBuf,
@@ -79,19 +92,19 @@ impl PipelineOrchestrator {
         // 2. Ingest SBOM if provided
         let mut sbom_count = 0;
         let mut oscal_comp_uuid = String::new();
-        if let Some(sbom_file) = &config.sbom_path {
-            if sbom_file.exists() {
-                let (comp_doc, summary) = SbomImporter::import_file(sbom_file)?;
-                sbom_count = summary.direct_dependencies;
-                oscal_comp_uuid = summary.oscal_component_uuid;
-                let comp_json = serde_json::to_string_pretty(&comp_doc.value)
-                    .map_err(|e| AppError::Configuration(e.to_string()))?;
-                let comp_path = config.output_dir.join("oscal-component-definition.json");
-                fs::write(&comp_path, &comp_json)
-                    .map_err(|e| AppError::Configuration(e.to_string()))?;
-                cas.put_str(&comp_json)?;
-                cas_written += 1;
-            }
+        if let Some(sbom_file) = &config.sbom_path
+            && sbom_file.exists()
+        {
+            let (comp_doc, summary) = SbomImporter::import_file(sbom_file)?;
+            sbom_count = summary.direct_dependencies;
+            oscal_comp_uuid = summary.oscal_component_uuid;
+            let comp_json = serde_json::to_string_pretty(&comp_doc.value)
+                .map_err(|e| AppError::Configuration(e.to_string()))?;
+            let comp_path = config.output_dir.join("oscal-component-definition.json");
+            fs::write(&comp_path, &comp_json)
+                .map_err(|e| AppError::Configuration(e.to_string()))?;
+            cas.put_str(&comp_json)?;
+            cas_written += 1;
         }
 
         // 3. Evaluate Policies against Workload
@@ -147,9 +160,19 @@ impl PipelineOrchestrator {
             config.rule_ids.clone()
         };
 
+        let target_name = config
+            .workload_path
+            .as_ref()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "workload.yaml".to_string());
+
+        let waiver_mgr = WaiverManager::load_or_default();
         let mut evaluated_count = 0;
         let mut passed_count = 0;
+        let mut waived_count = 0;
         let mut violations_count = 0;
+        let mut active_waivers_used = Vec::new();
+        let mut violation_details = Vec::new();
         let mut findings_for_oscal = Vec::new();
         let mut generated_observations = Vec::new();
 
@@ -162,38 +185,81 @@ impl PipelineOrchestrator {
                         generated_observations.push(ObservationProof {
                             observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
                             control_id: rule_id.clone(),
-                            target: "workload-resource".to_string(),
+                            target: target_name.clone(),
                             status: "PASSED".to_string(),
                             evaluator_engine: "regorus-0.3.4".to_string(),
                             proof_digest: format!("sha256:{}", sha256_hex(rule_id.as_bytes())),
                         });
+                    } else if let Some(waiver) =
+                        waiver_mgr.find_active_waiver(rule_id, &target_name)
+                    {
+                        waived_count += 1;
+                        active_waivers_used.push(waiver.clone());
+                        for f in &res.findings {
+                            findings_for_oscal.push(json!({
+                                "rule_id": rule_id,
+                                "status": "WAIVED",
+                                "violation": f,
+                                "waiver_id": waiver.id,
+                                "reason": waiver.reason,
+                                "expires_at": waiver.expires_at,
+                            }));
+                            generated_observations.push(ObservationProof {
+                                observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
+                                control_id: rule_id.clone(),
+                                target: target_name.clone(),
+                                status: "WAIVED".to_string(),
+                                evaluator_engine: "regorus-0.3.4".to_string(),
+                                proof_digest: waiver.fingerprint.clone(),
+                            });
+                        }
                     } else {
                         violations_count += 1;
                         for f in &res.findings {
                             findings_for_oscal.push(json!({
                                 "rule_id": rule_id,
+                                "status": "FAILED",
                                 "violation": f,
                             }));
                             generated_observations.push(ObservationProof {
                                 observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
                                 control_id: rule_id.clone(),
-                                target: "workload-resource".to_string(),
+                                target: target_name.clone(),
                                 status: "FAILED".to_string(),
                                 evaluator_engine: "regorus-0.3.4".to_string(),
                                 proof_digest: format!("sha256:{}", sha256_hex(f.as_bytes())),
+                            });
+                            violation_details.push(PipelineViolationDetail {
+                                rule_id: rule_id.clone(),
+                                message: f.clone(),
+                                target: target_name.clone(),
+                                remediation_fix: format!("mizan fix --rule {rule_id} -f {target_name}"),
+                                remediation_waive: format!(
+                                    "mizan waive --rule {rule_id} --reason \"Temporary derogation\" --ttl 7d"
+                                ),
                             });
                         }
                     }
                 }
                 Err(e) => {
                     violations_count += 1;
+                    let err_msg = e.to_string();
                     generated_observations.push(ObservationProof {
                         observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
                         control_id: rule_id.clone(),
-                        target: "workload-resource".to_string(),
+                        target: target_name.clone(),
                         status: "ERROR".to_string(),
                         evaluator_engine: "regorus-0.3.4".to_string(),
-                        proof_digest: format!("sha256:{}", sha256_hex(e.to_string().as_bytes())),
+                        proof_digest: format!("sha256:{}", sha256_hex(err_msg.as_bytes())),
+                    });
+                    violation_details.push(PipelineViolationDetail {
+                        rule_id: rule_id.clone(),
+                        message: err_msg,
+                        target: target_name.clone(),
+                        remediation_fix: format!("mizan fix --rule {rule_id} -f {target_name}"),
+                        remediation_waive: format!(
+                            "mizan waive --rule {rule_id} --reason \"Evaluation error override\" --ttl 7d"
+                        ),
                     });
                 }
             }
@@ -288,7 +354,10 @@ impl PipelineOrchestrator {
             sbom_components_count: sbom_count,
             evaluated_rules_count: evaluated_count,
             passed_rules_count: passed_count,
+            waived_rules_count: waived_count,
             violations_count,
+            active_waivers: active_waivers_used,
+            violation_details,
             merkle_root,
             cas_objects_written: cas_written,
             slsa_provenance_path: slsa_path,

@@ -1,4 +1,4 @@
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::path::Path;
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
         parser::OscalDocument,
         schema::DocumentKind,
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 pub struct EnterpriseCatalogBuilder {
@@ -71,22 +71,22 @@ impl EnterpriseCatalogBuilder {
         // 1. Inherit baseline controls if base is specified
         if let Some(base) = self.base_jurisdiction {
             let base_doc = EmbeddedCatalogProvider::get_catalog(base)?;
-            if let Some(base_root) = base_doc.root_object() {
-                if let Some(base_ctrls) = base_root.get("controls").and_then(Value::as_array) {
-                    controls.extend(base_ctrls.clone());
-                }
+            if let Some(base_root) = base_doc.root_object()
+                && let Some(base_ctrls) = base_root.get("controls").and_then(Value::as_array)
+            {
+                controls.extend(base_ctrls.clone());
             }
         }
 
         // 2. Apply parameter overlays
         for (ctrl_id, param_id, new_val) in &self.parameter_overlays {
             for ctrl in &mut controls {
-                if ctrl.get("id").and_then(Value::as_str) == Some(ctrl_id) {
-                    if let Some(params) = ctrl.get_mut("params").and_then(Value::as_array_mut) {
-                        for p in params {
-                            if p.get("id").and_then(Value::as_str) == Some(param_id) {
-                                p["values"] = json!([new_val]);
-                            }
+                if ctrl.get("id").and_then(Value::as_str) == Some(ctrl_id)
+                    && let Some(params) = ctrl.get_mut("params").and_then(Value::as_array_mut)
+                {
+                    for p in params {
+                        if p.get("id").and_then(Value::as_str) == Some(param_id) {
+                            p["values"] = json!([new_val]);
                         }
                     }
                 }

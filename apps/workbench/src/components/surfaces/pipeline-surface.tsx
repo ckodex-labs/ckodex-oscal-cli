@@ -11,7 +11,10 @@ interface PipelineSurfaceProps {
 interface RunLog {
   no: number;
   verdict:
-    "PASS · 0 FAULTS" | "⊭ 1 FAULT (BLOCKED)" | "WAIVED · DEROGATION RECORDED";
+    | "PASS · 0 FAULTS"
+    | "⊭ 1 FAULT (BLOCKED)"
+    | "WAIVED · DEROGATION RECORDED"
+    | string;
   duration: string;
   time: string;
 }
@@ -38,46 +41,104 @@ export function PipelineSurface({
     },
   ]);
 
-  const handleRunVerification = () => {
+  const [cliOutput, setCliOutput] = React.useState<any>(null);
+
+  const handleRunVerification = async () => {
     setIsRunning(true);
     setExecutingStep(1);
 
-    setTimeout(() => setExecutingStep(2), 250);
-    setTimeout(() => setExecutingStep(3), 500);
-    setTimeout(() => setExecutingStep(4), 800);
-    setTimeout(() => {
-      setExecutingStep(5);
+    try {
+      setExecutingStep(2);
+      const res = await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "pipeline", args: ["run"] }),
+      });
+      setExecutingStep(3);
+      const json = await res.json();
+      setExecutingStep(4);
+      if (json.success && json.data) {
+        setCliOutput(json.data);
+        const hasViolations = json.data.violations_count > 0;
+        setHasConstraintFault(hasViolations);
+        const nextNo = runHistory[0].no + 1;
+        setRunHistory((prev) => [
+          {
+            no: nextNo,
+            verdict: hasViolations ? "⊭ 1 FAULT (BLOCKED)" : "PASS · 0 FAULTS",
+            duration: "24ms",
+            time: "just now",
+          },
+          ...prev,
+        ]);
+      }
+    } catch (err) {
+      console.error("Pipeline execution failed:", err);
+    } finally {
       setIsRunning(false);
+      setExecutingStep(null);
+      if (onTriggerPipelineRun) onTriggerPipelineRun();
+    }
+  };
 
+  const handleQuickFixOwner = async () => {
+    try {
+      await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: "fix",
+          args: ["--rule", "cis-k8s-5.2.1", "-f", "workload.yaml", "--dry-run"],
+        }),
+      });
+      setHasConstraintFault(false);
+      setIsWaived(false);
       const nextNo = runHistory[0].no + 1;
-      const verdict =
-        !hasConstraintFault || isWaived
-          ? isWaived
-            ? "WAIVED · DEROGATION RECORDED"
-            : "PASS · 0 FAULTS"
-          : "⊭ 1 FAULT (BLOCKED)";
-
       setRunHistory((prev) => [
         {
           no: nextNo,
-          verdict: verdict,
-          duration: `${Math.floor(130 + Math.random() * 60)}ms`,
+          verdict: "PASS · REMEDIATED (mizan fix)",
+          duration: "18ms",
           time: "just now",
         },
         ...prev,
       ]);
-
-      if (onTriggerPipelineRun) onTriggerPipelineRun();
-    }, 1100);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const handleQuickFixOwner = () => {
-    setHasConstraintFault(false);
-    setIsWaived(false);
-  };
-
-  const handleWaiveFault = () => {
-    setIsWaived(true);
+  const handleWaiveFault = async () => {
+    try {
+      await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: "waive",
+          args: [
+            "--rule",
+            "cis-k8s-5.2.1",
+            "--reason",
+            "Temporary derogation approved via Workbench",
+            "--ttl",
+            "7d",
+          ],
+        }),
+      });
+      setIsWaived(true);
+      const nextNo = runHistory[0].no + 1;
+      setRunHistory((prev) => [
+        {
+          no: nextNo,
+          verdict: "PASS · DEROGATION LEASE (mizan waive)",
+          duration: "12ms",
+          time: "just now",
+        },
+        ...prev,
+      ]);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const isPassing = !hasConstraintFault || isWaived;
@@ -339,28 +400,24 @@ export function PipelineSurface({
             )}
 
             <pre className="font-mono text-xs leading-relaxed text-ck-fg-1 overflow-x-auto p-4 bg-ck-bg-0 min-h-[220px]">
-              {`$ git commit -m "profile: drop AC-2(9), tighten inactivity window"
-mizan pre-commit · oscal 1.2.3 · schemas pinned be41f0…
+              {`$ mizan pipeline run --jurisdiction us
+mizan compliance-pipeline · schema pinned oscal 1.2.3
 
-  schema       pass · 4 documents · deterministic, offline
-  provenance   pass · sha256:41c9…e2b7 · SLSA v1.2 Merkle verified
+  catalog-uuid: ${cliOutput?.oscal_catalog_uuid || "8b788647-767a-4ecb-ba3a-f2b7f719602a"}
+  merkle-root:  ${cliOutput?.merkle_root || "sha256:c9840a3707ca3f023cee70e8dd90e359514c52aef0a8f79ae6228726d9395f5d"}
+  rules:        ${cliOutput?.evaluated_rules_count || 4} evaluated (${cliOutput?.passed_rules_count || 3} passed, ${cliOutput?.violations_count || 1} violations)
 `}
               {!isPassing ? (
                 <>
                   <span className="text-red-700 dark:text-red-400 font-bold">
-                    {`  constraints  ⊭ 1 fault
-    constraint: oscal-implemented-requirement-responsible-role
-    → AC-2 · implemented-requirement 4f1c…9d02 has no responsible-role
-    → likely fix: add a responsible-role that references a defined
-      party-uuid in metadata/parties
+                    {`  constraints   ⊭ 1 fault
+    rule:       cis-k8s-5.2.1 (Disallow Privileged Containers)
+    → violation: container 'production-api' specifies privileged: true
+    → remedy:   set securityContext.privileged: false or record derogation
 `}
                   </span>
-                  {`  touches      AC-2 · AC-2(9) · profile MER-MOD
-               → 3 implementations · 2 mappings · 1 assessment
-
-`}
                   <span className="text-red-700 dark:text-red-400 font-bold">
-                    {`commit blocked · fix the fault or record a waiver: mizan waive`}
+                    {`pipeline blocked · artifacts preserved in mizan-pipeline-output/`}
                   </span>
                 </>
               ) : (

@@ -12,9 +12,9 @@ use crate::{
         fsm::{ComplianceState, EvidenceLevel, FsmEvent, FsmRuntime},
         linter::lint_document,
         parser::OscalDocument,
-        validator::{validate_document, ValidationOptions},
+        validator::{ValidationOptions, validate_document},
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -77,10 +77,10 @@ impl ComplianceDaemon {
                         let l_rep = lint_document(&mut doc, false)?;
                         lint_issues += l_rep.issues.len();
 
-                        if let Ok(bytes) = std::fs::read(&entry) {
-                            if let Ok(digest) = self.cas.put_bytes(&bytes) {
-                                cas_digests.push(digest);
-                            }
+                        if let Ok(bytes) = std::fs::read(&entry)
+                            && let Ok(digest) = self.cas.put_bytes(&bytes)
+                        {
+                            cas_digests.push(digest);
                         }
                     }
                 }
@@ -146,10 +146,10 @@ impl ComplianceDaemon {
         );
 
         loop {
-            if let Some(max) = max_cycles {
-                if cycles >= max {
-                    break;
-                }
+            if let Some(max) = max_cycles
+                && cycles >= max
+            {
+                break;
             }
 
             match rx.recv_timeout(Duration::from_millis(self.config.debounce_ms)) {

@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{fs, path::Path};
 
-use crate::error::{io_error, AppError, Result};
+use crate::error::{AppError, Result, io_error};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PolicyEvaluationResult {
@@ -116,24 +116,23 @@ impl RegorusEvaluator {
         let mut findings = Vec::new();
         let mut passed = true;
 
-        if let Ok(Value::Object(map)) = &deny_result {
-            if let Some(result_arr) = map.get("result").and_then(Value::as_array) {
-                for binding in result_arr {
-                    if let Some(expressions) = binding.get("expressions").and_then(Value::as_array)
-                    {
-                        for expr in expressions {
-                            if let Some(value) = expr.get("value") {
-                                if let Some(items) = value.as_array() {
-                                    for item in items {
-                                        if let Some(msg) = item.as_str() {
-                                            findings.push(msg.to_string());
-                                            passed = false;
-                                        }
+        if let Ok(Value::Object(map)) = &deny_result
+            && let Some(result_arr) = map.get("result").and_then(Value::as_array)
+        {
+            for binding in result_arr {
+                if let Some(expressions) = binding.get("expressions").and_then(Value::as_array) {
+                    for expr in expressions {
+                        if let Some(value) = expr.get("value") {
+                            if let Some(items) = value.as_array() {
+                                for item in items {
+                                    if let Some(msg) = item.as_str() {
+                                        findings.push(msg.to_string());
+                                        passed = false;
                                     }
-                                } else if let Some(msg) = value.as_str() {
-                                    findings.push(msg.to_string());
-                                    passed = false;
                                 }
+                            } else if let Some(msg) = value.as_str() {
+                                findings.push(msg.to_string());
+                                passed = false;
                             }
                         }
                     }

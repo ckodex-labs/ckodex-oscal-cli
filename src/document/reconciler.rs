@@ -165,18 +165,18 @@ fn reconcile_components(
     for (decl_title, decl_ver) in &declared_map {
         if let Some(obs_ver) = observed_map.get(decl_title) {
             matching_components.push(decl_title.clone());
-            if let (Some(dv), Some(ov)) = (decl_ver, obs_ver) {
-                if dv != ov {
-                    version_drifts.push(VersionDrift {
-                        component_title: decl_title.clone(),
-                        declared_version: dv.clone(),
-                        observed_version: ov.clone(),
-                    });
-                    action_items.push(format!(
-                        "Update SSP component '{decl_title}' version from {dv} to observed {ov}"
-                    ));
-                    *has_drift = true;
-                }
+            if let (Some(dv), Some(ov)) = (decl_ver, obs_ver)
+                && dv != ov
+            {
+                version_drifts.push(VersionDrift {
+                    component_title: decl_title.clone(),
+                    declared_version: dv.clone(),
+                    observed_version: ov.clone(),
+                });
+                action_items.push(format!(
+                    "Update SSP component '{decl_title}' version from {dv} to observed {ov}"
+                ));
+                *has_drift = true;
             }
         } else {
             phantom_components.push(decl_title.clone());
@@ -267,52 +267,52 @@ fn reconcile_findings_and_poam(
     let mut poam_tracked_findings = HashSet::new();
     let mut poam_items_list = Vec::new();
 
-    if let Some(root) = results_doc.root_object() {
-        if let Some(results) = root.get("results").and_then(Value::as_array) {
-            for res in results {
-                if let Some(findings) = res.get("findings").and_then(Value::as_array) {
-                    for f in findings {
-                        let fid = f
-                            .get("id")
-                            .and_then(Value::as_str)
-                            .unwrap_or("")
-                            .to_string();
-                        let title = f
-                            .get("title")
-                            .and_then(Value::as_str)
-                            .unwrap_or("Finding")
-                            .to_string();
-                        let target_ctrl = f
-                            .get("target")
-                            .and_then(|t| t.get("target-id"))
-                            .and_then(Value::as_str)
-                            .map(String::from);
-                        let severity = extract_finding_severity(f);
-                        if !fid.is_empty() {
-                            findings_map.insert(fid, (title, target_ctrl, severity));
-                        }
+    if let Some(root) = results_doc.root_object()
+        && let Some(results) = root.get("results").and_then(Value::as_array)
+    {
+        for res in results {
+            if let Some(findings) = res.get("findings").and_then(Value::as_array) {
+                for f in findings {
+                    let fid = f
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    let title = f
+                        .get("title")
+                        .and_then(Value::as_str)
+                        .unwrap_or("Finding")
+                        .to_string();
+                    let target_ctrl = f
+                        .get("target")
+                        .and_then(|t| t.get("target-id"))
+                        .and_then(Value::as_str)
+                        .map(String::from);
+                    let severity = extract_finding_severity(f);
+                    if !fid.is_empty() {
+                        findings_map.insert(fid, (title, target_ctrl, severity));
                     }
                 }
             }
         }
     }
 
-    if let Some(root) = poam_doc.root_object() {
-        if let Some(items) = root.get("poam-items").and_then(Value::as_array) {
-            for item in items {
-                let item_id = item
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .unwrap_or("")
-                    .to_string();
-                if !item_id.is_empty() {
-                    poam_items_list.push(item_id.clone());
-                }
-                if let Some(rel_findings) = item.get("related-findings").and_then(Value::as_array) {
-                    for rf in rel_findings {
-                        if let Some(fid) = rf.get("finding-id").and_then(Value::as_str) {
-                            poam_tracked_findings.insert(fid.to_string());
-                        }
+    if let Some(root) = poam_doc.root_object()
+        && let Some(items) = root.get("poam-items").and_then(Value::as_array)
+    {
+        for item in items {
+            let item_id = item
+                .get("id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string();
+            if !item_id.is_empty() {
+                poam_items_list.push(item_id.clone());
+            }
+            if let Some(rel_findings) = item.get("related-findings").and_then(Value::as_array) {
+                for rf in rel_findings {
+                    if let Some(fid) = rf.get("finding-id").and_then(Value::as_str) {
+                        poam_tracked_findings.insert(fid.to_string());
                     }
                 }
             }

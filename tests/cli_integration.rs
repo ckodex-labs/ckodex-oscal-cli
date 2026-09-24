@@ -597,6 +597,227 @@ fn test_cli_gui_status() {
     assert!(stdout.contains("http://localhost:3000"));
 }
 
+#[test]
+fn test_cli_waive_and_pipeline_derogation() {
+    let temp_dir = create_test_directory("waive_test");
+    let out_dir = temp_dir.join("pipeline-out");
+
+    // Create a waiver
+    let waive_out = mizan_cmd()
+        .args([
+            "waive",
+            "--rule",
+            "itsg33-boundary-isolation",
+            "--reason",
+            "Sprint 45 migration waiver",
+            "--ttl",
+            "7d",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute waive");
+
+    assert!(waive_out.status.success());
+    let waive_str = String::from_utf8_lossy(&waive_out.stdout);
+    assert!(waive_str.contains("ACTIVE"));
+    assert!(waive_str.contains("itsg33-boundary-isolation"));
+
+    // List waivers
+    let list_out = mizan_cmd()
+        .args(["waive", "list", "--format", "json"])
+        .output()
+        .expect("failed to list waivers");
+    assert!(list_out.status.success());
+    let list_str = String::from_utf8_lossy(&list_out.stdout);
+    assert!(list_str.contains("itsg33-boundary-isolation"));
+
+    // Run pipeline - should pass because violation is waived
+    let pipe_out = mizan_cmd()
+        .args([
+            "pipeline",
+            "run",
+            "--jurisdiction",
+            "us",
+            "--output-dir",
+            out_dir.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run pipeline");
+
+    assert!(pipe_out.status.success());
+    let pipe_str = String::from_utf8_lossy(&pipe_out.stdout);
+    assert!(pipe_str.contains("SUCCESS / GREEN"));
+    assert!(pipe_str.contains("Waived (Derogation):1"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_cli_fix_remediation() {
+    let temp_dir = create_test_directory("fix_test");
+    let workload_file = temp_dir.join("workload.yaml");
+    fs::write(
+        &workload_file,
+        "apiVersion: v1\nkind: Pod\nspec:\n  containers:\n    - name: app\n      image: nginx\n",
+    )
+    .unwrap();
+
+    // Dry-run preview
+    let dry_out = mizan_cmd()
+        .args([
+            "fix",
+            "--rule",
+            "cis-k8s-5.2.1",
+            "-f",
+            workload_file.to_str().unwrap(),
+            "--dry-run",
+        ])
+        .output()
+        .expect("failed to run fix dry-run");
+
+    assert!(dry_out.status.success());
+    let dry_str = String::from_utf8_lossy(&dry_out.stdout);
+    assert!(dry_str.contains("DRY-RUN"));
+    assert!(dry_str.contains("runAsNonRoot: true"));
+
+    // In-place mutate
+    let fix_out = mizan_cmd()
+        .args([
+            "fix",
+            "--rule",
+            "cis-k8s-5.2.1",
+            "-f",
+            workload_file.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run fix mutate");
+
+    assert!(fix_out.status.success());
+    let fixed_content = fs::read_to_string(&workload_file).unwrap();
+    assert!(fixed_content.contains("runAsNonRoot: true"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_cli_init_cold_start_onboarding() {
+    let temp_dir = create_test_directory("init_test");
+    fs::write(temp_dir.join("Dockerfile"), "FROM alpine:3.20\n").unwrap();
+    fs::write(temp_dir.join("Cargo.lock"), "# lockfile\n").unwrap();
+
+    let gov_dir = temp_dir.join("governance");
+    let init_out = mizan_cmd()
+        .args([
+            "init",
+            "--from-repo",
+            temp_dir.to_str().unwrap(),
+            "-o",
+            gov_dir.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run init");
+
+    assert!(init_out.status.success());
+    assert!(gov_dir.join("component-definition.json").exists());
+    assert!(gov_dir.join("ssp.json").exists());
+    assert!(gov_dir.join("README.md").exists());
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_cli_matrix_roundtrip_and_capsule() {
+    let temp_dir = create_test_directory("matrix_test");
+    let matrix_file = temp_dir.join("matrix.csv");
+    let doc_file = temp_dir.join("component-def.json");
+    let merged_file = temp_dir.join("merged.json");
+    let capsule_file = temp_dir.join("capsule.html");
+
+    // Export Matrix
+    let export_out = mizan_cmd()
+        .args([
+            "catalog",
+            "export-matrix",
+            "-j",
+            "us",
+            "-o",
+            matrix_file.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to export matrix");
+
+    assert!(export_out.status.success());
+    assert!(matrix_file.exists());
+    let matrix_content = fs::read_to_string(&matrix_file).unwrap();
+    assert!(matrix_content.contains("control_id,family,title,baseline,status"));
+
+    // Create target document
+    fs::write(
+        &doc_file,
+        serde_json::json!({
+            "component-definition": {
+                "uuid": "test-uuid",
+                "metadata": { "title": "Test" },
+                "controls": []
+            }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    // Sync Matrix
+    let sync_out = mizan_cmd()
+        .args([
+            "sync",
+            "--matrix",
+            matrix_file.to_str().unwrap(),
+            "--local",
+            doc_file.to_str().unwrap(),
+            "-o",
+            merged_file.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to sync matrix");
+
+    assert!(sync_out.status.success());
+    assert!(merged_file.exists());
+
+    // Export Capsule
+    let assessment_file = temp_dir.join("assessment.json");
+    fs::write(
+        &assessment_file,
+        serde_json::json!({
+            "assessment-results": {
+                "uuid": "assessment-uuid",
+                "metadata": { "title": "Audit Review" }
+            }
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let capsule_out = mizan_cmd()
+        .args([
+            "export",
+            "capsule",
+            "-a",
+            assessment_file.to_str().unwrap(),
+            "-o",
+            capsule_file.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to export capsule");
+
+    assert!(capsule_out.status.success());
+    assert!(capsule_file.exists());
+    let capsule_html = fs::read_to_string(&capsule_file).unwrap();
+    assert!(capsule_html.contains("Audit Review"));
+    assert!(capsule_html.contains("Evidence Capsule"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
 fn create_test_directory(test_prefix: &str) -> std::path::PathBuf {
     let directory =
         std::env::temp_dir().join(format!("mizan-test-{test_prefix}-{}", std::process::id()));

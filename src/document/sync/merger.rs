@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{collections::BTreeMap, fs, path::Path};
 
 use crate::{
@@ -7,9 +7,9 @@ use crate::{
         authoring::split_document,
         parser::OscalDocument,
         schema::DocumentKind,
-        validator::{validate_document, ValidationOptions},
+        validator::{ValidationOptions, validate_document},
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -326,11 +326,13 @@ fn resolve_control_conflict(
                     obj.insert("description".to_string(), json!(marked));
                 } else if let Some(parts) = obj.get_mut("parts").and_then(Value::as_array_mut) {
                     for p in parts {
-                        if let Some(p_obj) = p.as_object_mut() {
-                            if let Some(prose) = p_obj.get("prose").and_then(Value::as_str) {
-                                let marked = format!("<<<<<<< LOCAL\n{prose}\n=======\n(Upstream modified part)\n>>>>>>> UPSTREAM");
-                                p_obj.insert("prose".to_string(), json!(marked));
-                            }
+                        if let Some(p_obj) = p.as_object_mut()
+                            && let Some(prose) = p_obj.get("prose").and_then(Value::as_str)
+                        {
+                            let marked = format!(
+                                "<<<<<<< LOCAL\n{prose}\n=======\n(Upstream modified part)\n>>>>>>> UPSTREAM"
+                            );
+                            p_obj.insert("prose".to_string(), json!(marked));
                         }
                     }
                 }
@@ -345,15 +347,14 @@ fn extract_controls_map(root: &Map<String, Value>) -> BTreeMap<String, Value> {
     let mut map = BTreeMap::new();
     let root_val = Value::Object(root.clone());
     collect_controls_into_map(&root_val, &mut map);
-    if let Some(ctrl_imp) = root.get("control-implementation") {
-        if let Some(reqs) = ctrl_imp
+    if let Some(ctrl_imp) = root.get("control-implementation")
+        && let Some(reqs) = ctrl_imp
             .get("implemented-requirements")
             .and_then(Value::as_array)
-        {
-            for r in reqs {
-                if let Some(id) = r.get("control-id").and_then(Value::as_str) {
-                    map.insert(id.to_string(), r.clone());
-                }
+    {
+        for r in reqs {
+            if let Some(id) = r.get("control-id").and_then(Value::as_str) {
+                map.insert(id.to_string(), r.clone());
             }
         }
     }

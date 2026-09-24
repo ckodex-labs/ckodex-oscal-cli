@@ -183,45 +183,43 @@ fn scan_ssp_dependents(
     if let Some(ctrl_imp) = root
         .get("control-implementation")
         .and_then(Value::as_object)
-    {
-        if let Some(reqs) = ctrl_imp
+        && let Some(reqs) = ctrl_imp
             .get("implemented-requirements")
             .and_then(Value::as_array)
-        {
-            for req in reqs {
-                let ctrl_id = req.get("control-id").and_then(Value::as_str).unwrap_or("");
-                let is_match = ctrl_id == target_id;
+    {
+        for req in reqs {
+            let ctrl_id = req.get("control-id").and_then(Value::as_str).unwrap_or("");
+            let is_match = ctrl_id == target_id;
 
-                if is_match {
-                    list.push(ImpactedNode {
-                        id: ctrl_id.to_string(),
-                        kind: "ImplementedRequirement".to_string(),
-                        relation: "implements-control".to_string(),
-                        title: format!("SSP Requirement for {ctrl_id}"),
-                        document: doc_name.to_string(),
-                    });
-                }
+            if is_match {
+                list.push(ImpactedNode {
+                    id: ctrl_id.to_string(),
+                    kind: "ImplementedRequirement".to_string(),
+                    relation: "implements-control".to_string(),
+                    title: format!("SSP Requirement for {ctrl_id}"),
+                    document: doc_name.to_string(),
+                });
+            }
 
-                if let Some(by_comps) = req.get("by-components").and_then(Value::as_array) {
-                    for bc in by_comps {
-                        let comp_uuid = bc
-                            .get("component-uuid")
-                            .and_then(Value::as_str)
-                            .unwrap_or("");
-                        let desc = bc.get("description").and_then(Value::as_str).unwrap_or("");
-                        if is_match || comp_uuid == target_id {
-                            list.push(ImpactedNode {
-                                id: comp_uuid.to_string(),
-                                kind: "Component".to_string(),
-                                relation: "implements-via-component".to_string(),
-                                title: if desc.len() > 30 {
-                                    format!("{}...", &desc[..27])
-                                } else {
-                                    desc.to_string()
-                                },
-                                document: doc_name.to_string(),
-                            });
-                        }
+            if let Some(by_comps) = req.get("by-components").and_then(Value::as_array) {
+                for bc in by_comps {
+                    let comp_uuid = bc
+                        .get("component-uuid")
+                        .and_then(Value::as_str)
+                        .unwrap_or("");
+                    let desc = bc.get("description").and_then(Value::as_str).unwrap_or("");
+                    if is_match || comp_uuid == target_id {
+                        list.push(ImpactedNode {
+                            id: comp_uuid.to_string(),
+                            kind: "Component".to_string(),
+                            relation: "implements-via-component".to_string(),
+                            title: if desc.len() > 30 {
+                                format!("{}...", &desc[..27])
+                            } else {
+                                desc.to_string()
+                            },
+                            document: doc_name.to_string(),
+                        });
                     }
                 }
             }
@@ -305,10 +303,10 @@ fn scan_results_dependents(
                     let title = f.get("title").and_then(Value::as_str).unwrap_or("Finding");
                     let mut matched = fid == target_id;
 
-                    if let Some(target) = f.get("target").and_then(Value::as_object) {
-                        if target.get("target-id").and_then(Value::as_str) == Some(target_id) {
-                            matched = true;
-                        }
+                    if let Some(target) = f.get("target").and_then(Value::as_object)
+                        && target.get("target-id").and_then(Value::as_str) == Some(target_id)
+                    {
+                        matched = true;
                     }
 
                     if matched {
@@ -370,19 +368,19 @@ fn scan_value_for_dependents(
 ) {
     match val {
         Value::Object(obj) => {
-            if let Some(id) = obj.get("id").and_then(Value::as_str) {
-                if let Some(params) = obj.get("params").and_then(Value::as_array) {
-                    for p in params {
-                        if p.get("id").and_then(Value::as_str) == Some(target_id) {
-                            let title = obj.get("title").and_then(Value::as_str).unwrap_or(id);
-                            list.push(ImpactedNode {
-                                id: id.to_string(),
-                                kind: "Control".to_string(),
-                                relation: "contains-parameter".to_string(),
-                                title: title.to_string(),
-                                document: doc_name.to_string(),
-                            });
-                        }
+            if let Some(id) = obj.get("id").and_then(Value::as_str)
+                && let Some(params) = obj.get("params").and_then(Value::as_array)
+            {
+                for p in params {
+                    if p.get("id").and_then(Value::as_str) == Some(target_id) {
+                        let title = obj.get("title").and_then(Value::as_str).unwrap_or(id);
+                        list.push(ImpactedNode {
+                            id: id.to_string(),
+                            kind: "Control".to_string(),
+                            relation: "contains-parameter".to_string(),
+                            title: title.to_string(),
+                            document: doc_name.to_string(),
+                        });
                     }
                 }
             }

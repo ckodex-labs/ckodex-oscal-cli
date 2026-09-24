@@ -1,12 +1,12 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{fs, path::Path};
 use uuid::Uuid;
 
 use crate::{
     document::parser::{FileFormat, OscalDocument},
-    error::{io_error, Result},
+    error::{Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -61,12 +61,10 @@ pub fn lint_document(doc: &mut OscalDocument, auto_fix: bool) -> Result<LintRepo
     }
 
     if let Some(issue) = root_uuid_issue {
-        if auto_fix {
-            if let Some(root_obj_mut) = doc.root_object_mut() {
-                root_obj_mut.insert("uuid".to_string(), json!(Uuid::new_v4().to_string()));
-                fixed_count += 1;
-                mutated = true;
-            }
+        if auto_fix && let Some(root_obj_mut) = doc.root_object_mut() {
+            root_obj_mut.insert("uuid".to_string(), json!(Uuid::new_v4().to_string()));
+            fixed_count += 1;
+            mutated = true;
         }
         issues.push(issue);
     }
@@ -99,12 +97,10 @@ pub fn lint_document(doc: &mut OscalDocument, auto_fix: bool) -> Result<LintRepo
     }
 
     if let Some(issue) = last_mod_issue {
-        if auto_fix {
-            if let Some(meta_mut) = doc.metadata_mut() {
-                meta_mut.insert("last-modified".to_string(), json!(Utc::now().to_rfc3339()));
-                fixed_count += 1;
-                mutated = true;
-            }
+        if auto_fix && let Some(meta_mut) = doc.metadata_mut() {
+            meta_mut.insert("last-modified".to_string(), json!(Utc::now().to_rfc3339()));
+            fixed_count += 1;
+            mutated = true;
         }
         issues.push(issue);
     }
@@ -140,21 +136,20 @@ pub fn lint_document(doc: &mut OscalDocument, auto_fix: bool) -> Result<LintRepo
     }
 
     if let Some(issue) = oscal_ver_issue {
-        if auto_fix && issue.auto_fixable {
-            if let Some(meta_mut) = doc.metadata_mut() {
-                meta_mut.insert("oscal-version".to_string(), json!("1.2.3"));
-                fixed_count += 1;
-                mutated = true;
-            }
+        if auto_fix
+            && issue.auto_fixable
+            && let Some(meta_mut) = doc.metadata_mut()
+        {
+            meta_mut.insert("oscal-version".to_string(), json!("1.2.3"));
+            fixed_count += 1;
+            mutated = true;
         }
         issues.push(issue);
     }
 
     // 4. Save file if mutated and path is available
-    if mutated {
-        if let Some(path) = &doc.path {
-            save_document(doc, path)?;
-        }
+    if mutated && let Some(path) = &doc.path {
+        save_document(doc, path)?;
     }
 
     Ok(LintReport {

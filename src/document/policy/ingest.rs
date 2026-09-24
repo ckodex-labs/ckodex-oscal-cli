@@ -1,10 +1,10 @@
 use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{fs, path::Path};
 
 use crate::{
     document::parser::OscalDocument,
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]

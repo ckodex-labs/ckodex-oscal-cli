@@ -132,40 +132,44 @@ fn validate_constraints(
         // 2. Metadata timestamp validation
         if let Some(meta) = root_obj.get("metadata").and_then(Value::as_object) {
             for ts_key in ["last-modified", "published"] {
-                if let Some(ts_val) = meta.get(ts_key).and_then(Value::as_str) {
-                    if let Err(err) = DateTime::parse_from_rfc3339(ts_val) {
-                        *constraints_valid = false;
-                        diagnostics.push(Diagnostic {
-                            level: DiagnosticLevel::Error,
-                            code: "oscal-datetime-rfc3339".to_owned(),
-                            path: format!("{}/metadata/{}", doc.kind.root_key(), ts_key),
-                            message: format!("Invalid RFC3339 date-time format for '{ts_key}': '{ts_val}' ({err})"),
-                        });
-                    }
+                if let Some(ts_val) = meta.get(ts_key).and_then(Value::as_str)
+                    && let Err(err) = DateTime::parse_from_rfc3339(ts_val)
+                {
+                    *constraints_valid = false;
+                    diagnostics.push(Diagnostic {
+                        level: DiagnosticLevel::Error,
+                        code: "oscal-datetime-rfc3339".to_owned(),
+                        path: format!("{}/metadata/{}", doc.kind.root_key(), ts_key),
+                        message: format!(
+                            "Invalid RFC3339 date-time format for '{ts_key}': '{ts_val}' ({err})"
+                        ),
+                    });
                 }
             }
 
             // 3. Metadata oscal-version check
-            if let Some(ver) = meta.get("oscal-version").and_then(Value::as_str) {
-                if !ver.starts_with("1.") {
-                    diagnostics.push(Diagnostic {
-                        level: DiagnosticLevel::Warning,
-                        code: "oscal-version-target".to_owned(),
-                        path: format!("{}/metadata/oscal-version", doc.kind.root_key()),
-                        message: format!("Document targets OSCAL version '{ver}', validator is tuned for OSCAL 1.2.3"),
-                    });
-                }
+            if let Some(ver) = meta.get("oscal-version").and_then(Value::as_str)
+                && !ver.starts_with("1.")
+            {
+                diagnostics.push(Diagnostic {
+                    level: DiagnosticLevel::Warning,
+                    code: "oscal-version-target".to_owned(),
+                    path: format!("{}/metadata/oscal-version", doc.kind.root_key()),
+                    message: format!(
+                        "Document targets OSCAL version '{ver}', validator is tuned for OSCAL 1.2.3"
+                    ),
+                });
             }
         }
 
         // 4. Back-matter resource reference integrity
         let mut declared_resource_uuids = std::collections::HashSet::new();
-        if let Some(back_matter) = root_obj.get("back-matter").and_then(Value::as_object) {
-            if let Some(resources) = back_matter.get("resources").and_then(Value::as_array) {
-                for res in resources {
-                    if let Some(uuid_str) = res.get("uuid").and_then(Value::as_str) {
-                        declared_resource_uuids.insert(uuid_str.to_string());
-                    }
+        if let Some(back_matter) = root_obj.get("back-matter").and_then(Value::as_object)
+            && let Some(resources) = back_matter.get("resources").and_then(Value::as_array)
+        {
+            for res in resources {
+                if let Some(uuid_str) = res.get("uuid").and_then(Value::as_str) {
+                    declared_resource_uuids.insert(uuid_str.to_string());
                 }
             }
         }
@@ -187,17 +191,17 @@ fn check_back_matter_links(
 ) {
     match value {
         Value::Object(map) => {
-            if let Some(href) = map.get("href").and_then(Value::as_str) {
-                if let Some(uuid_target) = href.strip_prefix('#') {
-                    if !declared_resources.contains(uuid_target) && !declared_resources.is_empty() {
-                        diagnostics.push(Diagnostic {
+            if let Some(href) = map.get("href").and_then(Value::as_str)
+                && let Some(uuid_target) = href.strip_prefix('#')
+                && !declared_resources.contains(uuid_target)
+                && !declared_resources.is_empty()
+            {
+                diagnostics.push(Diagnostic {
                             level: DiagnosticLevel::Warning,
                             code: "oscal-resource-link-unresolved".to_owned(),
                             path: format!("{current_path}/href"),
                             message: format!("Link href '{href}' does not match any declared resource UUID in back-matter"),
                         });
-                    }
-                }
             }
             for (k, v) in map {
                 let next_path = format!("{current_path}/{k}");

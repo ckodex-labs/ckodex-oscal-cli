@@ -31,7 +31,7 @@ impl Default for RootFabricEngine {
 impl RootFabricEngine {
     pub fn new() -> Self {
         Self {
-            tenant_manager: TenantManager::new(),
+            tenant_manager: TenantManager::load_or_default(),
             rbac: RbacEngine::new(),
             datastore: FabricDataStore::new(),
             oidc_validator: None,

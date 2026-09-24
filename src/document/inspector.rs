@@ -63,10 +63,9 @@ pub fn inspect_document(doc: &OscalDocument) -> Result<DocumentSummary> {
         } else if let Some(sys_imp) = root_obj
             .get("system-implementation")
             .and_then(Value::as_object)
+            && let Some(comps) = sys_imp.get("components").and_then(Value::as_array)
         {
-            if let Some(comps) = sys_imp.get("components").and_then(Value::as_array) {
-                stats.total_components = comps.len();
-            }
+            stats.total_components = comps.len();
         }
 
         // Count findings and observations
@@ -128,15 +127,15 @@ fn count_elements(val: &Value, stats: &mut ModelStats) {
                     *stats.controls_by_family.entry(family).or_default() += 1;
                 }
             }
-            if obj.contains_key("groups") {
-                if let Some(arr) = obj.get("groups").and_then(Value::as_array) {
-                    stats.total_groups += arr.len();
-                }
+            if obj.contains_key("groups")
+                && let Some(arr) = obj.get("groups").and_then(Value::as_array)
+            {
+                stats.total_groups += arr.len();
             }
-            if obj.contains_key("params") {
-                if let Some(arr) = obj.get("params").and_then(Value::as_array) {
-                    stats.total_params += arr.len();
-                }
+            if obj.contains_key("params")
+                && let Some(arr) = obj.get("params").and_then(Value::as_array)
+            {
+                stats.total_params += arr.len();
             }
             for (_, v) in obj {
                 count_elements(v, stats);

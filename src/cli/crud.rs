@@ -5,7 +5,7 @@ use super::*;
 
 use crate::{
     config::{AppConfig, CrudAction},
-    document::{schema::DocumentKind, OscalDocument},
+    document::{OscalDocument, schema::DocumentKind},
     error::{AppError, Result},
     output,
     proto::oscal::services::v1::*,

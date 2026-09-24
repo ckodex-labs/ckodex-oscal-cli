@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::path::Path;
 
 use crate::{
@@ -197,9 +197,11 @@ mod tests {
         let root = poam_doc.root_object().unwrap();
         let items = root["poam-items"].as_array().unwrap();
         assert_eq!(items.len(), 1);
-        assert!(items[0]["title"]
-            .as_str()
-            .unwrap()
-            .contains("Privilege Escalation Allowed"));
+        assert!(
+            items[0]["title"]
+                .as_str()
+                .unwrap()
+                .contains("Privilege Escalation Allowed")
+        );
     }
 }

@@ -4,7 +4,7 @@ use std::{fs, path::Path};
 
 use crate::{
     document::parser::OscalDocument,
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]

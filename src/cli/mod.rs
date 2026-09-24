@@ -2,32 +2,33 @@
 
 use crate::{
     config::{
-        capture_root_for_args, AppConfig, AssembleArgs, AssessmentPlanCliAction,
-        AssessmentResultsCliAction, AttestCliAction, AttestCliArgs, AuditArgs, BlastRadiusArgs,
-        CaptureAction, CasCliAction, CasCliArgs, CatalogCliAction, ClaimAction, Cli, Command,
-        ComponentCliAction, ConvertArgs, DaemonCliArgs, DedupArgs, DiffArgs, EntityAction,
-        EvidenceAction, ExportCliAction, ExportCliArgs, FederateCliAction, FederateCliArgs,
-        FedrampAction, FedrampCliArgs, FrameworkAction, FsmCliAction, FsmCliArgs, GraphAction,
-        GraphEdgeAction, GraphNodeAction, HealthArgs, ImportAction, ImportArgs, InspectArgs,
-        LintArgs, MappingCliAction, ModelAction, ModelKind, OutputFormat, PipelineAction,
-        PipelineCliArgs, PoamCliAction, PolicyAction, PolicyCliArgs, ProfileCliAction,
-        ReconcileArgs, ReleaseAction, ResolveArgs, RulepackAction, SbomCliAction, SbomCliArgs,
-        SearchArgs, SnapshotAction, SplitArgs, SspCliAction, SyncArgs, TemplateArgs, TxCliAction,
-        TxCliArgs, ValidateArgs,
+        AppConfig, AssembleArgs, AssessmentPlanCliAction, AssessmentResultsCliAction,
+        AttestCliAction, AttestCliArgs, AuditArgs, BlastRadiusArgs, CaptureAction, CasCliAction,
+        CasCliArgs, CatalogCliAction, ClaimAction, Cli, Command, ComponentCliAction, ConvertArgs,
+        DaemonCliArgs, DedupArgs, DiffArgs, EntityAction, EvidenceAction, ExportCliAction,
+        ExportCliArgs, FederateCliAction, FederateCliArgs, FedrampAction, FedrampCliArgs,
+        FixCliArgs, FrameworkAction, FsmCliAction, FsmCliArgs, GraphAction, GraphEdgeAction,
+        GraphNodeAction, HealthArgs, ImportAction, ImportArgs, InitCliArgs, InspectArgs, LintArgs,
+        MappingCliAction, ModelAction, ModelKind, OutputFormat, PipelineAction, PipelineCliArgs,
+        PoamCliAction, PolicyAction, PolicyCliArgs, ProfileCliAction, ReconcileArgs, ReleaseAction,
+        ResolveArgs, RulepackAction, SbomCliAction, SbomCliArgs, SearchArgs, SnapshotAction,
+        SplitArgs, SspCliAction, SyncArgs, TemplateArgs, TxCliAction, TxCliArgs, ValidateArgs,
+        WaiveCliAction, WaiveCliArgs, capture_root_for_args,
     },
     document::{
-        analyze_blast_radius, assemble_directory, compile_policies, convert_document,
-        deduplicate_document, diff_documents, ingest_policy_results, inspect_document,
-        lint_document, reconcile_compliance, resolve_profile, scaffold_template, split_document,
-        sync_and_merge, validate_document, validate_fedramp, BuiltinRulepack, CasStore,
-        ComplianceDaemon, ComplianceFederator, ComplianceState, ComplianceTransactionManager,
-        DaemonConfig, DiagnosticLevel, EmbeddedCatalogProvider, EnterpriseCatalogBuilder,
-        EvidenceBundle, EvidenceLevel, FedrampBaseline, FsmEvent, FsmRuntime, GitLabReportExporter,
-        Jurisdiction, MergeStrategy, OscalDocument, PipelineConfig, PipelineOrchestrator,
-        PolicyTarget, ReconciliationVerdict, SarifExporter, SbomImporter, SlsaProvenanceBuilder,
-        SlsaVersion, ValidationOptions,
+        BuiltinRulepack, CapsuleExporter, CasStore, ComplianceDaemon, ComplianceFederator,
+        ComplianceState, ComplianceTransactionManager, DaemonConfig, DiagnosticLevel,
+        EmbeddedCatalogProvider, EnterpriseCatalogBuilder, EvidenceBundle, EvidenceLevel,
+        FedrampBaseline, FsmEvent, FsmRuntime, GitLabReportExporter, Jurisdiction, MergeStrategy,
+        OscalDocument, PipelineConfig, PipelineOrchestrator, PolicyTarget, ReconciliationVerdict,
+        SarifExporter, SbomImporter, ShieldcnBadgeConfig, ShieldcnBadgeExporter,
+        SlsaProvenanceBuilder, SlsaVersion, ValidationOptions, analyze_blast_radius,
+        assemble_directory, compile_policies, convert_document, deduplicate_document,
+        diff_documents, ingest_policy_results, inspect_document, lint_document,
+        reconcile_compliance, resolve_profile, scaffold_template, split_document, sync_and_merge,
+        validate_document, validate_fedramp,
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
     health::{HealthCheckRequest, ServingStatus},
     mcp::run_mcp_server,
     output,
@@ -54,7 +55,7 @@ use crate::{
         ListSnapshotsResponse, ListVerificationEventsResponse, ShortestPathResponse,
         TraverseResponse, VerifyClosureResponse, VerifyEvidenceResponse,
     },
-    transport::{uuid, CrudClient, ReadOnlyClient},
+    transport::{CrudClient, ReadOnlyClient, uuid},
 };
 use clap::CommandFactory;
 use clap_complete::generate;
@@ -116,6 +117,9 @@ pub async fn run(config: AppConfig, command: Command) -> Result<()> {
         | Command::Sbom(_)
         | Command::Pipeline(_)
         | Command::Fabric(_)
+        | Command::Waive(_)
+        | Command::Fix(_)
+        | Command::Init(_)
         | Command::Gui
         | Command::Workbench => Err(AppError::Configuration(
             "local commands must be run without network configuration".to_owned(),
@@ -280,6 +284,9 @@ pub fn run_local(args: &Cli, command: Command) -> Result<()> {
         Command::Sbom(sbom_args) => sbom::run_sbom(&sbom_args, args.format),
         Command::Pipeline(pipe_args) => pipeline::run_pipeline(&pipe_args, args.format),
         Command::Fabric(fabric_args) => fabric::run_fabric(&fabric_args, args.format),
+        Command::Waive(waive_args) => waive::run_waive(&waive_args, args.format),
+        Command::Fix(fix_args) => fix::run_fix(&fix_args, args.format),
+        Command::Init(init_args) => init::run_init(&init_args, args.format),
         Command::Gui | Command::Workbench => gui::run_gui(args.format),
         Command::Catalog(cat_args) => match cat_args.action {
             CatalogCliAction::Validate(v) => validate::run_validate(&v, args.format),
@@ -293,6 +300,10 @@ pub fn run_local(args: &Cli, command: Command) -> Result<()> {
                 jurisdiction,
                 output,
             } => catalog::run_catalog_export(&jurisdiction, &output, args.format),
+            CatalogCliAction::ExportMatrix {
+                jurisdiction,
+                output,
+            } => catalog::run_catalog_export_matrix(&jurisdiction, &output, args.format),
             CatalogCliAction::Extend {
                 base,
                 title,
@@ -412,6 +423,9 @@ pub fn is_local_command(command: &Command) -> bool {
         | Command::Sbom(_)
         | Command::Pipeline(_)
         | Command::Fabric(_)
+        | Command::Waive(_)
+        | Command::Fix(_)
+        | Command::Init(_)
         | Command::Gui
         | Command::Workbench => true,
         Command::Evidence(evidence_args) => matches!(
@@ -457,6 +471,7 @@ pub mod export;
 pub mod fabric;
 pub mod federate;
 pub mod fedramp;
+pub mod fix;
 pub mod framework;
 pub mod fsm;
 pub mod graph;
@@ -464,6 +479,7 @@ pub mod graph_write;
 pub mod gui;
 pub mod health;
 pub mod import;
+pub mod init;
 pub mod inspect;
 pub mod lint;
 pub mod model;
@@ -483,6 +499,7 @@ pub mod template;
 pub mod transparency_write;
 pub mod tx;
 pub mod validate;
+pub mod waive;
 
 #[allow(unused_imports)]
 pub use self::shared::*;

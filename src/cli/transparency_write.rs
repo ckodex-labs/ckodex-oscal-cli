@@ -149,10 +149,10 @@ fn is_yaml(path: &Path) -> bool {
 }
 
 fn extract_message_value(value: Value, field: &str) -> Value {
-    if let Value::Object(map) = &value {
-        if let Some(inner) = map.get(field) {
-            return inner.clone();
-        }
+    if let Value::Object(map) = &value
+        && let Some(inner) = map.get(field)
+    {
+        return inner.clone();
     }
     value
 }

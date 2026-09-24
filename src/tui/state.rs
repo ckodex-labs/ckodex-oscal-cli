@@ -2,10 +2,9 @@
 
 #[allow(unused_imports, clippy::wildcard_imports)]
 use super::{
-    disable_raw_mode, enable_raw_mode, execute, io, output, AppConfig, CrosstermBackend,
-    EnterAlternateScreen, LeaveAlternateScreen, ListCatalogsRequest, ListClaimsRequest,
-    ListEdgesRequest, ListFrameworksRequest, ListNodesRequest, ReadOnlyClient, Result, Terminal,
-    Theme, Uuid,
+    AppConfig, CrosstermBackend, EnterAlternateScreen, LeaveAlternateScreen, ListCatalogsRequest,
+    ListClaimsRequest, ListEdgesRequest, ListFrameworksRequest, ListNodesRequest, ReadOnlyClient,
+    Result, Terminal, Theme, Uuid, disable_raw_mode, enable_raw_mode, execute, io, output,
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

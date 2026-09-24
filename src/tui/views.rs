@@ -1,6 +1,6 @@
 #![allow(unused_imports)]
 
-use super::evidence::{evidence_panel, Palette};
+use super::evidence::{Palette, evidence_panel};
 #[allow(unused_imports, clippy::wildcard_imports)]
 use super::*;
 
@@ -310,11 +310,7 @@ pub(super) fn append_page(
 }
 
 pub(super) fn filter_label(filter: &str) -> &str {
-    if filter.is_empty() {
-        "none"
-    } else {
-        filter
-    }
+    if filter.is_empty() { "none" } else { filter }
 }
 
 pub(super) fn json_lines(value: &Value) -> Vec<String> {

@@ -135,3 +135,44 @@ pub(super) fn run_catalog_extend(
     }
     Ok(())
 }
+
+pub(super) fn run_catalog_export_matrix(
+    jurisdiction_str: &str,
+    output: &std::path::Path,
+    format: OutputFormat,
+) -> Result<()> {
+    let jur = Jurisdiction::from_str_name(jurisdiction_str).ok_or_else(|| {
+        AppError::Configuration(format!(
+            "Unknown jurisdiction: {jurisdiction_str} (use us, ca, eu, enterprise)"
+        ))
+    })?;
+
+    let doc = EmbeddedCatalogProvider::get_catalog(jur)?;
+    let csv_str = crate::document::tabular::export_matrix_csv(&doc, Some(output))?;
+    let lines_count = csv_str.lines().count().saturating_sub(1);
+
+    match format {
+        OutputFormat::Json | OutputFormat::Jsonl => {
+            let rep = serde_json::json!({
+                "jurisdiction": jur.to_string(),
+                "total_controls_matrix": lines_count,
+                "output_file": output.display().to_string(),
+            });
+            println!("{rep}");
+        }
+        _ => {
+            println!("Exported Auditor Spreadsheet Matrix");
+            println!("────────────────────────────────────────────────────────────────────────");
+            println!("  Jurisdiction:   {}", jur);
+            println!("  Controls:       {}", lines_count);
+            println!("  CSV File:       {}", output.display());
+            println!("────────────────────────────────────────────────────────────────────────");
+            println!("Auditors can edit statuses and notes in Excel/Google Sheets, then run:");
+            println!(
+                "  mizan sync --matrix {} --local <doc.json> -o merged.json",
+                output.display()
+            );
+        }
+    }
+    Ok(())
+}

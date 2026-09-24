@@ -157,7 +157,9 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
                         println!(
                             "────────────────────────────────────────────────────────────────────────"
                         );
-                        println!("  Run with: `mizan policy rulepack eval -r <rule-id> -i <workload.json>`");
+                        println!(
+                            "  Run with: `mizan policy rulepack eval -r <rule-id> -i <workload.json>`"
+                        );
                     }
                 }
             }

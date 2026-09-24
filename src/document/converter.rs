@@ -2,7 +2,7 @@ use std::{fs, path::Path};
 
 use crate::{
     document::parser::{FileFormat, OscalDocument},
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 pub fn convert_document(
@@ -30,10 +30,10 @@ pub fn convert_document(
         }
     };
 
-    if target_format != FileFormat::Csv {
-        if let Some(out_p) = output_path {
-            fs::write(out_p, &output_str).map_err(|e| io_error(out_p, e))?;
-        }
+    if target_format != FileFormat::Csv
+        && let Some(out_p) = output_path
+    {
+        fs::write(out_p, &output_str).map_err(|e| io_error(out_p, e))?;
     }
 
     Ok(output_str)

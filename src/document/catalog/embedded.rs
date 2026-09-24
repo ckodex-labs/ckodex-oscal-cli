@@ -1,4 +1,4 @@
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::{
     document::{catalog::jurisdiction::Jurisdiction, parser::OscalDocument, schema::DocumentKind},
@@ -60,7 +60,7 @@ impl EmbeddedCatalogProvider {
                         "id": "si-4",
                         "title": "Information System Monitoring",
                         "class": "SP800-53"
-                    })
+                    }),
                 ],
             ),
             Jurisdiction::CaItsg33Pbmm => (
@@ -87,7 +87,7 @@ impl EmbeddedCatalogProvider {
                         "id": "itsg-si-1",
                         "title": "Continuous Threat Monitoring (CCCS Sensor Feed)",
                         "class": "ITSG-33"
-                    })
+                    }),
                 ],
             ),
             Jurisdiction::EuEucsIso27001 => (
@@ -113,19 +113,17 @@ impl EmbeddedCatalogProvider {
                         "id": "iso-a.8.28",
                         "title": "Secure Coding and Container Provenance",
                         "class": "ISO-27001:2022"
-                    })
+                    }),
                 ],
             ),
             Jurisdiction::EnterpriseCustom => (
                 "Enterprise Custom Baseline Catalog",
                 "ee788647-767a-4ecb-ba3a-f2b7f719602d",
-                vec![
-                    json!({
-                        "id": "corp-sec-01",
-                        "title": "Zero Trust Identity & Microsegmentation",
-                        "class": "Enterprise-Core"
-                    })
-                ],
+                vec![json!({
+                    "id": "corp-sec-01",
+                    "title": "Zero Trust Identity & Microsegmentation",
+                    "class": "Enterprise-Core"
+                })],
             ),
         };
 
@@ -162,25 +160,31 @@ mod tests {
         let us_doc = EmbeddedCatalogProvider::get_catalog(Jurisdiction::UsNist800_53Rev5).unwrap();
         assert_eq!(us_doc.kind, DocumentKind::Catalog);
         let us_root = us_doc.root_object().unwrap();
-        assert!(us_root["metadata"]["title"]
-            .as_str()
-            .unwrap()
-            .contains("NIST"));
+        assert!(
+            us_root["metadata"]["title"]
+                .as_str()
+                .unwrap()
+                .contains("NIST")
+        );
 
         let ca_doc = EmbeddedCatalogProvider::get_catalog(Jurisdiction::CaItsg33Pbmm).unwrap();
         assert_eq!(ca_doc.kind, DocumentKind::Catalog);
         let ca_root = ca_doc.root_object().unwrap();
-        assert!(ca_root["metadata"]["title"]
-            .as_str()
-            .unwrap()
-            .contains("ITSG-33"));
+        assert!(
+            ca_root["metadata"]["title"]
+                .as_str()
+                .unwrap()
+                .contains("ITSG-33")
+        );
 
         let eu_doc = EmbeddedCatalogProvider::get_catalog(Jurisdiction::EuEucsIso27001).unwrap();
         assert_eq!(eu_doc.kind, DocumentKind::Catalog);
         let eu_root = eu_doc.root_object().unwrap();
-        assert!(eu_root["metadata"]["title"]
-            .as_str()
-            .unwrap()
-            .contains("ISO/IEC 27001"));
+        assert!(
+            eu_root["metadata"]["title"]
+                .as_str()
+                .unwrap()
+                .contains("ISO/IEC 27001")
+        );
     }
 }

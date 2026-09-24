@@ -6,7 +6,7 @@ use std::{
 
 use crate::{
     document::schema::DocumentKind,
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -49,11 +49,11 @@ impl OscalDocument {
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path_ref = path.as_ref();
-        if let Some(ext) = path_ref.extension().and_then(|e| e.to_str()) {
-            if ext == "csv" {
-                let content = fs::read_to_string(path_ref).map_err(|e| io_error(path_ref, e))?;
-                return crate::document::tabular::import_from_csv(&content, None, None, None);
-            }
+        if let Some(ext) = path_ref.extension().and_then(|e| e.to_str())
+            && ext == "csv"
+        {
+            let content = fs::read_to_string(path_ref).map_err(|e| io_error(path_ref, e))?;
+            return crate::document::tabular::import_from_csv(&content, None, None, None);
         }
         let content = fs::read_to_string(path_ref).map_err(|e| io_error(path_ref, e))?;
         Self::from_str(&content, Some(path_ref.to_path_buf()))

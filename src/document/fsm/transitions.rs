@@ -144,9 +144,10 @@ mod tests {
         let mut fsm = FsmRuntime::new(ComplianceState::Draft, EvidenceLevel::E0Unverified);
 
         // Cannot submit unverified draft
-        assert!(fsm
-            .transition(FsmEvent::SubmitForReview, "auditor", "Initial draft")
-            .is_err());
+        assert!(
+            fsm.transition(FsmEvent::SubmitForReview, "auditor", "Initial draft")
+                .is_err()
+        );
 
         // Elevate to E1 (Schema Valid) and submit
         fsm.update_evidence(EvidenceLevel::E1SchemaValid);
@@ -157,9 +158,10 @@ mod tests {
         );
 
         // Cannot approve without FedRAMP E3
-        assert!(fsm
-            .transition(FsmEvent::Approve, "ciso", "Looks good")
-            .is_err());
+        assert!(
+            fsm.transition(FsmEvent::Approve, "ciso", "Looks good")
+                .is_err()
+        );
 
         // Elevate to E3 and approve
         fsm.update_evidence(EvidenceLevel::E3FedrampPassed);

@@ -199,10 +199,10 @@ pub(super) fn assess_tls(args: &crate::config::Cli, endpoint: Option<&str>) -> D
             detail: "HTTPS endpoint needs a resolvable host or --tls-domain".to_owned(),
         };
     }
-    if let Some(path) = &args.ca_cert {
-        if !readable_file(path) {
-            return file_check("tls-ca", path, "CA certificate is not readable");
-        }
+    if let Some(path) = &args.ca_cert
+        && !readable_file(path)
+    {
+        return file_check("tls-ca", path, "CA certificate is not readable");
     }
     DoctorCheck {
         id: "tls",

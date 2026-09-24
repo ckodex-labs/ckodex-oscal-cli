@@ -1,6 +1,7 @@
 pub mod attestation;
 pub mod authoring;
 pub mod blast_radius;
+pub mod capsule;
 pub mod cas;
 pub mod catalog;
 pub mod converter;
@@ -11,7 +12,9 @@ pub mod evidence;
 pub mod export;
 pub mod federation;
 pub mod fedramp;
+pub mod fix;
 pub mod fsm;
+pub mod init;
 pub mod inspector;
 pub mod k8s;
 pub mod linter;
@@ -26,47 +29,55 @@ pub mod sync;
 pub mod tabular;
 pub mod tx;
 pub mod validator;
+pub mod waiver;
 
 pub use attestation::{SlsaProvenanceBuilder, SlsaVerificationReport, SlsaVersion};
 pub use authoring::{
-    assemble_directory, scaffold_template, split_document, AssembleReport, SplitReport,
-    TemplateReport,
+    AssembleReport, SplitReport, TemplateReport, assemble_directory, scaffold_template,
+    split_document,
 };
-pub use blast_radius::{analyze_blast_radius, BlastRadiusReport, ImpactedNode};
+pub use blast_radius::{BlastRadiusReport, ImpactedNode, analyze_blast_radius};
+pub use capsule::{CapsuleExporter, CapsuleReport};
 pub use cas::{CasStats, CasStore};
 pub use catalog::{EmbeddedCatalogProvider, EnterpriseCatalogBuilder, Jurisdiction};
 pub use converter::convert_document;
 pub use daemon::{ComplianceDaemon, DaemonConfig, DaemonCycleReport};
-pub use dedup::{deduplicate_document, DedupReport};
-pub use diff::{diff_documents, DocumentDiffReport};
+pub use dedup::{DedupReport, deduplicate_document};
+pub use diff::{DocumentDiffReport, diff_documents};
 pub use evidence::{
-    compute_merkle_root, EvidenceBundle, EvidenceVerificationReport, ObservationProof,
-    SignatureInfo,
+    EvidenceBundle, EvidenceVerificationReport, ObservationProof, SignatureInfo,
+    compute_merkle_root,
 };
-pub use export::{GitLabReportExporter, GitLabSecurityReport, SarifExporter, SarifReport};
+pub use export::{
+    GitLabReportExporter, GitLabSecurityReport, SarifExporter, SarifReport, ShieldcnBadgeConfig,
+    ShieldcnBadgeExporter,
+};
 pub use federation::{ComplianceFederator, FederationChainReport};
-pub use fedramp::{validate_fedramp, FedrampBaseline, FedrampRuleFinding, FedrampValidationReport};
+pub use fedramp::{FedrampBaseline, FedrampRuleFinding, FedrampValidationReport, validate_fedramp};
+pub use fix::{FixEngine, FixReport};
 pub use fsm::{ComplianceState, EvidenceLevel, FsmEvent, FsmHistory, FsmRuntime, TransitionRecord};
-pub use inspector::{inspect_document, DocumentSummary};
+pub use init::{DiscoveredAsset, InitReport, RepoInitializer};
+pub use inspector::{DocumentSummary, inspect_document};
 pub use k8s::{KubeAuditReport, KubeAuditor, KubeClusterClient};
-pub use linter::{lint_document, LintReport};
+pub use linter::{LintReport, lint_document};
 pub use parser::{FileFormat, OscalDocument};
 pub use pipeline::{PipelineConfig, PipelineExecutionReport, PipelineOrchestrator};
 pub use policy::{
-    compile_policies, ingest_policy_results, BuiltinRulepack, PolicyCompileReport,
-    PolicyEvaluationResult, PolicyIngestReport, PolicyRuleMeta, PolicyTarget, RegorusEvaluator,
+    BuiltinRulepack, PolicyCompileReport, PolicyEvaluationResult, PolicyIngestReport,
+    PolicyRuleMeta, PolicyTarget, RegorusEvaluator, compile_policies, ingest_policy_results,
 };
-pub use reconciler::{reconcile_compliance, ReconciliationReport, ReconciliationVerdict};
+pub use reconciler::{ReconciliationReport, ReconciliationVerdict, reconcile_compliance};
 pub use resolver::resolve_profile;
 pub use sbom::{SbomImporter, SbomSummary};
 pub use schema::{DocumentKind, SchemaRegistry};
-pub use sync::{sync_and_merge, MergeConflict, MergeReport, MergeStrategy};
-pub use tabular::{export_to_csv, import_from_csv};
+pub use sync::{MergeConflict, MergeReport, MergeStrategy, sync_and_merge};
+pub use tabular::{export_matrix_csv, export_to_csv, import_from_csv, sync_matrix_csv};
 pub use tx::{
     ComplianceTransactionManager, MutationKind, TransactionReport, TransactionSession,
     TransactionStatus, WalEntry, WriteAheadLog,
 };
-pub use validator::{validate_document, DiagnosticLevel, ValidationOptions, ValidationReport};
+pub use validator::{DiagnosticLevel, ValidationOptions, ValidationReport, validate_document};
+pub use waiver::{DerogationLease, WaiverManager, WaiverStatus};
 
 #[cfg(test)]
 mod tests {

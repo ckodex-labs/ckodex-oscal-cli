@@ -1,5 +1,5 @@
 use chrono::Utc;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{
     collections::{HashMap, HashSet},
     fs,
@@ -9,7 +9,7 @@ use uuid::Uuid;
 
 use crate::{
     document::{parser::OscalDocument, schema::DocumentKind},
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 pub fn resolve_profile(
@@ -40,27 +40,27 @@ pub fn resolve_profile(
 
     // Collect parameter overrides from modify.set-parameters
     let mut param_overrides: HashMap<String, Value> = HashMap::new();
-    if let Some(modify) = profile_obj.get("modify").and_then(Value::as_object) {
-        if let Some(set_params) = modify.get("set-parameters").and_then(Value::as_array) {
-            for sp in set_params {
-                if let Some(pid) = sp.get("param-id").and_then(Value::as_str) {
-                    param_overrides.insert(pid.to_string(), sp.clone());
-                }
+    if let Some(modify) = profile_obj.get("modify").and_then(Value::as_object)
+        && let Some(set_params) = modify.get("set-parameters").and_then(Value::as_array)
+    {
+        for sp in set_params {
+            if let Some(pid) = sp.get("param-id").and_then(Value::as_str) {
+                param_overrides.insert(pid.to_string(), sp.clone());
             }
         }
     }
 
     // Collect alters from modify.alters
     let mut alters_map: HashMap<String, Vec<Value>> = HashMap::new();
-    if let Some(modify) = profile_obj.get("modify").and_then(Value::as_object) {
-        if let Some(alters) = modify.get("alters").and_then(Value::as_array) {
-            for alter in alters {
-                if let Some(cid) = alter.get("control-id").and_then(Value::as_str) {
-                    alters_map
-                        .entry(cid.to_string())
-                        .or_default()
-                        .push(alter.clone());
-                }
+    if let Some(modify) = profile_obj.get("modify").and_then(Value::as_object)
+        && let Some(alters) = modify.get("alters").and_then(Value::as_array)
+    {
+        for alter in alters {
+            if let Some(cid) = alter.get("control-id").and_then(Value::as_str) {
+                alters_map
+                    .entry(cid.to_string())
+                    .or_default()
+                    .push(alter.clone());
             }
         }
     }
@@ -180,18 +180,18 @@ fn parse_import_selection(import: &Value) -> (bool, HashSet<String>, HashSet<Str
     let mut included_ids = HashSet::new();
     let mut excluded_ids = HashSet::new();
 
-    if let Some(inc) = import.get("include-all") {
-        if inc.is_object() || inc.as_bool().unwrap_or(false) {
-            include_all = true;
-        }
+    if let Some(inc) = import.get("include-all")
+        && (inc.is_object() || inc.as_bool().unwrap_or(false))
+    {
+        include_all = true;
     }
 
     if let Some(inc_ctrls) = import.get("include-controls").and_then(Value::as_array) {
         for item in inc_ctrls {
-            if let Some(with_child) = item.get("with-child-controls").and_then(Value::as_str) {
-                if with_child == "yes" {
-                    include_all = true;
-                }
+            if let Some(with_child) = item.get("with-child-controls").and_then(Value::as_str)
+                && with_child == "yes"
+            {
+                include_all = true;
             }
             if let Some(call) = item.get("with-ids").and_then(Value::as_array) {
                 for id in call {
@@ -257,20 +257,20 @@ fn apply_control_modifications(
     // Override params
     if let Some(params) = ctrl.get_mut("params").and_then(Value::as_array_mut) {
         for param in params {
-            if let Some(pid) = param.get("id").and_then(Value::as_str) {
-                if let Some(override_val) = param_overrides.get(pid) {
-                    if let Some(vals) = override_val.get("values") {
-                        let param_obj = param.as_object_mut().ok_or_else(|| {
-                            AppError::Configuration("Control param is not an object".to_owned())
-                        })?;
-                        param_obj.insert("values".to_owned(), vals.clone());
-                    }
-                    if let Some(label) = override_val.get("label") {
-                        let param_obj = param.as_object_mut().ok_or_else(|| {
-                            AppError::Configuration("Control param is not an object".to_owned())
-                        })?;
-                        param_obj.insert("label".to_owned(), label.clone());
-                    }
+            if let Some(pid) = param.get("id").and_then(Value::as_str)
+                && let Some(override_val) = param_overrides.get(pid)
+            {
+                if let Some(vals) = override_val.get("values") {
+                    let param_obj = param.as_object_mut().ok_or_else(|| {
+                        AppError::Configuration("Control param is not an object".to_owned())
+                    })?;
+                    param_obj.insert("values".to_owned(), vals.clone());
+                }
+                if let Some(label) = override_val.get("label") {
+                    let param_obj = param.as_object_mut().ok_or_else(|| {
+                        AppError::Configuration("Control param is not an object".to_owned())
+                    })?;
+                    param_obj.insert("label".to_owned(), label.clone());
                 }
             }
         }

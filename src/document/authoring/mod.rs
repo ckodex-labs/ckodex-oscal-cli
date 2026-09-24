@@ -2,6 +2,6 @@ pub mod assembler;
 pub mod splitter;
 pub mod templates;
 
-pub use assembler::{assemble_directory, AssembleReport};
-pub use splitter::{split_document, SplitReport};
-pub use templates::{scaffold_template, TemplateReport};
+pub use assembler::{AssembleReport, assemble_directory};
+pub use splitter::{SplitReport, split_document};
+pub use templates::{TemplateReport, scaffold_template};

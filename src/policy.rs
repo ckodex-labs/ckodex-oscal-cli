@@ -316,12 +316,13 @@ mod tests {
         assert!(gate.permit(&RpcMethod::ClaimWrite).is_ok());
         assert!(gate.permit(&RpcMethod::EvidenceWrite).is_ok());
         assert!(gate.permit(&RpcMethod::GraphEdgeWrite).is_ok());
-        assert!(gate
-            .permit(&RpcMethod::OscalCrud {
+        assert!(
+            gate.permit(&RpcMethod::OscalCrud {
                 class: MethodClass::Create,
                 model: OscalModel::Poam,
             })
-            .is_ok());
+            .is_ok()
+        );
     }
 
     #[test]

@@ -7,7 +7,7 @@ use crate::{
         cas::CasStore, evidence::merkle::compute_merkle_root, fsm::state::EvidenceLevel,
         parser::OscalDocument,
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

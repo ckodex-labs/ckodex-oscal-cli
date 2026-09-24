@@ -29,6 +29,7 @@ export function JurisdictionSlsaPanel() {
   const [slsaVersion, setSlsaVersion] = React.useState<"v1.2" | "v1.0">("v1.2");
   const [isVerifying, setIsVerifying] = React.useState(false);
   const [verified, setVerified] = React.useState(true);
+  const [copiedBadge, setCopiedBadge] = React.useState(false);
 
   const jurisdictions = {
     us: {
@@ -70,13 +71,32 @@ export function JurisdictionSlsaPanel() {
   };
 
   const currentJur = jurisdictions[selectedJurisdiction];
+  const [verifyResult, setVerifyResult] = React.useState<any>(null);
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     setIsVerifying(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: "attest",
+          args: ["verify", "mizan-pipeline-output/slsa-provenance.json"],
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setVerified(Boolean(json.data.is_valid));
+        setVerifyResult(json.data);
+      } else {
+        setVerified(false);
+      }
+    } catch (err) {
+      console.error("Provenance verification failed:", err);
+      setVerified(false);
+    } finally {
       setIsVerifying(false);
-      setVerified(true);
-    }, 600);
+    }
   };
 
   return (
@@ -231,16 +251,16 @@ export function JurisdictionSlsaPanel() {
 
           <div className="flex items-center justify-between pt-2">
             <div className="flex items-center gap-2">
-              {verified ? (
-                <div className="flex items-center gap-1 text-emerald-400 text-xs font-medium">
-                  <CheckCircle2 className="h-4 w-4" />
+              {verified && verifyResult ? (
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-mono">
+                  <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>
-                    SLSA Cryptographic Proof Verified & Signed (Ed25519)
+                    Verified by mizan CLI · {verifyResult.subject_name} ({verifyResult.merkle_root?.slice(0, 19)}…)
                   </span>
                 </div>
               ) : (
-                <span className="text-xs text-muted-foreground">
-                  Unverified
+                <span className="text-xs text-muted-foreground font-mono">
+                  Unverified · Click to verify with mizan attest verify
                 </span>
               )}
             </div>

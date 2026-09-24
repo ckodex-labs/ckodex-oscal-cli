@@ -19,7 +19,9 @@ pub enum TenantError {
         used_bytes: u64,
         max_bytes: u64,
     },
-    #[error("Cross-tenant access violation: caller from {caller_tenant} attempted access to resource owned by {target_tenant}")]
+    #[error(
+        "Cross-tenant access violation: caller from {caller_tenant} attempted access to resource owned by {target_tenant}"
+    )]
     CrossTenantViolation {
         caller_tenant: String,
         target_tenant: String,
@@ -186,8 +188,44 @@ impl TenantManager {
         mgr
     }
 
+    fn persistence_path() -> std::path::PathBuf {
+        let dir = std::path::PathBuf::from(".mizan");
+        if !dir.exists() {
+            let _ = std::fs::create_dir_all(&dir);
+        }
+        dir.join("tenants.json")
+    }
+
+    pub fn load_or_default() -> Self {
+        let path = Self::persistence_path();
+        if path.exists()
+            && let Ok(data) = std::fs::read_to_string(&path)
+            && let Ok(tenants_map) =
+                serde_json::from_str::<HashMap<TenantId, TenantMetadata>>(&data)
+            && !tenants_map.is_empty()
+        {
+            return Self {
+                tenants: tenants_map,
+            };
+        }
+
+        let mgr = Self::new();
+        let _ = mgr.save();
+        mgr
+    }
+
+    pub fn save(&self) -> std::io::Result<()> {
+        let path = Self::persistence_path();
+        if let Some(parent) = path.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        let json = serde_json::to_string_pretty(&self.tenants)?;
+        std::fs::write(path, json)
+    }
+
     pub fn register_tenant(&mut self, metadata: TenantMetadata) {
         self.tenants.insert(metadata.tenant_id.clone(), metadata);
+        let _ = self.save();
     }
 
     pub fn get_tenant(&self, tenant_id: &TenantId) -> Result<&TenantMetadata, TenantError> {

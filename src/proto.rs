@@ -100,9 +100,10 @@ mod tests {
                 );
             }
         }
-        assert!(pool
-            .get_message_by_name("oscal.mapping.v1.ControlMapping")
-            .is_some());
+        assert!(
+            pool.get_message_by_name("oscal.mapping.v1.ControlMapping")
+                .is_some()
+        );
         for message in [
             "oscal.services.v1.FetchExternalEvidenceRequest",
             "oscal.services.v1.FetchExternalEvidenceResponse",

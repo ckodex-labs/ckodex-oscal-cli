@@ -1,14 +1,14 @@
 use std::fs;
 
 use tonic::{
+    Request,
     metadata::MetadataValue,
     transport::{Certificate, Channel, ClientTlsConfig, Endpoint, Identity},
-    Request,
 };
 
 use crate::{
     config::AppConfig,
-    error::{redact_endpoint, AppError, Result},
+    error::{AppError, Result, redact_endpoint},
     health::{HealthCheckRequest, HealthCheckResponse},
     proto::oscal::{common::v1::Uuid, services::v1 as svc},
 };

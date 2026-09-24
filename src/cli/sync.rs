@@ -4,9 +4,80 @@
 use super::*;
 
 pub(super) fn run_sync(args: &SyncArgs, format: OutputFormat) -> Result<()> {
-    let base_doc = OscalDocument::from_file(&args.base)?;
-    let upstream_doc = OscalDocument::from_file(&args.upstream)?;
-    let local_doc = OscalDocument::from_file(&args.local)?;
+    if let Some(matrix_path) = &args.matrix {
+        if !matrix_path.exists() {
+            return Err(AppError::Configuration(format!(
+                "Matrix CSV file does not exist: {}",
+                matrix_path.display()
+            )));
+        }
+        let target_file = if let Some(local_path) = &args.local {
+            local_path
+        } else if let Some(out) = &args.output {
+            out
+        } else {
+            return Err(AppError::Configuration(
+                "Must specify --local <DOCUMENT.json> or -o <OUTPUT.json> to sync matrix with"
+                    .to_string(),
+            ));
+        };
+
+        let target_doc = OscalDocument::from_file(target_file)?;
+        let csv_content = fs::read_to_string(matrix_path)
+            .map_err(|e| AppError::Configuration(format!("Failed to read matrix CSV: {e}")))?;
+
+        let _merged_doc = crate::document::tabular::sync_matrix_csv(
+            &target_doc,
+            &csv_content,
+            args.output.as_deref().or(Some(target_file)),
+        )?;
+
+        match format {
+            OutputFormat::Json | OutputFormat::Jsonl => {
+                let rep = serde_json::json!({
+                    "matrix_source": matrix_path.display().to_string(),
+                    "target_document": target_file.display().to_string(),
+                    "output_file": args.output.as_ref().unwrap_or(target_file).display().to_string(),
+                    "status": "SYNCHRONIZED"
+                });
+                println!("{rep}");
+            }
+            _ => {
+                println!("Auditor Matrix Synchronization & AST Reconciliation");
+                println!(
+                    "────────────────────────────────────────────────────────────────────────"
+                );
+                println!("  Matrix Source:    {}", matrix_path.display());
+                println!("  Target Document:  {}", target_file.display());
+                println!(
+                    "  Output File:      {}",
+                    args.output.as_ref().unwrap_or(target_file).display()
+                );
+                println!("  Status:           SYNCHRONIZED");
+                println!(
+                    "────────────────────────────────────────────────────────────────────────"
+                );
+                println!("✅ Auditor statuses and notes merged into OSCAL AST preserving UUIDs.");
+            }
+        }
+        return Ok(());
+    }
+
+    let base_path = args.base.as_ref().ok_or_else(|| {
+        AppError::Configuration("Missing required --base <DOCUMENT> for 3-way merge".to_string())
+    })?;
+    let upstream_path = args.upstream.as_ref().ok_or_else(|| {
+        AppError::Configuration(
+            "Missing required --upstream <DOCUMENT> for 3-way merge".to_string(),
+        )
+    })?;
+    let local_path = args.local.as_ref().ok_or_else(|| {
+        AppError::Configuration("Missing required --local <DOCUMENT> for 3-way merge".to_string())
+    })?;
+
+    let base_doc = OscalDocument::from_file(base_path)?;
+    let upstream_doc = OscalDocument::from_file(upstream_path)?;
+    let local_doc = OscalDocument::from_file(local_path)?;
 
     let strat = MergeStrategy::from_str_name(&args.strategy).ok_or_else(|| {
         AppError::Configuration(format!(
@@ -33,9 +104,9 @@ pub(super) fn run_sync(args: &SyncArgs, format: OutputFormat) -> Result<()> {
         _ => {
             println!("OSCAL 3-Way GitOps AST Sync & Merge");
             println!("────────────────────────────────────────────────────────────────────────");
-            println!("  Base:            {}", args.base.display());
-            println!("  Upstream:        {}", args.upstream.display());
-            println!("  Local:           {}", args.local.display());
+            println!("  Base:            {}", base_path.display());
+            println!("  Upstream:        {}", upstream_path.display());
+            println!("  Local:           {}", local_path.display());
             println!("  Strategy:        {}", report.strategy);
             println!(
                 "  Status:          {}",

@@ -1,5 +1,5 @@
 pub mod validator;
 
 pub use validator::{
-    validate_fedramp, FedrampBaseline, FedrampRuleFinding, FedrampValidationReport,
+    FedrampBaseline, FedrampRuleFinding, FedrampValidationReport, validate_fedramp,
 };

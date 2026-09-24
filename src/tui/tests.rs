@@ -9,7 +9,7 @@ use super::*;
 mod tests {
     use std::path::PathBuf;
 
-    use ratatui::{backend::TestBackend, Terminal};
+    use ratatui::{Terminal, backend::TestBackend};
 
     use crate::proto::oscal::services::v1::GraphProjectionEvent;
 

@@ -1,3 +1,3 @@
 pub mod merger;
 
-pub use merger::{sync_and_merge, MergeConflict, MergeReport, MergeStrategy};
+pub use merger::{MergeConflict, MergeReport, MergeStrategy, sync_and_merge};

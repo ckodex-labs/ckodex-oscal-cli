@@ -80,7 +80,7 @@ pub(super) fn run_fsm(args: &FsmCliArgs, format: OutputFormat) -> Result<()> {
                 _ => {
                     return Err(AppError::Configuration(format!(
                         "Unknown FSM event: {event} (use submit_for_review, approve, deploy_to_cluster, resolve_remediation, archive)"
-                    )))
+                    )));
                 }
             };
 

@@ -95,12 +95,12 @@ pub fn validate_fedramp(
     // Rule 2: Mandatory FedRAMP Roles
     total_rules += 1;
     let mut roles_set = HashSet::new();
-    if let Some(meta) = root_obj.get("metadata") {
-        if let Some(roles) = meta.get("roles").and_then(Value::as_array) {
-            for r in roles {
-                if let Some(id) = r.get("id").and_then(Value::as_str) {
-                    roles_set.insert(id.to_lowercase());
-                }
+    if let Some(meta) = root_obj.get("metadata")
+        && let Some(roles) = meta.get("roles").and_then(Value::as_array)
+    {
+        for r in roles {
+            if let Some(id) = r.get("id").and_then(Value::as_str) {
+                roles_set.insert(id.to_lowercase());
             }
         }
     }
@@ -121,15 +121,14 @@ pub fn validate_fedramp(
     // Rule 3: Implemented Requirements Coverage
     total_rules += 1;
     let mut covered_controls = HashSet::new();
-    if let Some(ctrl_imp) = root_obj.get("control-implementation") {
-        if let Some(reqs) = ctrl_imp
+    if let Some(ctrl_imp) = root_obj.get("control-implementation")
+        && let Some(reqs) = ctrl_imp
             .get("implemented-requirements")
             .and_then(Value::as_array)
-        {
-            for req in reqs {
-                if let Some(cid) = req.get("control-id").and_then(Value::as_str) {
-                    covered_controls.insert(cid.to_lowercase());
-                }
+    {
+        for req in reqs {
+            if let Some(cid) = req.get("control-id").and_then(Value::as_str) {
+                covered_controls.insert(cid.to_lowercase());
             }
         }
     }

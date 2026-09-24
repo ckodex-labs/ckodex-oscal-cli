@@ -1,5 +1,5 @@
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{fs, path::Path};
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
         k8s::client::KubeClusterClient, parser::OscalDocument, policy::evaluator::RegorusEvaluator,
         schema::DocumentKind,
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]

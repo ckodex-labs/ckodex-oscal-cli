@@ -3,6 +3,14 @@
 import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface ShortcutsModalProps {
   isOpen: boolean;
@@ -10,8 +18,6 @@ interface ShortcutsModalProps {
 }
 
 export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
-  if (!isOpen) return null;
-
   const shortcuts = [
     { key: "1", label: "The Atlas", desc: "OSCAL spatial graph of record" },
     {
@@ -77,37 +83,32 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div
-        className="border border-ck-hairline-strong bg-ck-bg-1 max-w-xl w-full p-6 shadow-2xl space-y-4 font-mono text-xs animate-in fade-in zoom-in-95"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-baseline justify-between border-b border-ck-hairline pb-2">
-          <div className="flex items-center gap-2">
-            <h2 className="font-serif text-2xl font-normal text-ck-fg-1">
-              Keyboard Navigation
-            </h2>
-            <span className="font-mono text-[11px] text-ck-fg-mute">
-              · Rapid Operator Ergonomics
-            </span>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-xl border-ck-hairline-strong bg-ck-bg-1 p-6 font-mono text-xs shadow-2xl">
+        <DialogHeader className="border-b border-ck-hairline pb-2">
+          <div className="flex items-baseline justify-between pr-6">
+            <div className="flex items-center gap-2">
+              <DialogTitle className="font-serif text-2xl font-normal text-ck-fg-1">
+                Keyboard Navigation
+              </DialogTitle>
+              <span className="font-mono text-[11px] text-ck-fg-mute">
+                · Rapid Operator Ergonomics
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className="font-mono text-[10px] text-ck-accent"
+            >
+              HOTKEYS
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] text-ck-accent"
-          >
-            HOTKEYS
-          </Badge>
-        </div>
+          <DialogDescription className="font-sans text-xs text-ck-fg-2 mt-1">
+            Mizan is designed for zero-latency keyboard-first governance. Every
+            surface, lens, and ledger verification is directly reachable.
+          </DialogDescription>
+        </DialogHeader>
 
-        <p className="font-sans text-xs text-ck-fg-2">
-          Mizan is designed for zero-latency keyboard-first governance. Every
-          surface, lens, and ledger verification is directly reachable.
-        </p>
-
-        <div className="grid grid-cols-2 gap-2 bg-ck-bg-0 p-3 border border-ck-hairline">
+        <div className="grid grid-cols-2 gap-2 bg-ck-bg-0 p-3 border border-ck-hairline my-2">
           {shortcuts.map((s) => (
             <div
               key={s.key}
@@ -128,7 +129,7 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
           ))}
         </div>
 
-        <div className="flex items-center justify-between border-t border-ck-hairline pt-3">
+        <DialogFooter className="flex items-center justify-between sm:justify-between border-t border-ck-hairline pt-3">
           <span className="text-[11px] text-ck-fg-mute">
             Press <kbd className="px-1 py-0.2 border border-ck-hairline">?</kbd>{" "}
             anywhere to toggle this sheet
@@ -141,8 +142,8 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
           >
             Close
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

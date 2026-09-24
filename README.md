@@ -3,6 +3,17 @@
 > **Unified, four-layer OSCAL compliance ecosystem for modern security engineering.**  
 > Native Tripartite Delivery: **Headless CLI (`mizan` / `oscal-cli`)** · **Terminal TUI (`mizan tui`)** · **Tauri Desktop & Web Workbench (`apps/workbench`)**.
 
+<p align="center">
+  <a href="https://github.com/MChorfa/shieldcn-zig"><img src="https://shieldcn.dev/badge/badge%20engine-shieldcn--zig-2dd4bf.svg?variant=secondary&wcag=3" alt="Badge Engine: shieldcn-zig" /></a>
+  <img src="https://shieldcn.dev/badge/rust-2024%20edition-orange.svg?variant=secondary&logo=rust" alt="Rust 2024 Edition" />
+  <img src="https://shieldcn.dev/badge/oscal-v1.2.3-blue.svg?variant=secondary" alt="OSCAL v1.2.3 Metaschema" />
+  <img src="https://shieldcn.dev/badge/next.js-v16.3.6-black.svg?variant=secondary&logo=nextdotjs" alt="Next.js 16" />
+  <img src="https://shieldcn.dev/badge/SLSA-Level%203-emerald.svg?variant=secondary&wcag=3" alt="SLSA Level 3 Attestation" />
+  <img src="https://shieldcn.dev/badge/fedramp-moderate%20%26%20high-green.svg?variant=secondary&wcag=3" alt="FedRAMP Moderate & High" />
+  <img src="https://shieldcn.dev/badge/tests-158%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 158 passed" />
+  <img src="https://shieldcn.dev/badge/license-Apache--2.0-slate.svg?variant=secondary" alt="License: Apache-2.0" />
+</p>
+
 ---
 
 ## 🏛️ The Four-Layer Hexagonal Architecture
@@ -18,7 +29,7 @@ Mizan strictly applies clean hexagonal boundaries across four distinct layers:
    - **Headless CLI (`mizan` / `oscal-cli`)**: Scriptable GitOps automation, pre-commit validation, and CI/CD pipelines.
    - **Terminal Observer (`mizan tui`)**: Zero-latency Ratatui terminal visualizer.
    - **Native Desktop App (Tauri `Mizan.app`)**: Native window with zero-overhead in-process Rust IPC.
-   - **Mizan Workbench (`apps/workbench`)**: Next.js 15 + React 19 + shadcn/ui AI Copilot styled with CKODEX `ledger`, `vault`, and `hc` themes.
+   - **Mizan Workbench (`apps/workbench`)**: Next.js 16 + React 19 + shadcn/ui AI Copilot styled with CKODEX `ledger`, `vault`, and `hc` themes.
 
 ---
 
@@ -168,6 +179,48 @@ cargo run --bin mizan -- policy rulepack eval -r cis-k8s-5.2.1 -i workload.json
 
 # Native Model Context Protocol (MCP) stdio server for AI agents (13 Tools)
 cargo run --bin mizan -- mcp
+
+# Developer Adoption & Cold-Start Onboarding (Repo Scanner & Workspace Scaffolder)
+cargo run --bin mizan -- init --from-repo . --output ./governance --jurisdiction us
+
+# Automated AST & Regex Remediation for CIS Benchmarks & Dockerfiles
+cargo run --bin mizan -- fix --dry-run
+cargo run --bin mizan -- fix --confirm --rule cis-k8s-5.2.6
+
+# Time-Bounded Derogation Leases (Zero-Friction Pipeline Waivers)
+cargo run --bin mizan -- waive create --rule cis-k8s-5.2.1 --resource deployment.yaml --duration-days 30 --justification "Migration to non-root scheduled"
+cargo run --bin mizan -- waive list
+cargo run --bin mizan -- waive revoke <lease-id>
+
+# Auditor Matrix CSV Export & 3-Way AST Bidirectional Synchronization
+cargo run --bin mizan -- catalog export-matrix -j us -o auditor-matrix.csv
+cargo run --bin mizan -- sync --base base.json --matrix auditor-matrix.csv -o reconciled-catalog.json
+
+# Zero-Install Offline Cryptographic Evidence Capsule (Embedded WebCrypto Merkle Verification)
+cargo run --bin mizan -- export capsule --bundle evidence-bundle.json --output capsule.html
+
+# shieldcn-zig Pure-Zig SVG/PNG/JSON Badge Generator (WCAG 3.0 APCA |Lc| >= 60 Compliant)
+cargo run --bin mizan -- export badge --label "FedRAMP" --message "Moderate COMPLIANT" --color green --variant secondary --wcag 3
+cargo run --bin mizan -- export badge --from-document ./examples/sample-catalog.json --variant secondary --wcag 3
+```
+
+### High-Assurance Dagger CI/CD Pipeline (Official Dagger Rust SDK)
+
+The continuous integration and provenance pipeline is powered natively by the official **Dagger Rust SDK** (`dagger-sdk = "0.21.9"`), matching the prominent language of the project. It executes hermetic, containerized verification with content-addressed cache volumes and automated `shieldcn-zig` badge production:
+
+```bash
+# Run the complete Dagger pipeline (Clippy, 158 tests, Fat-LTO build, Next.js 16 Workbench, Badges)
+cargo run -p mizan-dagger-ci -- all
+
+# Or execute individual Dagger pipeline stages:
+cargo run -p mizan-dagger-ci -- lint       # Clippy (-D warnings) & Rustfmt checks
+cargo run -p mizan-dagger-ci -- test       # 158 workspace invariant tests
+cargo run -p mizan-dagger-ci -- build      # Fat-LTO release binaries (mizan, oscal-cli)
+cargo run -p mizan-dagger-ci -- workbench  # Next.js 16 Turbopack production build
+cargo run -p mizan-dagger-ci -- badge      # APCA WCAG 3.0 shieldcn-zig badge generation
+
+# Alternatively, execute under Dagger CLI session:
+dagger run cargo run -p mizan-dagger-ci -- all
 ```
 
 ### Remote OSCALify Observer & Transparency Operations

@@ -97,20 +97,26 @@ fn test_multi_tenant_datastore_isolation_and_rbac() {
 #[test]
 fn test_spiffe_malformed_uris_and_schemes() {
     // Missing spiffe:// scheme
-    assert!("https://meridian.runbase.io/ns/prod/sa/app"
-        .parse::<SpiffeId>()
-        .is_err());
+    assert!(
+        "https://meridian.runbase.io/ns/prod/sa/app"
+            .parse::<SpiffeId>()
+            .is_err()
+    );
     // Empty trust domain
     assert!("spiffe:///ns/prod/sa/app".parse::<SpiffeId>().is_err());
     // Missing path
     assert!("spiffe://meridian.runbase.io".parse::<SpiffeId>().is_err());
     // Trust domain with invalid characters (port colon or spaces)
-    assert!("spiffe://meridian:8080/sa/test"
-        .parse::<SpiffeId>()
-        .is_err());
-    assert!("spiffe://meridian domain/sa/test"
-        .parse::<SpiffeId>()
-        .is_err());
+    assert!(
+        "spiffe://meridian:8080/sa/test"
+            .parse::<SpiffeId>()
+            .is_err()
+    );
+    assert!(
+        "spiffe://meridian domain/sa/test"
+            .parse::<SpiffeId>()
+            .is_err()
+    );
 }
 
 #[test]
@@ -124,14 +130,18 @@ fn test_oidc_expired_and_issuer_mismatch() {
 
     // Issuer mismatch token (iss: https://rogue-auth.com)
     let rogue_token = "eyJhbGciOiJub25lIn0.eyJpc3MiOiJodHRwczovL3JvZ3VlLWF1dGguY29tIiwic3ViIjoidXNlcl8xIiwiYXVkIjpbIm1pemFuLXdvcmtiZW5jaCJdLCJleHAiOjIxMDAwMDAwMDAsImlhdCI6MTcwMDAwMDAwMCwidGVuYW50X2lkIjoiZGVmYXVsdCIsInJvbGVzIjpbIlZpZXdlciJdfQ.";
-    assert!(validator
-        .decode_and_validate(rogue_token, 1750000000)
-        .is_err());
+    assert!(
+        validator
+            .decode_and_validate(rogue_token, 1750000000)
+            .is_err()
+    );
 
     // Malformed token without 3 segments
-    assert!(validator
-        .decode_and_validate("not-a-jwt", 1750000000)
-        .is_err());
+    assert!(
+        validator
+            .decode_and_validate("not-a-jwt", 1750000000)
+            .is_err()
+    );
 }
 
 #[test]

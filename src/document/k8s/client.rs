@@ -1,7 +1,7 @@
 use k8s_openapi::api::core::v1::Pod;
 use kube::{
-    api::{Api, ListParams},
     Client, Config,
+    api::{Api, ListParams},
 };
 use serde_json::Value;
 

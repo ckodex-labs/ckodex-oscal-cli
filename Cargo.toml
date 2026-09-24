@@ -1,11 +1,17 @@
 [package]
 name = "mizan-oscal"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 rust-version = "1.88"
 description = "Mizan · High-Assurance OSCAL Compliance Kernel & Workbench (CLI, TUI, Tauri GUI)"
 license = "Apache-2.0"
 repository = "https://github.com/ckodex-labs/ckodex-oscal-cli"
+
+[workspace]
+members = [
+    ".",
+    "ci",
+]
 
 [lib]
 name = "mizan_oscal"

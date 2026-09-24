@@ -11,11 +11,16 @@ interface FedrampBadgeCardProps {
 }
 
 export function FedrampBadgeCard({ report }: FedrampBadgeCardProps) {
+  const isPassed = report.passed ?? report.is_compliant ?? false;
+  const docKind = report.document_kind || report.kind || "OSCAL Document";
+  const violationCount = report.violation_count ?? report.failed_rules ?? report.findings.length;
+  const ruleCount = report.rule_count_evaluated ?? report.total_rules_checked ?? ((report.passed_rules ?? 0) + (report.failed_rules ?? report.findings.length));
+
   return (
     <Card className="my-2 border-ck-hairline-strong bg-ck-bg-1 shadow-[3px_3px_0_var(--ck-fg-1)]">
       <CardHeader className="flex flex-row items-center justify-between pb-2 bg-ck-bg-2/50">
         <div className="flex items-center gap-2">
-          {report.passed ? (
+          {isPassed ? (
             <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
           ) : (
             <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -29,16 +34,16 @@ export function FedrampBadgeCard({ report }: FedrampBadgeCardProps) {
               <span className="uppercase font-semibold text-ck-fg-1">
                 {report.baseline}
               </span>{" "}
-              · {report.document_kind}
+              · {docKind}
             </p>
           </div>
         </div>
 
         <Badge
-          variant={report.passed ? "success" : "destructive"}
+          variant={isPassed ? "success" : "destructive"}
           className="text-xs uppercase"
         >
-          {report.passed ? "COMPLIANT" : `${report.violation_count} VIOLATIONS`}
+          {isPassed ? "COMPLIANT" : `${violationCount} VIOLATIONS`}
         </Badge>
       </CardHeader>
 
@@ -46,7 +51,7 @@ export function FedrampBadgeCard({ report }: FedrampBadgeCardProps) {
         <div className="flex items-center justify-between border border-ck-hairline p-2 bg-ck-bg-0">
           <span className="text-ck-fg-mute">PMO Rules Evaluated:</span>
           <span className="font-semibold text-ck-fg-1">
-            {report.rule_count_evaluated}
+            {ruleCount}
           </span>
         </div>
 

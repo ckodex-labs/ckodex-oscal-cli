@@ -8,7 +8,9 @@ use std::str::FromStr;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RbacError {
-    #[error("Access denied: user {user} in tenant {tenant} lacks permission for action {action:?} on resource {resource:?}")]
+    #[error(
+        "Access denied: user {user} in tenant {tenant} lacks permission for action {action:?} on resource {resource:?}"
+    )]
     AccessDenied {
         user: String,
         tenant: String,
@@ -173,17 +175,23 @@ mod tests {
         let engine = RbacEngine::new();
 
         // Architect can create SSP and publish baseline
-        assert!(engine
-            .authorize(&ctx, Action::CreateDocument, ResourceType::Ssp)
-            .is_ok());
-        assert!(engine
-            .authorize(&ctx, Action::PublishBaseline, ResourceType::Profile)
-            .is_ok());
+        assert!(
+            engine
+                .authorize(&ctx, Action::CreateDocument, ResourceType::Ssp)
+                .is_ok()
+        );
+        assert!(
+            engine
+                .authorize(&ctx, Action::PublishBaseline, ResourceType::Profile)
+                .is_ok()
+        );
 
         // Architect cannot manage global tenant settings
-        assert!(engine
-            .authorize(&ctx, Action::ManageTenants, ResourceType::TenantConfig)
-            .is_err());
+        assert!(
+            engine
+                .authorize(&ctx, Action::ManageTenants, ResourceType::TenantConfig)
+                .is_err()
+        );
     }
 
     #[test]
@@ -195,23 +203,31 @@ mod tests {
         let engine = RbacEngine::new();
 
         // Auditor can read documents and emit assessment results
-        assert!(engine
-            .authorize(&ctx, Action::ReadDocument, ResourceType::Catalog)
-            .is_ok());
-        assert!(engine
-            .authorize(
-                &ctx,
-                Action::CreateDocument,
-                ResourceType::AssessmentResults
-            )
-            .is_ok());
+        assert!(
+            engine
+                .authorize(&ctx, Action::ReadDocument, ResourceType::Catalog)
+                .is_ok()
+        );
+        assert!(
+            engine
+                .authorize(
+                    &ctx,
+                    Action::CreateDocument,
+                    ResourceType::AssessmentResults
+                )
+                .is_ok()
+        );
 
         // Auditor CANNOT delete catalogs or promote environments
-        assert!(engine
-            .authorize(&ctx, Action::DeleteDocument, ResourceType::Catalog)
-            .is_err());
-        assert!(engine
-            .authorize(&ctx, Action::PromoteEnvironment, ResourceType::Profile)
-            .is_err());
+        assert!(
+            engine
+                .authorize(&ctx, Action::DeleteDocument, ResourceType::Catalog)
+                .is_err()
+        );
+        assert!(
+            engine
+                .authorize(&ctx, Action::PromoteEnvironment, ResourceType::Profile)
+                .is_err()
+        );
     }
 }

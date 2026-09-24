@@ -23,38 +23,9 @@ interface WorkloadSvid {
 }
 
 export function FabricSurface() {
-  const [tenants, setTenants] = React.useState<TenantRecord[]>([
-    {
-      id: "default",
-      name: "Default Shared Workspace",
-      tier: "Community",
-      quotaGb: 10,
-      usedBytes: 1024 * 1024 * 42,
-      jurisdiction: "us",
-      status: "ACTIVE",
-    },
-    {
-      id: "corp-alpha",
-      name: "Meridian Financial Systems",
-      tier: "Enterprise",
-      quotaGb: 500,
-      usedBytes: 1024 * 1024 * 1024 * 14,
-      jurisdiction: "us",
-      status: "ACTIVE",
-    },
-    {
-      id: "eu-health-01",
-      name: "Nordic Health Data Hub",
-      tier: "Enterprise",
-      quotaGb: 250,
-      usedBytes: 1024 * 1024 * 1024 * 3,
-      jurisdiction: "eu",
-      status: "ACTIVE",
-    },
-  ]);
-
-  const [selectedTenantId, setSelectedTenantId] =
-    React.useState<string>("corp-alpha");
+  const [tenants, setTenants] = React.useState<TenantRecord[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [selectedTenantId, setSelectedTenantId] = React.useState<string>("default");
   const [newTenantId, setNewTenantId] = React.useState("");
   const [newTenantName, setNewTenantName] = React.useState("");
   const [newTenantTier, setNewTenantTier] = React.useState<
@@ -85,28 +56,86 @@ export function FabricSurface() {
     },
   ]);
 
-  const handleCreateTenant = (e: React.FormEvent) => {
+  const loadTenants = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "fabric", args: ["tenant", "list"] }),
+      });
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const records: TenantRecord[] = json.data.map((t: any) => ({
+          id: t.tenant_id,
+          name: t.display_name,
+          tier: t.tier,
+          quotaGb: Math.round(t.max_storage_bytes / (1024 * 1024 * 1024)),
+          usedBytes: t.current_storage_bytes || 0,
+          jurisdiction: t.default_jurisdiction || "us",
+          status: "ACTIVE",
+        }));
+        setTenants(records);
+        if (records.length > 0 && !records.some((r) => r.id === selectedTenantId)) {
+          setSelectedTenantId(records[0].id);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load tenants from CLI:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [selectedTenantId]);
+
+  React.useEffect(() => {
+    loadTenants();
+  }, [loadTenants]);
+
+  const handleCreateTenant = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTenantId || !newTenantName) return;
 
-    const newRecord: TenantRecord = {
-      id: newTenantId.toLowerCase().replace(/[^a-z0-9-]/g, "-"),
-      name: newTenantName,
-      tier: newTenantTier,
-      quotaGb: newTenantTier === "Enterprise" ? 500 : 50,
+    const cleanId = newTenantId.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    const quota = newTenantTier === "Enterprise" ? "500" : newTenantTier === "Pro" ? "50" : "10";
+
+    try {
+      await fetch("/api/cli", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: "fabric",
+          args: [
+            "tenant",
+            "create",
+            cleanId,
+            "--name",
+            newTenantName,
+            "--tier",
+            newTenantTier,
+            "--quota-gb",
+            quota,
+          ],
+        }),
+      });
+      setNewTenantId("");
+      setNewTenantName("");
+      await loadTenants();
+      setSelectedTenantId(cleanId);
+    } catch (err) {
+      console.error("Failed to create tenant via CLI:", err);
+    }
+  };
+
+  const selectedTenant =
+    tenants.find((t) => t.id === selectedTenantId) ||
+    tenants[0] || {
+      id: "default",
+      name: "Default Local Workspace",
+      tier: "Community",
+      quotaGb: 10,
       usedBytes: 0,
       jurisdiction: "us",
       status: "ACTIVE",
     };
-
-    setTenants([...tenants, newRecord]);
-    setSelectedTenantId(newRecord.id);
-    setNewTenantId("");
-    setNewTenantName("");
-  };
-
-  const selectedTenant =
-    tenants.find((t) => t.id === selectedTenantId) || tenants[0];
 
   return (
     <div className="space-y-6 font-mono text-xs text-ck-fg-1">
@@ -118,14 +147,11 @@ export function FabricSurface() {
               Root Fabric &amp; Identity
             </h1>
             <span className="text-xs text-ck-fg-mute font-mono truncate hidden md:inline">
-              Zero-Trust SPIFFE/SPIRE Workload Attestation &amp; Cryptographic
-              Multi-Tenancy
+              Multi-Tenant Partition Registry &amp; SPIFFE ID Inspector
             </span>
           </div>
           <p className="text-xs text-ck-fg-3 mt-1 font-sans">
-            Strict tenant isolation via{" "}
-            <code>TenantContext::assert_same_tenant</code>, OIDC federated
-            tokens, and append-only cryptographic CAS partitions.
+            Tenant partition management via <code>TenantContext::assert_same_tenant</code> and persistent CLI registry (<code>.mizan/tenants.json</code>).
           </p>
         </div>
 

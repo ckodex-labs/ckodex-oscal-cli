@@ -7,13 +7,16 @@ use super::*;
 pub struct SyncArgs {
     /// Path to base common ancestor OSCAL document.
     #[arg(long)]
-    pub base: PathBuf,
+    pub base: Option<PathBuf>,
     /// Path to updated upstream OSCAL document.
     #[arg(long)]
-    pub upstream: PathBuf,
+    pub upstream: Option<PathBuf>,
     /// Path to local modified OSCAL document.
     #[arg(long)]
-    pub local: PathBuf,
+    pub local: Option<PathBuf>,
+    /// Synchronize an auditor-edited CSV matrix back into the local OSCAL document.
+    #[arg(long)]
+    pub matrix: Option<PathBuf>,
     /// 3-way merge conflict resolution strategy (manual, ours, theirs).
     #[arg(long, default_value = "manual")]
     pub strategy: String,

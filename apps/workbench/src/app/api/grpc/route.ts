@@ -6,9 +6,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { command, args = [] } = body;
 
-    // Execute via oscal-cli gRPC transport client
     const output = await callOscalCli([command, ...args, "--format", "json"]);
-    return NextResponse.json({ success: true, data: JSON.parse(output) });
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(output);
+    } catch {
+      parsed = { raw: output };
+    }
+    return NextResponse.json({ success: true, data: parsed });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     return NextResponse.json(

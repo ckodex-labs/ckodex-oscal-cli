@@ -1,28 +1,45 @@
+export interface ImpactedNode {
+  id: string;
+  kind?: string;
+  relation?: string;
+  title?: string;
+  document?: string;
+}
+
 export interface BlastRadiusReport {
   target_id: string;
   target_kind: string;
   risk_exposure_score: number;
   is_critical_path: boolean;
   documents_analyzed: string[];
-  direct_dependents: string[];
-  transitive_dependents: string[];
-  downstream_impact_paths: string[][];
+  direct_dependents: (string | ImpactedNode)[];
+  transitive_dependents: (string | ImpactedNode)[];
+  affected_components?: string[];
+  affected_findings?: string[];
+  affected_poam_items?: string[];
+  downstream_impact_paths?: string[][];
 }
 
 export interface FedrampFinding {
   rule_id: string;
-  severity: "high" | "medium" | "low";
+  severity: "high" | "medium" | "low" | string;
   title: string;
   detail: string;
-  target: string;
+  target?: string;
 }
 
 export interface FedrampReport {
-  document_kind: string;
+  document_kind?: string;
+  kind?: string;
+  file?: string;
   baseline: string;
-  passed: boolean;
-  rule_count_evaluated: number;
-  violation_count: number;
+  passed?: boolean;
+  is_compliant?: boolean;
+  rule_count_evaluated?: number;
+  total_rules_checked?: number;
+  violation_count?: number;
+  failed_rules?: number;
+  passed_rules?: number;
   findings: FedrampFinding[];
 }
 

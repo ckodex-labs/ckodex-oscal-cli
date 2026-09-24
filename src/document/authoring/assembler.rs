@@ -1,14 +1,14 @@
 use serde::Serialize;
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use std::{collections::BTreeMap, fs, path::Path};
 
 use crate::{
     document::{
         parser::OscalDocument,
         schema::DocumentKind,
-        validator::{validate_document, ValidationOptions},
+        validator::{ValidationOptions, validate_document},
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, Serialize)]

@@ -34,5 +34,7 @@ Thumbs.db
 
 # Local CLI cache & run state
 /.oscal-cli/
+/.mizan/
+mizan-pipeline-output/
 *.log
 *.tmp

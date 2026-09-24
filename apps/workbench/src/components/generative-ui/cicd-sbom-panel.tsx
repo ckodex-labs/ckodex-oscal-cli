@@ -143,24 +143,112 @@ export function CicdSbomPanel() {
 
   const currentRuleObj = rules.find((r) => r.id === selectedRule) || rules[0];
 
-  const handleRunEval = (isGood: boolean) => {
+  const handleRunEval = async (isGood: boolean) => {
     setEvaluating(true);
-    setTimeout(() => {
-      setEvaluating(false);
-      if (isGood) {
-        setEvalResult({
-          passed: true,
-          message: "All compliance invariants and security policies satisfied.",
-          findings: [],
-        });
+    let payload = currentRuleObj.samplePayload;
+
+    if (isGood) {
+      if (selectedRule === "cis-k8s-5.2.1") {
+        payload = JSON.stringify(
+          {
+            apiVersion: "v1",
+            kind: "Pod",
+            spec: {
+              containers: [
+                {
+                  name: "production-api",
+                  securityContext: {
+                    privileged: false,
+                    runAsNonRoot: true,
+                  },
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        );
+      } else if (selectedRule === "cis-k8s-5.2.6") {
+        payload = JSON.stringify(
+          {
+            apiVersion: "v1",
+            kind: "Pod",
+            spec: {
+              containers: [
+                {
+                  name: "worker-proc",
+                  securityContext: {
+                    readOnlyRootFilesystem: true,
+                  },
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        );
+      } else if (selectedRule === "fedramp-ac-2") {
+        payload = JSON.stringify(
+          {
+            apiVersion: "v1",
+            kind: "Pod",
+            spec: {
+              containers: [
+                {
+                  name: "core-service",
+                  securityContext: {
+                    runAsNonRoot: true,
+                  },
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        );
       } else {
+        payload = JSON.stringify(
+          {
+            apiVersion: "networking.k8s.io/v1",
+            kind: "NetworkPolicy",
+            spec: {
+              ingress: [
+                {
+                  from: [
+                    { podSelector: { matchLabels: { role: "frontend" } } },
+                  ],
+                },
+              ],
+            },
+          },
+          null,
+          2,
+        );
+      }
+    }
+
+    try {
+      const res = await fetch("/api/eval", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule: selectedRule, payload }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
         setEvalResult({
-          passed: false,
-          message: `Policy violation triggered by rule '${selectedRule}'`,
-          findings: [`Workload resource violates ${currentRuleObj.name}`],
+          passed: Boolean(json.data.passed),
+          message: json.data.passed
+            ? "Evaluated by Regorus engine · All compliance invariants satisfied."
+            : json.data.findings?.[0] ||
+              `Policy violation detected by rule '${selectedRule}'`,
+          findings: json.data.findings || [],
         });
       }
-    }, 300);
+    } catch (err) {
+      console.error("Evaluation failed:", err);
+    } finally {
+      setEvaluating(false);
+    }
   };
 
   return (

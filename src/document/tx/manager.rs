@@ -8,9 +8,9 @@ use crate::{
     document::{
         parser::OscalDocument,
         tx::wal::{MutationKind, WriteAheadLog},
-        validator::{validate_document, ValidationOptions},
+        validator::{ValidationOptions, validate_document},
     },
-    error::{io_error, AppError, Result},
+    error::{AppError, Result, io_error},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -103,19 +103,15 @@ impl TransactionSession {
 
         let mut failed_file = None;
         for entry in &self.wal.entries {
-            if let Some(content) = &entry.staged_content {
-                if entry.target_file.extension().and_then(|e| e.to_str()) == Some("json")
-                    || entry.target_file.extension().and_then(|e| e.to_str()) == Some("yaml")
-                {
-                    if let Ok(doc) =
-                        OscalDocument::from_str(content, Some(entry.target_file.clone()))
-                    {
-                        let rep = validate_document(&doc, &val_opts)?;
-                        if !rep.is_valid {
-                            failed_file = Some(entry.target_file.clone());
-                            break;
-                        }
-                    }
+            if let Some(content) = &entry.staged_content
+                && (entry.target_file.extension().and_then(|e| e.to_str()) == Some("json")
+                    || entry.target_file.extension().and_then(|e| e.to_str()) == Some("yaml"))
+                && let Ok(doc) = OscalDocument::from_str(content, Some(entry.target_file.clone()))
+            {
+                let rep = validate_document(&doc, &val_opts)?;
+                if !rep.is_valid {
+                    failed_file = Some(entry.target_file.clone());
+                    break;
                 }
             }
         }

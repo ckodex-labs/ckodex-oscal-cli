@@ -1,0 +1,1 @@
+[![OSCAL Metaschema: v1.2.3 Validated](https://shieldcn.dev/badge/OSCAL%20Metaschema-v1.2.3%20Validated-blue.svg?variant=secondary&wcag=3)](https://github.com/runbase/mizan)

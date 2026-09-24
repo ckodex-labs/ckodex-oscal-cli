@@ -1,0 +1,1 @@
+[![SLSA Level: 3 In-Toto](https://shieldcn.dev/badge/SLSA%20Level-3%20In--Toto-emerald.svg?variant=secondary&wcag=3)](https://github.com/runbase/mizan)

@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan · High-Assurance OSCAL Compliance Kernel & Workbench</title>
+  <meta name="description" content="NIST SP 800-53 Rev 5, FedRAMP Moderate & High, Tri-Jurisdiction Harmonization, SLSA Level 3 Provenance, Dagger Rust SDK Pipeline, and Next.js 16 Turbopack Workbench.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --card-bg: #121215;
+      --card-border: #27272a;
+      --text-main: #f4f4f5;
+      --text-muted: #a1a1aa;
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.15);
+      --code-bg: #18181b;
+      --green: #10b981;
+      --emerald: #059669;
+      --amber: #f59e0b;
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, monospace;
+    }
+
+    [data-theme="ledger"] {
+      --bg: #fcfbf9;
+      --card-bg: #ffffff;
+      --card-border: #e4e4e7;
+      --text-main: #18181b;
+      --text-muted: #71717a;
+      --accent: #2563eb;
+      --accent-glow: rgba(37, 99, 235, 0.08);
+      --code-bg: #f4f4f5;
+      --green: #059669;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    header {
+      border-bottom: 1px solid var(--card-border);
+      position: sticky;
+      top: 0;
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+    }
+    [data-theme="ledger"] header {
+      background: rgba(252, 251, 249, 0.85);
+    }
+
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0.85rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      text-decoration: none;
+      color: var(--text-main);
+      font-weight: 700;
+      font-size: 1.15rem;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: color 0.15s ease;
+    }
+    .nav-link:hover { color: var(--text-main); }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem;
+    }
+
+    .hero {
+      text-align: center;
+      padding: 2.5rem 0 3.5rem;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    .hero-title {
+      font-size: 2.75rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 1rem;
+    }
+
+    .hero-subtitle {
+      font-size: 1.2rem;
+      color: var(--text-muted);
+      max-width: 780px;
+      margin: 0 auto 2rem;
+      font-weight: 400;
+    }
+
+    .badges-hero {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-bottom: 2.25rem;
+    }
+
+    .badges-hero img {
+      height: 24px;
+      border-radius: 4px;
+    }
+
+    .quick-install {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 0.85rem 1.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--text-main);
+    }
+
+    .quick-install button {
+      background: var(--accent);
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.35rem 0.75rem;
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 1.75rem;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .card-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .card h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .section-title {
+      font-size: 1.85rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-top: 3.5rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .section-desc {
+      color: var(--text-muted);
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .cli-box {
+      background: var(--code-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      overflow-x: auto;
+      margin-top: 1rem;
+      line-height: 1.7;
+    }
+
+    .cli-comment { color: var(--text-muted); }
+    .cli-cmd { color: #60a5fa; font-weight: 600; }
+    .cli-flag { color: #34d399; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      background: var(--card-bg);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--card-border);
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--card-border);
+    }
+
+    th {
+      background: var(--code-bg);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .badge-pill {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .badge-pill.green { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+    .badge-pill.blue { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+    .badge-pill.amber { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+
+    .btn {
+      display: inline-block;
+      background: var(--accent);
+      color: #ffffff;
+      text-decoration: none;
+      padding: 0.65rem 1.25rem;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: opacity 0.15s ease;
+    }
+    .btn:hover { opacity: 0.9; }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      margin-left: 0.5rem;
+    }
+    .btn-outline:hover {
+      border-color: var(--text-main);
+    }
+
+    footer {
+      border-top: 1px solid var(--card-border);
+      padding: 2.5rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      margin-top: 4rem;
+    }
+
+    @media (max-width: 768px) {
+      .hero-title { font-size: 2rem; }
+      .nav-links { display: none; }
+      .quick-install { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="nav-container">
+      <a href="#" class="brand">
+        MIZAN
+        <span class="brand-badge">v0.1.0</span>
+      </a>
+      <div class="nav-links">
+        <a href="#architecture" class="nav-link">Surfaces</a>
+        <a href="#cli" class="nav-link">CLI Reference</a>
+        <a href="#jurisdictions" class="nav-link">Tri-Jurisdiction</a>
+        <a href="#capsule" class="nav-link">Evidence Capsule</a>
+        <a href="#dagger" class="nav-link">Dagger CI</a>
+        <a href="docs/api/mizan_oscal/index.html" class="nav-link" target="_blank">Rust Docs</a>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli" class="nav-link" target="_blank">GitHub</a>
+        <button class="theme-toggle" onclick="toggleTheme()">Ledger / Vault</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <section class="hero">
+      <h1 class="hero-title">High-Assurance OSCAL Compliance Kernel & Workbench</h1>
+      <p class="hero-subtitle">
+        NIST SP 800-53 Rev 5 · FedRAMP Moderate & High · Tri-Jurisdiction Harmonization · SLSA Level 3 In-Toto · Official Dagger Rust SDK Pipeline · Next.js 16 Turbopack
+      </p>
+
+      <div class="badges-hero">
+        <img src="https://shieldcn.dev/badge/OSCAL%20Metaschema-v1.2.3%20Validated-blue.svg?variant=secondary&wcag=3" alt="OSCAL Metaschema">
+        <img src="https://shieldcn.dev/badge/Rust-2024%20Edition-black.svg?variant=secondary&wcag=3&logo=rust" alt="Rust 2024">
+        <img src="https://shieldcn.dev/badge/Next.js-16%20Turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16">
+        <img src="https://shieldcn.dev/badge/SLSA%20Level-3%20In--Toto-emerald.svg?variant=secondary&wcag=3" alt="SLSA Level 3">
+        <img src="https://shieldcn.dev/badge/FedRAMP-Moderate%20%26%20High-green.svg?variant=secondary&wcag=3&logo=shield" alt="FedRAMP">
+        <img src="https://shieldcn.dev/badge/License-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="Apache 2.0">
+      </div>
+
+      <div class="quick-install">
+        <code>$ cargo install mizan-oscal && mizan --help</code>
+        <button onclick="navigator.clipboard.writeText('cargo install mizan-oscal')">Copy</button>
+      </div>
+
+      <div style="margin-top: 1.5rem;">
+        <a href="capsule.html" class="btn" target="_blank">Open Offline Evidence Capsule Demo</a>
+        <a href="docs/api/mizan_oscal/index.html" class="btn btn-outline" target="_blank">View Rustdoc API</a>
+      </div>
+    </section>
+
+    <!-- SECTION 1: ARCHITECTURE -->
+    <section id="architecture">
+      <h2 class="section-title">The Six Architectural Surfaces</h2>
+      <p class="section-desc">
+        Designed strictly around the Tufte high-data-ink philosophy and Rams unobtrusive precision. Mizan unifies compliance authoring, ledger provenance, and continuous CI/CD runtime gates.
+      </p>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-icon">✍️</div>
+          <h3>1. The Composer</h3>
+          <p>NIST SP 800-53 Rev 5 agile parameter authoring with multi-format splitting into granular, GitOps-friendly Markdown component workspaces.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">📜</div>
+          <h3>2. The Ledger</h3>
+          <p>Content-addressed SHA-256 evidence chain with time-decay gauges, proving freshness, strength, and immutability across compliance claims.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🛡️</div>
+          <h3>3. The Pipeline</h3>
+          <p>Continuous assurance gates executing <code>oscal-schema</code>, <code>slsa-provenance</code>, and <code>blast-radius</code> checks before code enters deployment.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🌐</div>
+          <h3>4. Root Fabric</h3>
+          <p>Zero-trust partition isolation backed by SPIFFE/SPIRE workload identities and cryptographically isolated multi-tenant namespaces.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">⚖️</div>
+          <h3>5. Jurisdictions & SLSA</h3>
+          <p>Tri-jurisdiction cross-walk mapping FedRAMP Rev 5, EU/BSI C5:2020, and NATO AC/322 with verifiable SLSA Level 3 provenance attestations.</p>
+        </div>
+        <div class="card">
+          <div class="card-icon">🗺️</div>
+          <h3>6. The Atlas</h3>
+          <p>High-density 2D/3D force-directed compliance graph topology tracing control dependencies, parameter mutations, and blast-radius vectors.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: CLI REFERENCE -->
+    <section id="cli">
+      <h2 class="section-title">NIST Parity & Modern Tooling CLI Reference</h2>
+      <p class="section-desc">
+        Full drop-in parity with NIST <code>oscal-cli</code> plus advanced extensions for 3-way AST merge, blast radius analysis, and derogation leasing.
+      </p>
+
+      <div class="cli-box">
+<span class="cli-comment"># 1. Official OSCAL Metaschema Validation</span>
+<span class="cli-cmd">mizan validate</span> path/to/catalog.json <span class="cli-flag">--strict</span>
+<span class="cli-cmd">mizan catalog validate</span> path/to/catalog.json
+
+<span class="cli-comment"># 2. Universal AST Format Converter (JSON, YAML, CSV Compliance Matrix, Protobuf)</span>
+<span class="cli-cmd">mizan convert</span> input.json <span class="cli-flag">--to=yaml</span> -o output.yaml
+<span class="cli-cmd">mizan convert</span> input.json <span class="cli-flag">--to=csv</span> -o matrix.csv
+<span class="cli-cmd">mizan convert</span> matrix.csv <span class="cli-flag">--to=json</span> -o output.json
+<span class="cli-cmd">mizan convert</span> input.json <span class="cli-flag">--to=proto</span> -o output.pb
+
+<span class="cli-comment"># 3. 3-Way GitOps AST Synchronization & Reconciler</span>
+<span class="cli-cmd">mizan sync</span> <span class="cli-flag">--base</span> base.json <span class="cli-flag">--upstream</span> upstream.json <span class="cli-flag">--local</span> local.json -o merged.json
+
+<span class="cli-comment"># 4. Multi-Model Blast Radius Impact Analysis</span>
+<span class="cli-cmd">mizan blast-radius</span> path/to/ssp.json <span class="cli-flag">--target</span> ac-1 <span class="cli-flag">--context</span> path/to/catalog.json
+
+<span class="cli-comment"># 5. Time-Bounded Cryptographic Derogation Leases (Pipeline Waivers)</span>
+<span class="cli-cmd">mizan waive create</span> <span class="cli-flag">--rule</span> cis-k8s-5.2.1 <span class="cli-flag">--resource</span> deploy.yaml <span class="cli-flag">--duration-days</span> 30
+<span class="cli-cmd">mizan waive list</span>
+
+<span class="cli-comment"># 6. shieldcn-zig Pure-Zig Badge Generator (APCA WCAG 3.0 Mode)</span>
+<span class="cli-cmd">mizan export badge</span> <span class="cli-flag">--label</span> "FedRAMP" <span class="cli-flag">--message</span> "Moderate COMPLIANT" <span class="cli-flag">--color</span> green <span class="cli-flag">--variant</span> secondary <span class="cli-flag">--wcag</span> 3
+
+<span class="cli-comment"># 7. Standalone Zero-Install Offline Cryptographic Evidence Capsule</span>
+<span class="cli-cmd">mizan export capsule</span> <span class="cli-flag">-a</span> assessment-results.json <span class="cli-flag">-o</span> capsule.html
+      </div>
+    </section>
+
+    <!-- SECTION 3: TRI-JURISDICTION -->
+    <section id="jurisdictions">
+      <h2 class="section-title">Tri-Jurisdiction Compliance Cross-Walk</h2>
+      <p class="section-desc">
+        Deterministic harmonization across the three major defense and enterprise compliance frameworks.
+      </p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Control Domain</th>
+            <th>US · FedRAMP Rev 5 (NIST SP 800-53)</th>
+            <th>EU · BSI C5:2020</th>
+            <th>NATO · AC/322 Directive</th>
+            <th>Assurance Gate</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Access Control</strong></td>
+            <td>AC-2, AC-3, AC-6</td>
+            <td>IDM-01, IDM-02</td>
+            <td>AC/322-D(2021)0012 §4</td>
+            <td><span class="badge-pill green">PASS · SLSA 3</span></td>
+          </tr>
+          <tr>
+            <td><strong>Continuous Audit</strong></td>
+            <td>AU-2, AU-6, AU-12</td>
+            <td>LOG-01, LOG-02</td>
+            <td>AC/322-D(2021)0012 §7</td>
+            <td><span class="badge-pill green">PASS · SHA256</span></td>
+          </tr>
+          <tr>
+            <td><strong>Supply Chain Integrity</strong></td>
+            <td>SR-3, SR-5, SA-12</td>
+            <td>DEV-03, DEV-04</td>
+            <td>AC/322-D(2021)0012 §11</td>
+            <td><span class="badge-pill blue">VERIFIED · IN-TOTO</span></td>
+          </tr>
+          <tr>
+            <td><strong>Cryptographic Storage</strong></td>
+            <td>SC-12, SC-13, SC-28</td>
+            <td>CRY-01, CRY-02</td>
+            <td>AC/322-D(2021)0012 §9</td>
+            <td><span class="badge-pill green">FIPS 140-3</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- SECTION 4: EVIDENCE CAPSULE -->
+    <section id="capsule">
+      <h2 class="section-title">Zero-Install Offline Cryptographic Evidence Capsule</h2>
+      <p class="section-desc">
+        Air-gap verifiable audit receipts packaged into a standalone HTML file. Embedded WebCrypto Merkle leaf hashing allows offline verification without installing any tools.
+      </p>
+
+      <div class="card" style="border-left: 4px solid var(--accent);">
+        <h3>Interactive Demonstration Available</h3>
+        <p style="margin-bottom: 1rem;">
+          The capsule contains the complete cryptographic envelope, verifiable Merkle proofs, and human-readable audit results in a single, offline file.
+        </p>
+        <a href="capsule.html" class="btn" target="_blank">Launch Offline Capsule Viewer ↗</a>
+      </div>
+    </section>
+
+    <!-- SECTION 5: DAGGER RUST SDK -->
+    <section id="dagger">
+      <h2 class="section-title">High-Assurance Dagger Rust SDK CI/CD Pipeline</h2>
+      <p class="section-desc">
+        In alignment with the prominent project language, Mizan CI/CD is orchestrated natively in Rust using <code>dagger-sdk = "0.21.9"</code>.
+      </p>
+
+      <div class="cli-box">
+<span class="cli-comment"># Execute the complete Dagger container DAG in Rust:</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- all
+
+<span class="cli-comment"># Run individual pipeline stages natively:</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- lint       <span class="cli-comment"># Clippy (-D warnings) & Rustfmt checks</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- test       <span class="cli-comment"># 158 workspace invariant tests</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- build      <span class="cli-comment"># Fat-LTO release binaries</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- workbench  <span class="cli-comment"># Next.js 16 Turbopack production build</span>
+<span class="cli-cmd">cargo run -p mizan-dagger-ci</span> -- badge      <span class="cli-comment"># shieldcn-zig APCA WCAG 3.0 badge generation</span>
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    <p>Mizan · High-Assurance Compliance Kernel · Published under Apache License 2.0</p>
+    <p style="margin-top: 0.5rem;">Maintained by <a href="https://github.com/ckodex-labs" style="color: var(--accent); text-decoration: none;">ckodex-labs</a></p>
+  </footer>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'ledger' ? 'vault' : 'ledger';
+      document.documentElement.setAttribute('data-theme', next);
+    }
+  </script>
+</body>
+</html>

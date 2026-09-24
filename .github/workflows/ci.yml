@@ -33,13 +33,29 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Check Formatting
-        run: cargo fmt --check
+        run: cargo fmt --all -- --check
 
       - name: Clippy Linter
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run Tests
-        run: cargo test --all-targets --verbose
+      - name: Run Tests (158 Invariant Tests)
+        run: cargo test --workspace
+
+  dagger-pipeline:
+    name: Dagger Rust SDK Pipeline Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build Dagger Pipeline Crate
+        run: cargo check -p mizan-dagger-ci
 
   workbench:
     name: Workbench UI & Desktop IPC
@@ -59,7 +75,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: apps/workbench/package-lock.json
 
@@ -71,7 +87,7 @@ jobs:
         working-directory: apps/workbench
         run: npm run lint
 
-      - name: Build Next.js Workbench
+      - name: Build Next.js 16 Workbench
         working-directory: apps/workbench
         run: npm run build
 

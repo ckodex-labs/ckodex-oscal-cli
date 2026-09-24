@@ -12,6 +12,9 @@ members = [
     ".",
     "ci",
 ]
+exclude = [
+    "apps/workbench/src-tauri",
+]
 
 [lib]
 name = "mizan_oscal"

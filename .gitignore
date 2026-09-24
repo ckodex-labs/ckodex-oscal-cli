@@ -5,6 +5,8 @@ target/
 *.profdata
 *.rs.bk
 Cargo.lock.backup
+!src/bin/
+!src/bin/**
 
 # Node & Frontend
 node_modules/

@@ -556,12 +556,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_k8s_audit_and_assessment_emission() {
-        let mut auditor = KubeAuditor::new(KubeClusterClient::new_mock());
+        let mut auditor = KubeAuditor::new(KubeClusterClient::new_disconnected());
         let result = auditor.audit_cluster(Some("production"), None, None).await;
 
         assert!(
             result.is_err(),
-            "audit with a mock/disconnected client must now fail closed"
+            "audit with a disconnected client must fail closed"
         );
     }
 }

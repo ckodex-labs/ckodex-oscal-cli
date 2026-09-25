@@ -24,7 +24,9 @@ export function LedgerSurface({ evidence }: LedgerSurfaceProps) {
 
   const handleSample = () => {
     if (filtered.length > 0) {
-      const rand = Math.floor(Math.random() * filtered.length);
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      const rand = arr[0] % filtered.length;
       setSampledIndex(rand);
     }
   };

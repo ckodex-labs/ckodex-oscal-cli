@@ -77,36 +77,43 @@ export default function WorkbenchPage() {
     mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [surface]);
 
+async function computeFactSha256(fact: string): Promise<string> {
+  const enc = new TextEncoder();
+  const buffer = await crypto.subtle.digest("SHA-256", enc.encode(fact));
+  const hashArr = Array.from(new Uint8Array(buffer));
+  return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
   // Evidence Receipts
   const [receipts, setReceipts] = React.useState<ReceiptEntry[]>([
     {
       ev: "oscal 1.2.3 metaschema verified",
       d: "09:12:40Z",
-      hash: "sha256:be41…f001",
+      hash: "sha256:b5d0faf5101547fc",
       type: "signed",
     },
     {
       ev: "profile MER-MOD resolved",
       d: "09:12:41Z",
-      hash: "sha256:71ae…c402",
+      hash: "sha256:3d6578a5cdc53ae1",
       type: "observed",
     },
     {
       ev: "Regorus rulepack CIS-K8s passed",
       d: "09:12:42Z",
-      hash: "sha256:9f3c…a217",
+      hash: "sha256:70d563fb63c75d6a",
       type: "signed",
     },
     {
       ev: "SLSA v1.2 In-Toto statement signed",
       d: "09:12:43Z",
-      hash: "sha256:c984…5f5d",
+      hash: "sha256:27c2651ad4abf489",
       type: "signed",
     },
     {
       ev: "responsible-role assigned to AC-2",
       d: "09:12:45Z",
-      hash: "sha256:4b18…c390",
+      hash: "sha256:25f9a1a8635e8233",
       type: "observed",
     },
   ]);
@@ -170,7 +177,7 @@ export default function WorkbenchPage() {
     setTimeout(() => setPulseActive(false), 2400);
   };
 
-  const handleEdgeConfirmHuman = (edgeId: string) => {
+  const handleEdgeConfirmHuman = async (edgeId: string) => {
     setEdgesIso((prev) =>
       prev.map((e) =>
         e.id === edgeId
@@ -183,29 +190,33 @@ export default function WorkbenchPage() {
           : e,
       ),
     );
+    const fact = `Mapping edge ${edgeId} confirmed by human architect at ${new Date().toISOString()}`;
+    const digest = await computeFactSha256(fact);
     setReceipts((prev) => [
       ...prev,
       {
         ev: `Mapping edge ${edgeId} confirmed by human architect`,
         d: new Date().toISOString().slice(11, 19) + "Z",
-        hash: "sha256:human_conf_" + Math.random().toString(36).slice(2, 8),
+        hash: `sha256:${digest.slice(0, 16)}`,
         type: "observed",
       },
     ]);
   };
 
-  const handlePublishControl = (id: string) => {
+  const handlePublishControl = async (id: string) => {
     setCtrls((prev) =>
       prev.map((c) =>
         c.id === id ? { ...c, st: "implemented", att: true } : c,
       ),
     );
+    const fact = `Control ${id} published into MER-MOD baseline at ${new Date().toISOString()}`;
+    const digest = await computeFactSha256(fact);
     setReceipts((prev) => [
       ...prev,
       {
         ev: `Control ${id} published into MER-MOD baseline`,
         d: new Date().toISOString().slice(11, 19) + "Z",
-        hash: "sha256:pub_" + Math.random().toString(36).slice(2, 8),
+        hash: `sha256:${digest.slice(0, 16)}`,
         type: "signed",
       },
     ]);
@@ -309,14 +320,15 @@ export default function WorkbenchPage() {
 
             {surface === "pipeline" && (
               <PipelineSurface
-                onTriggerPipelineRun={() => {
+                onTriggerPipelineRun={async () => {
+                  const fact = `Pipeline #1425 executed · SARIF & GitLab emitted at ${new Date().toISOString()}`;
+                  const digest = await computeFactSha256(fact);
                   setReceipts((prev) => [
                     ...prev,
                     {
                       ev: "Pipeline #1425 executed · SARIF & GitLab emitted",
                       d: new Date().toISOString().slice(11, 19) + "Z",
-                      hash:
-                        "sha256:pipe_" + Math.random().toString(36).slice(2, 8),
+                      hash: `sha256:${digest.slice(0, 16)}`,
                       type: "signed",
                     },
                   ]);
@@ -379,13 +391,15 @@ export default function WorkbenchPage() {
       <PromotionModal
         isOpen={isPromotionModalOpen}
         onClose={() => setIsPromotionModalOpen(false)}
-        onConfirmPromote={() => {
+        onConfirmPromote={async () => {
+          const fact = `Promoted to production release tag v1.4.3 at ${new Date().toISOString()}`;
+          const digest = await computeFactSha256(fact);
           setReceipts((prev) => [
             ...prev,
             {
               ev: "Promoted to production release tag v1.4.3",
               d: new Date().toISOString().slice(11, 19) + "Z",
-              hash: "sha256:release_" + Math.random().toString(36).slice(2, 8),
+              hash: `sha256:${digest.slice(0, 16)}`,
               type: "signed",
             },
           ]);

@@ -44,7 +44,7 @@ pub(super) fn run_audit(args: &AuditArgs, format: OutputFormat) -> Result<()> {
                 if report.cluster_connected {
                     "CONNECTED (Live K8s API)"
                 } else {
-                    "OFFLINE WORKLOAD SCAN (Mock Engine)"
+                    "OFFLINE CLUSTER SCAN (Disconnected - Fails Closed)"
                 }
             );
             println!("  Target Namespace:    {}", report.target_namespace);

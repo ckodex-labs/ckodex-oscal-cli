@@ -228,22 +228,89 @@ export function CicdSbomPanel() {
     }
 
     try {
-      const res = await fetch("/api/eval", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rule: selectedRule, payload }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setEvalResult({
-          passed: Boolean(json.data.passed),
-          message: json.data.passed
-            ? "Evaluated by Regorus engine · All compliance invariants satisfied."
-            : json.data.findings?.[0] ||
-              `Policy violation detected by rule '${selectedRule}'`,
-          findings: json.data.findings || [],
+      let evalData: { passed: boolean; findings: string[]; engine: string } | null = null;
+      try {
+        const res = await fetch("/api/eval", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rule: selectedRule, payload }),
         });
+        if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            evalData = {
+              passed: Boolean(json.data.passed),
+              findings: json.data.findings || [],
+              engine: "Native Regorus Engine",
+            };
+          }
+        }
+      } catch {
+        // Fallback to client-side AST inspection when offline or static
       }
+
+      if (!evalData) {
+        let passed = true;
+        const findings: string[] = [];
+        try {
+          const doc = JSON.parse(payload);
+          const containers = doc?.spec?.containers || [];
+          if (selectedRule === "cis-k8s-5.2.1") {
+            for (const c of containers) {
+              if (c?.securityContext?.privileged === true) {
+                passed = false;
+                findings.push(
+                  `Container '${c.name || "container"}' specifies privileged: true in securityContext (violates AC-6)`,
+                );
+              }
+            }
+          } else if (selectedRule === "cis-k8s-5.2.6") {
+            for (const c of containers) {
+              if (c?.securityContext?.readOnlyRootFilesystem !== true) {
+                passed = false;
+                findings.push(
+                  `Container '${c.name || "container"}' does not enforce readOnlyRootFilesystem: true (violates CM-7 / SI-4)`,
+                );
+              }
+            }
+          } else if (selectedRule === "fedramp-ac-2") {
+            for (const c of containers) {
+              if (c?.securityContext?.runAsNonRoot !== true) {
+                passed = false;
+                findings.push(
+                  `Container '${c.name || "container"}' allows root execution (runAsNonRoot: false) (violates AC-2)`,
+                );
+              }
+            }
+          } else if (selectedRule === "itsg33-boundary-isolation") {
+            const ingress = doc?.spec?.ingress || [];
+            if (ingress.length === 0) {
+              passed = false;
+              findings.push(
+                "NetworkPolicy does not specify ingress boundary isolation rules (violates ITSG-33 SC-7)",
+              );
+            }
+          }
+        } catch (e: any) {
+          passed = false;
+          findings.push(`Invalid JSON payload: ${e?.message || "parse error"}`);
+        }
+
+        evalData = {
+          passed,
+          findings,
+          engine: "In-Browser Policy AST Engine",
+        };
+      }
+
+      setEvalResult({
+        passed: evalData.passed,
+        message: evalData.passed
+          ? `Evaluated by ${evalData.engine} · All compliance invariants satisfied.`
+          : evalData.findings[0] ||
+            `Policy violation detected by rule '${selectedRule}'`,
+        findings: evalData.findings,
+      });
     } catch (err) {
       console.error("Evaluation failed:", err);
     } finally {

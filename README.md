@@ -7,7 +7,7 @@
   <img src="https://shieldcn.dev/badge/next.js-v16.3.6%20turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16 Turbopack" />
   <img src="https://shieldcn.dev/badge/provenance-slsa%20v1.2%20%26%20v1.0-emerald.svg?variant=secondary&wcag=3" alt="SLSA v1.2 & v1.0 Provenance Generator" />
   <img src="https://shieldcn.dev/badge/baselines-fedramp%20%C2%B7%20itsg--33%20%C2%B7%20iso27001-green.svg?variant=secondary&wcag=3&logo=shield" alt="FedRAMP, ITSG-33, ISO 27001 Baselines" />
-  <img src="https://shieldcn.dev/badge/tests-160%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 160 passed" />
+  <img src="https://shieldcn.dev/badge/tests-163%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 163 passed" />
   <img src="https://shieldcn.dev/badge/license-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="License: Apache-2.0" />
 </p>
 

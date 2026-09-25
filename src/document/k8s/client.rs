@@ -25,7 +25,7 @@ impl KubeClusterClient {
     }
 
     #[cfg(test)]
-    pub fn new_mock() -> Self {
+    pub fn new_disconnected() -> Self {
         Self { client: None }
     }
 

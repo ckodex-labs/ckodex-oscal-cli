@@ -145,6 +145,7 @@ mod tests {
         assert!(tool_names.contains(&"export_gitlab"));
         assert!(tool_names.contains(&"import_sbom_cyclonedx"));
         assert!(tool_names.contains(&"evaluate_policy_rulepack"));
+        assert!(tool_names.contains(&"ingest_security_report_to_poam"));
     }
 
     #[test]

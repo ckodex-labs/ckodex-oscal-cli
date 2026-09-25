@@ -4,28 +4,22 @@
 # ------------------------------------------------------------------------------
 
 # Stage 1: Build & Static Linkage
-FROM rust:1.85-alpine AS builder
+FROM rust:alpine AS builder
 
 RUN apk add --no-cache musl-dev protobuf-dev protoc git
 
 WORKDIR /usr/src/mizan
 
-# Cache dependency layer
+# Copy workspace manifests
 COPY Cargo.toml Cargo.lock ./
+COPY ci ./ci
 COPY proto ./proto
 COPY schemas ./schemas
 COPY build.rs ./
-
-# Create dummy lib to fetch and compile dependencies
-RUN mkdir -p src && echo "pub fn dummy() {}" > src/lib.rs && \
-    cargo build --release --bins || true && \
-    rm -rf src
-
-# Copy real source code
 COPY src ./src
 
 # Build statically linked release binaries
-RUN cargo build --release --bins
+RUN cargo build --release --bin mizan --bin oscal-cli
 
 # Stage 2: Minimal Distroless Runtime Surface
 FROM gcr.io/distroless/static-debian12:nonroot

@@ -335,6 +335,25 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, McpError> {
             });
             Ok(serde_json::to_string_pretty(&res)?)
         }
+        "ingest_security_report_to_poam" => {
+            let report_f = require_str_arg(args, "report_file")?;
+            let fmt_hint = optional_str_arg(args, "format").unwrap_or("auto");
+            let title =
+                optional_str_arg(args, "title").unwrap_or("Automated Security Remediation POA&M");
+            let existing_poam = optional_str_arg(args, "existing_poam_file").map(PathBuf::from);
+            let out_path = optional_str_arg(args, "output_file")
+                .map(confine_output_path)
+                .transpose()?;
+            let (_doc, report) =
+                crate::document::ComplianceFederator::generate_poam_from_security_report(
+                    Path::new(report_f),
+                    fmt_hint,
+                    title,
+                    existing_poam.as_deref(),
+                    out_path.as_deref(),
+                )?;
+            Ok(serde_json::to_string_pretty(&report)?)
+        }
         _ => Err(McpError::Tool {
             tool: name.to_string(),
             message: format!("Unknown tool: {name}"),

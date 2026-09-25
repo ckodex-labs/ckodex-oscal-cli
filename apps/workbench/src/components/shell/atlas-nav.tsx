@@ -11,7 +11,8 @@ export type SurfaceId =
   | "pipeline"
   | "jurisdiction"
   | "cicd"
-  | "fabric";
+  | "fabric"
+  | "inspector";
 
 interface AtlasNavProps {
   activeSurface: SurfaceId;
@@ -149,6 +150,21 @@ const SurfaceIcons: Record<SurfaceId, React.ReactNode> = {
       <line x1="8" y1="8" x2="8" y2="10" />
     </svg>
   ),
+  inspector: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <circle cx="7" cy="7" r="4.5" />
+      <line x1="10.5" y1="10.5" x2="14" y2="14" />
+      <line x1="5" y1="7" x2="9" y2="7" />
+      <line x1="7" y1="5" x2="7" y2="9" />
+    </svg>
+  ),
 };
 
 export function AtlasNav({
@@ -228,6 +244,17 @@ export function AtlasNav({
           label: "Root Fabric & Identity",
           countKey: "fabric",
           keyNum: "9",
+        },
+      ],
+    },
+    {
+      label: "verification & analysis",
+      items: [
+        {
+          id: "inspector" as SurfaceId,
+          label: "Live Inspector",
+          countKey: "inspector",
+          keyNum: "0",
         },
       ],
     },

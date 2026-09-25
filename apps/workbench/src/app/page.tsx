@@ -27,6 +27,7 @@ import { PipelineSurface } from "@/components/surfaces/pipeline-surface";
 import { JurisdictionSlsaPanel } from "@/components/generative-ui/jurisdiction-slsa-panel";
 import { CicdSbomPanel } from "@/components/generative-ui/cicd-sbom-panel";
 import { FabricSurface } from "@/components/surfaces/fabric-surface";
+import { InspectorSurface } from "@/components/surfaces/inspector-surface";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { PromotionModal } from "@/components/modals/promotion-modal";
 import { ShortcutsModal } from "@/components/modals/shortcuts-modal";
@@ -133,6 +134,7 @@ export default function WorkbenchPage() {
       if (e.key === "7") setSurface("jurisdiction");
       if (e.key === "8") setSurface("cicd");
       if (e.key === "9") setSurface("fabric");
+      if (e.key === "0") setSurface("inspector");
       if (e.key === "?") setIsShortcutsOpen((o) => !o);
       if (e.key === "t" || e.key === "T") {
         setTheme((prev) =>
@@ -327,6 +329,22 @@ export default function WorkbenchPage() {
             {surface === "cicd" && <CicdSbomPanel />}
 
             {surface === "fabric" && <FabricSurface />}
+
+            {surface === "inspector" && (
+              <InspectorSurface
+                onAddReceipt={(receipt) => {
+                  setReceipts((prev) => [
+                    ...prev,
+                    {
+                      ev: receipt.ev,
+                      d: receipt.d,
+                      hash: receipt.hash,
+                      type: receipt.type,
+                    },
+                  ]);
+                }}
+              />
+            )}
           </div>
         </main>
 

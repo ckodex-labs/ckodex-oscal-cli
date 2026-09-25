@@ -52,7 +52,7 @@ pub use export::{
     GitLabReportExporter, GitLabSecurityReport, SarifExporter, SarifReport, ShieldcnBadgeConfig,
     ShieldcnBadgeExporter,
 };
-pub use federation::{ComplianceFederator, FederationChainReport};
+pub use federation::{ComplianceFederator, FederationChainReport, SecurityReportPoamReport};
 pub use fedramp::{FedrampBaseline, FedrampRuleFinding, FedrampValidationReport, validate_fedramp};
 pub use fix::{FixEngine, FixReport};
 pub use fsm::{ComplianceState, EvidenceLevel, FsmEvent, FsmHistory, FsmRuntime, TransitionRecord};

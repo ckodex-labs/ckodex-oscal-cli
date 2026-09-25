@@ -317,6 +317,21 @@ pub fn tools_list() -> Value {
                     },
                     "required": ["spiffe_id"]
                 }
+            },
+            {
+                "name": "ingest_security_report_to_poam",
+                "description": "Ingest a SARIF v2.1.0 or GitLab Security scan report and generate/update an OSCAL Plan of Action and Milestones (POA&M) with mapped controls (write)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "report_file": { "type": "string", "description": "Path to SARIF or GitLab Security Report JSON" },
+                        "format": { "type": "string", "enum": ["auto", "sarif", "gitlab"], "default": "auto", "description": "Report format hint" },
+                        "title": { "type": "string", "default": "Automated Security Remediation POA&M", "description": "Title of the POA&M document" },
+                        "existing_poam_file": { "type": "string", "description": "Optional path to an existing POA&M document to append findings to" },
+                        "output_file": { "type": "string", "description": "Optional output path to write the POA&M document" }
+                    },
+                    "required": ["report_file"]
+                }
             }
         ]
     })

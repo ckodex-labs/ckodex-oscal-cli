@@ -818,6 +818,68 @@ fn test_cli_matrix_roundtrip_and_capsule() {
     let _ = fs::remove_dir_all(temp_dir);
 }
 
+#[test]
+fn test_cli_federate_from_security_report() {
+    let temp_dir = create_test_directory("poam-ingest");
+    let sarif_file = temp_dir.join("vuln.sarif");
+    let poam_out = temp_dir.join("remediation-poam.json");
+
+    let sarif_payload = serde_json::json!({
+        "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "Trivy",
+                    "version": "0.50.0",
+                    "informationUri": "https://trivy.dev",
+                    "rules": []
+                }
+            },
+            "results": [{
+                "ruleId": "CVE-2026-9999",
+                "level": "error",
+                "message": { "text": "Remote code execution in web parser" },
+                "locations": [{
+                    "physicalLocation": {
+                        "artifactLocation": { "uri": "Dockerfile" },
+                        "region": { "startLine": 1, "startColumn": 1 }
+                    }
+                }]
+            }]
+        }]
+    });
+    fs::write(&sarif_file, sarif_payload.to_string()).unwrap();
+
+    let output = mizan_cmd()
+        .args([
+            "federate",
+            "from-security-report",
+            "-i",
+            sarif_file.to_str().unwrap(),
+            "--title",
+            "CI Security Triage POA&M",
+            "-o",
+            poam_out.to_str().unwrap(),
+        ])
+        .output()
+        .expect("failed to run federate from-security-report");
+
+    if !output.status.success() {
+        eprintln!("STDERR: {}", String::from_utf8_lossy(&output.stderr));
+        eprintln!("STDOUT: {}", String::from_utf8_lossy(&output.stdout));
+    }
+    assert!(output.status.success());
+    assert!(poam_out.exists());
+
+    let content = fs::read_to_string(&poam_out).unwrap();
+    assert!(content.contains("CI Security Triage POA&M"));
+    assert!(content.contains("CVE-2026-9999"));
+    assert!(content.contains("plan-of-action-and-milestones"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
 fn create_test_directory(test_prefix: &str) -> std::path::PathBuf {
     let directory =
         std::env::temp_dir().join(format!("mizan-test-{test_prefix}-{}", std::process::id()));

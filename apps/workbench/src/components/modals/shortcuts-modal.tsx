@@ -61,6 +61,11 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
       desc: "SPIFFE/SPIRE SVIDs & multi-tenant isolation",
     },
     {
+      key: "0",
+      label: "Live Inspector",
+      desc: "In-browser OSCAL validation & air-gap capsule export",
+    },
+    {
       key: "T",
       label: "Cycle Theme",
       desc: "Switch between Ledger, Vault, and High-Contrast",

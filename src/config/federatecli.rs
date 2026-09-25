@@ -26,4 +26,22 @@ pub enum FederateCliAction {
         #[arg(long, short = 'o')]
         output: Option<PathBuf>,
     },
+    /// Ingest a SARIF or GitLab Security Report and generate/update an OSCAL POA&M remediation plan.
+    FromSecurityReport {
+        /// Path to input security report file (JSON or SARIF).
+        #[arg(long, short = 'i')]
+        report: PathBuf,
+        /// Format of input report: "sarif", "gitlab-sast", "auto".
+        #[arg(long = "input-format", default_value = "auto")]
+        input_format: String,
+        /// Title for generated POA&M.
+        #[arg(long, default_value = "Automated Security Remediation POA&M")]
+        title: String,
+        /// Optional path to existing POA&M to append findings into.
+        #[arg(long)]
+        existing_poam: Option<PathBuf>,
+        /// Output path for the resulting POA&M document.
+        #[arg(long, short = 'o')]
+        output: Option<PathBuf>,
+    },
 }

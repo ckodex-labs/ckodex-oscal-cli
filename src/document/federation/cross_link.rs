@@ -140,8 +140,9 @@ impl ComplianceFederator {
     ) -> Result<(OscalDocument, SecurityReportPoamReport)> {
         let content = std::fs::read_to_string(report_path)
             .map_err(|e| crate::error::io_error(report_path, e))?;
-        let json_val: Value = serde_json::from_str(&content)
-            .map_err(|e| AppError::Configuration(format!("Failed to parse security report JSON: {e}")))?;
+        let json_val: Value = serde_json::from_str(&content).map_err(|e| {
+            AppError::Configuration(format!("Failed to parse security report JSON: {e}"))
+        })?;
 
         let mut poam_items = Vec::new();
         let mut total_findings_read = 0;
@@ -152,7 +153,8 @@ impl ComplianceFederator {
             || (format_hint.eq_ignore_ascii_case("auto") && json_val.get("runs").is_some());
         let is_gitlab = format_hint.eq_ignore_ascii_case("gitlab")
             || format_hint.eq_ignore_ascii_case("gitlab-sast")
-            || (format_hint.eq_ignore_ascii_case("auto") && json_val.get("vulnerabilities").is_some());
+            || (format_hint.eq_ignore_ascii_case("auto")
+                && json_val.get("vulnerabilities").is_some());
 
         if is_sarif {
             detected_format = "OASIS SARIF v2.1.0".to_string();
@@ -179,24 +181,25 @@ impl ComplianceFederator {
                                 high_critical_count += 1;
                             }
 
-                            let mut loc_display = String::new();
-                            if let Some(locations) = res.get("locations").and_then(Value::as_array) {
-                                if let Some(first_loc) = locations.first() {
-                                    if let Some(phys) = first_loc.get("physicalLocation") {
-                                        let uri = phys
-                                            .get("artifactLocation")
-                                            .and_then(|a| a.get("uri"))
-                                            .and_then(Value::as_str)
-                                            .unwrap_or("file");
-                                        let line = phys
-                                            .get("region")
-                                            .and_then(|r| r.get("startLine"))
-                                            .and_then(Value::as_u64)
-                                            .unwrap_or(1);
-                                        loc_display = format!("{uri}:{line}");
-                                    }
-                                }
-                            }
+                            let loc_display = res
+                                .get("locations")
+                                .and_then(Value::as_array)
+                                .and_then(|locs| locs.first())
+                                .and_then(|first_loc| first_loc.get("physicalLocation"))
+                                .map(|phys| {
+                                    let uri = phys
+                                        .get("artifactLocation")
+                                        .and_then(|a| a.get("uri"))
+                                        .and_then(Value::as_str)
+                                        .unwrap_or("file");
+                                    let line = phys
+                                        .get("region")
+                                        .and_then(|r| r.get("startLine"))
+                                        .and_then(Value::as_u64)
+                                        .unwrap_or(1);
+                                    format!("{uri}:{line}")
+                                })
+                                .unwrap_or_default();
 
                             let mapped_ctrls = map_text_to_controls(&format!("{rule_id} {msg}"));
                             let poam_item = json!({
@@ -227,7 +230,10 @@ impl ComplianceFederator {
             if let Some(vulns) = json_val.get("vulnerabilities").and_then(Value::as_array) {
                 for v in vulns {
                     total_findings_read += 1;
-                    let id = v.get("id").and_then(Value::as_str).unwrap_or("vuln-unknown");
+                    let id = v
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or("vuln-unknown");
                     let name = v
                         .get("name")
                         .or_else(|| v.get("message"))
@@ -288,11 +294,17 @@ impl ComplianceFederator {
             if existing_p.exists() {
                 let mut existing_doc = OscalDocument::from_file(existing_p)?;
                 let root_key = DocumentKind::Poam.root_key();
-                if let Some(root_obj) = existing_doc.value.get_mut(root_key).and_then(Value::as_object_mut) {
+                if let Some(root_obj) = existing_doc
+                    .value
+                    .get_mut(root_key)
+                    .and_then(Value::as_object_mut)
+                {
                     if let Some(m) = root_obj.get_mut("metadata").and_then(Value::as_object_mut) {
                         m.insert("last-modified".to_string(), json!(now));
                     }
-                    if let Some(items) = root_obj.get_mut("poam-items").and_then(Value::as_array_mut) {
+                    if let Some(items) =
+                        root_obj.get_mut("poam-items").and_then(Value::as_array_mut)
+                    {
                         items.extend(poam_items.clone());
                         let total = items.len();
                         (existing_doc, total)
@@ -620,7 +632,11 @@ mod tests {
         assert_eq!(items.len(), 1);
         assert!(items[0]["title"].as_str().unwrap().contains("Critical"));
         let ctrls = items[0]["related-controls"].as_array().unwrap();
-        assert!(ctrls.iter().any(|c| c.as_str() == Some("ia-5") || c.as_str() == Some("sc-28")));
+        assert!(
+            ctrls
+                .iter()
+                .any(|c| c.as_str() == Some("ia-5") || c.as_str() == Some("sc-28"))
+        );
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }

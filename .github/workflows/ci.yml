@@ -38,7 +38,7 @@ jobs:
       - name: Clippy Linter
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run Tests (158 Invariant Tests)
+      - name: Run Tests (167 Invariant Tests)
         run: cargo test --workspace
 
   dagger-pipeline:

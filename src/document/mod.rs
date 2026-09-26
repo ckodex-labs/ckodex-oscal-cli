@@ -31,6 +31,9 @@ pub mod tx;
 pub mod validator;
 pub mod waiver;
 
+pub use crate::valence::{
+    AntiRelation, Coherence, DirectionalValence, EvidenceClass, Presence, VectorState,
+};
 pub use attestation::{SlsaProvenanceBuilder, SlsaVerificationReport, SlsaVersion};
 pub use authoring::{
     AssembleReport, SplitReport, TemplateReport, assemble_directory, scaffold_template,
@@ -439,10 +442,10 @@ mod tests {
         assert!(tmp_dir.join("ac_1.rego").exists());
         assert!(tmp_dir.join("kyverno_ac-1.yaml").exists());
 
-        // Ingest mock log
-        let mock_log = tmp_dir.join("eval.json");
+        // Ingest sample evaluation log
+        let sample_eval_log = tmp_dir.join("eval.json");
         std::fs::write(
-            &mock_log,
+            &sample_eval_log,
             r#"[
             {"control_id": "ac-1", "allowed": true, "message": "Policy passed"},
             {"control_id": "ac-2", "allowed": false, "message": "Account inactive for 90 days"}
@@ -450,8 +453,8 @@ mod tests {
         )
         .unwrap();
 
-        let (ar_doc, ingest_rep) =
-            ingest_policy_results(&mock_log, "CI Run 1", None).expect("ingest should succeed");
+        let (ar_doc, ingest_rep) = ingest_policy_results(&sample_eval_log, "CI Run 1", None)
+            .expect("ingest should succeed");
         assert_eq!(ingest_rep.total_evaluated, 2);
         assert_eq!(ingest_rep.passed_checks, 1);
         assert_eq!(ingest_rep.failed_checks, 1);

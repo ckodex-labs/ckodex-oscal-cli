@@ -12,7 +12,7 @@ mod policy;
 mod proto;
 mod transport;
 mod tui;
-mod valence;
+pub mod valence;
 
 pub(crate) const PROTO_DESCRIPTOR_SET: &[u8] =
     include_bytes!(concat!(env!("OUT_DIR"), "/oscal_descriptor.bin"));

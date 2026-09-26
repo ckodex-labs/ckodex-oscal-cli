@@ -84,7 +84,7 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
     }
 
     if matches!(action, CiAction::Test | CiAction::All) {
-        println!(">> [Stage 2/5] Running Workspace Tests (158 Invariant Tests)...");
+        println!(">> [Stage 2/5] Running Workspace Tests (167 Invariant Tests)...");
         let test_container = rust_base
             .clone()
             .with_exec(vec!["cargo", "test", "--workspace"])

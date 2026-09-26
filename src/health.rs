@@ -3,19 +3,19 @@ use std::fmt;
 use prost::Message;
 
 #[derive(Clone, PartialEq, Message)]
-pub(crate) struct HealthCheckRequest {
+pub struct HealthCheckRequest {
     #[prost(string, tag = "1")]
     pub service: String,
 }
 
 #[derive(Clone, PartialEq, Message)]
-pub(crate) struct HealthCheckResponse {
+pub struct HealthCheckResponse {
     #[prost(int32, tag = "1")]
     pub status: i32,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(crate) enum ServingStatus {
+pub enum ServingStatus {
     Unknown,
     Serving,
     NotServing,
@@ -24,7 +24,7 @@ pub(crate) enum ServingStatus {
 }
 
 impl ServingStatus {
-    pub(crate) fn from_i32(value: i32) -> Self {
+    pub fn from_i32(value: i32) -> Self {
         match value {
             0 => Self::Unknown,
             1 => Self::Serving,

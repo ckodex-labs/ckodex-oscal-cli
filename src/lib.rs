@@ -1,16 +1,16 @@
 mod capture;
 mod cli;
-mod config;
+pub mod config;
 pub mod document;
 mod error;
 use crate::error::AppError;
 pub mod fabric;
-mod health;
+pub mod health;
 pub mod mcp;
 mod output;
 mod policy;
-mod proto;
-mod transport;
+pub mod proto;
+pub mod transport;
 mod tui;
 pub mod valence;
 

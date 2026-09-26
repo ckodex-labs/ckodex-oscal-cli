@@ -77,7 +77,7 @@ fn main() {
     }
 
     tonic_prost_build::configure()
-        .build_server(false)
+        .build_server(true)
         .file_descriptor_set_path(descriptor_path)
         .compile_protos(&paths, &[proto_root, local_proto_root])
         .expect("failed to compile OSCALify protobuf definitions");

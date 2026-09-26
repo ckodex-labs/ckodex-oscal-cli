@@ -68,6 +68,26 @@ impl AppConfig {
     }
 }
 
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            endpoint: "http://127.0.0.1:50051".to_string(),
+            token: None,
+            timeout: Duration::from_secs(30),
+            tls_domain: None,
+            ca_cert: None,
+            client_cert: None,
+            client_key: None,
+            output: OutputFormat::Json,
+            theme: Theme::Ledger,
+            capture_root: PathBuf::from(".oscal-cli/captures"),
+            capture_enabled: false,
+            read_only: false,
+            valence: false,
+        }
+    }
+}
+
 pub(crate) fn normalized_endpoint(raw_endpoint: &str) -> Result<String> {
     let raw_endpoint = raw_endpoint.trim();
     if raw_endpoint.is_empty() {

@@ -184,6 +184,46 @@ impl FabricDataStore {
             .map_err(|e| DataStoreError::Lock(e.to_string()))?;
         Ok(audits.get(&ctx.tenant_id).cloned().unwrap_or_default())
     }
+
+    /// Delete a document strictly within the caller's tenant context
+    pub fn delete_document(
+        &self,
+        ctx: &TenantContext,
+        namespace: &str,
+        document_id: &str,
+    ) -> Result<StoredDocument, DataStoreError> {
+        let key = (
+            ctx.tenant_id.clone(),
+            namespace.to_string(),
+            document_id.to_string(),
+        );
+        let mut docs = self
+            .documents
+            .write()
+            .map_err(|e| DataStoreError::Lock(e.to_string()))?;
+        let stored = docs.remove(&key).ok_or_else(|| DataStoreError::NotFound {
+            id: document_id.to_string(),
+            namespace: namespace.to_string(),
+        })?;
+
+        let mut audits = self
+            .audit_logs
+            .write()
+            .map_err(|e| DataStoreError::Lock(e.to_string()))?;
+        audits
+            .entry(ctx.tenant_id.clone())
+            .or_default()
+            .push(AuditEntry {
+                timestamp: chrono::Utc::now().to_rfc3339(),
+                tenant_id: ctx.tenant_id.clone(),
+                user_id: ctx.user_id.to_string(),
+                action: "DELETE".to_string(),
+                document_id: document_id.to_string(),
+                document_digest: stored.sha256_digest.clone(),
+            });
+
+        Ok(stored)
+    }
 }
 
 #[cfg(test)]

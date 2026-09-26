@@ -130,6 +130,12 @@ impl TenantContext {
     }
 }
 
+impl Default for TenantContext {
+    fn default() -> Self {
+        Self::new(TenantId::new_unchecked("default"), UserId::new("system"))
+    }
+}
+
 /// Tenant Profile and Quota Metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TenantMetadata {

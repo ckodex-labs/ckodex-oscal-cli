@@ -14,4 +14,7 @@ pub struct DaemonCliArgs {
     /// Number of reconciliation cycles to execute before exiting (default: infinite).
     #[arg(long)]
     pub max_cycles: Option<usize>,
+    /// Optional gRPC server address to bind and serve (e.g. 127.0.0.1:50051).
+    #[arg(long)]
+    pub serve: Option<String>,
 }

@@ -11,6 +11,7 @@ pub struct CasStats {
     pub total_bytes: u64,
 }
 
+#[derive(Clone, Debug)]
 pub struct CasStore {
     root_dir: PathBuf,
 }

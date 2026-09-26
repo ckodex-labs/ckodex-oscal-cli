@@ -16,6 +16,9 @@ use crate::{
 pub mod crud_client;
 pub use crud_client::CrudClient;
 
+pub mod server;
+pub use server::{MizanServerState, start_embedded_server, start_embedded_server_with_state};
+
 pub(crate) const MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 
 pub async fn connect_channel(config: &AppConfig) -> Result<Channel> {

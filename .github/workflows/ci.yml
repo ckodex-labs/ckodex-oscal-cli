@@ -38,7 +38,12 @@ jobs:
       - name: Clippy Linter
         run: cargo clippy --workspace --all-targets -- -D warnings
 
-      - name: Run Tests (167 Invariant Tests)
+      - name: Security & License Audit (cargo-deny)
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
+      - name: Run Tests (168 Invariant & Integration Tests)
         run: cargo test --workspace
 
   dagger-pipeline:

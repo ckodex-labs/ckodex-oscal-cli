@@ -7,7 +7,7 @@
   <img src="https://shieldcn.dev/badge/next.js-v16.3.6%20turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16 Turbopack" />
   <img src="https://shieldcn.dev/badge/provenance-slsa%20v1.2%20%26%20v1.0-emerald.svg?variant=secondary&wcag=3" alt="SLSA v1.2 & v1.0 Provenance Generator" />
   <img src="https://shieldcn.dev/badge/baselines-fedramp%20%C2%B7%20itsg--33%20%C2%B7%20iso27001-green.svg?variant=secondary&wcag=3&logo=shield" alt="FedRAMP, ITSG-33, ISO 27001 Baselines" />
-  <img src="https://shieldcn.dev/badge/tests-167%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 167 passed" />
+  <img src="https://shieldcn.dev/badge/tests-188%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 188 passed" />
   <img src="https://shieldcn.dev/badge/license-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="License: Apache-2.0" />
 </p>
 
@@ -194,7 +194,7 @@ cargo run -p mizan-dagger-ci -- all
 
 # Run individual pipeline stages:
 cargo run -p mizan-dagger-ci -- lint       # Clippy (-D warnings) & Rustfmt checks
-cargo run -p mizan-dagger-ci -- test       # 158 workspace invariant tests
+cargo run -p mizan-dagger-ci -- test       # 188 workspace invariant tests
 cargo run -p mizan-dagger-ci -- build      # Fat-LTO release binaries
 cargo run -p mizan-dagger-ci -- workbench  # Next.js 16 Turbopack production build
 cargo run -p mizan-dagger-ci -- badge      # APCA WCAG 3.0 shieldcn-zig badge production
@@ -220,7 +220,7 @@ Mizan embeds baseline catalogs and mapping logic across three primary jurisdicti
 
 ## Verification & Test Evidence
 
-- **Rust Workspace**: `160 passed; 0 failed` across 126 unit tests and 34 integration tests (`cargo test --workspace`).
+- **Rust Workspace**: `188 passed; 0 failed` across 152 unit tests and 36 integration tests (`cargo test --workspace`).
 - **Linter & Style**: `cargo clippy --workspace --all-targets -- -D warnings` -> **0 warnings, 0 errors**.
 - **Next.js 16 Workbench**: Turbopack compiled in **1.7s** (`apps/workbench`).
 - **GitHub Pages Portal**: Automated build and deployment in `.github/workflows/pages.yml` hosting interactive Workbench, evidence capsules, and API references.

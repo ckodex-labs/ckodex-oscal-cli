@@ -18,7 +18,10 @@ export async function POST(req: NextRequest) {
     }
 
     const tempDir = os.tmpdir();
-    tempFilePath = path.join(tempDir, `mizan-eval-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    tempFilePath = path.join(
+      tempDir,
+      `mizan-eval-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
+    );
     fs.writeFileSync(tempFilePath, payload, "utf-8");
 
     const output = await callOscalCli([

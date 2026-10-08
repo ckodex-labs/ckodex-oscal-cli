@@ -53,6 +53,7 @@ pub struct MizanServerState {
     pub poams: Arc<RwLock<HashMap<String, PlanOfActionAndMilestones>>>,
     pub mappings: Arc<RwLock<HashMap<String, MappingCollection>>>,
     pub claims: Arc<RwLock<HashMap<String, Claim>>>,
+    pub evidence: Arc<RwLock<HashMap<String, Evidence>>>,
 }
 
 impl MizanServerState {
@@ -1188,10 +1189,25 @@ impl TransparencyExchangeService for MizanServerState {
         request: Request<VerifyClaimRequest>,
     ) -> Result<Response<VerifyClaimResponse>, Status> {
         let req = request.into_inner();
+        let claim_id = req.claim_id;
+        let claims = self
+            .claims
+            .read()
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let claim = claims
+            .get(&claim_id)
+            .ok_or_else(|| Status::not_found(format!("Claim `{claim_id}` not found")))?;
+
+        let trust_state = if claim.trust_state.is_empty() {
+            "observed".to_string()
+        } else {
+            claim.trust_state.clone()
+        };
+
         Ok(Response::new(VerifyClaimResponse {
-            claim_id: req.claim_id,
+            claim_id,
             proof_state: None,
-            trust_state: "observed".to_string(),
+            trust_state,
             diagnostics: Vec::new(),
         }))
     }
@@ -1211,17 +1227,34 @@ impl TransparencyExchangeService for MizanServerState {
         request: Request<ExportClaimReceiptRequest>,
     ) -> Result<Response<ExportClaimReceiptResponse>, Status> {
         let id = request.into_inner().claim_id;
+        let claims = self
+            .claims
+            .read()
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let claim = claims
+            .get(&id)
+            .ok_or_else(|| Status::not_found(format!("Claim `{id}` not found")))?;
+
+        let val = crate::output::message_json("oscal.services.v1.Claim", claim)
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let receipt_json =
+            serde_json::to_string(&val).map_err(|e| Status::internal(e.to_string()))?;
+        let receipt_digest = CasStore::compute_digest(receipt_json.as_bytes());
+        let verification_event_hash = receipt_digest.clone();
+
+        let trust_state = if claim.trust_state.is_empty() {
+            "observed".to_string()
+        } else {
+            claim.trust_state.clone()
+        };
+
         Ok(Response::new(ExportClaimReceiptResponse {
-            claim_id: id,
-            receipt_json: "{}".to_string(),
-            receipt_digest:
-                "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-                    .to_string(),
-            trust_state: "observed".to_string(),
-            verification_event_hash:
-                "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-                    .to_string(),
-            exported_at: Some(prost_types::Timestamp::default()),
+            claim_id: claim.id.clone(),
+            receipt_json,
+            receipt_digest,
+            trust_state,
+            verification_event_hash,
+            exported_at: Some(prost_types::Timestamp::from(std::time::SystemTime::now())),
         }))
     }
 
@@ -1245,11 +1278,23 @@ impl TransparencyExchangeService for MizanServerState {
     ) -> Result<Response<UploadEvidenceResponse>, Status> {
         let req = request.into_inner();
         let blob = req.blob;
+        let digest = self
+            .cas
+            .put_bytes(&blob)
+            .map_err(|e| Status::internal(e.to_string()))?;
+
         let mut evidence = req.evidence;
-        if let Ok(digest) = self.cas.put_bytes(&blob)
-            && let Some(ev) = evidence.as_mut()
-        {
-            ev.digest = digest;
+        if let Some(ev) = evidence.as_mut() {
+            ev.digest = digest.clone();
+            ev.size_bytes = blob.len() as i64;
+            if ev.id.is_empty() {
+                ev.id = digest;
+            }
+            let mut store = self
+                .evidence
+                .write()
+                .map_err(|e| Status::internal(e.to_string()))?;
+            store.insert(ev.id.clone(), ev.clone());
         }
         Ok(Response::new(UploadEvidenceResponse {
             evidence,
@@ -1262,26 +1307,19 @@ impl TransparencyExchangeService for MizanServerState {
         request: Request<GetEvidenceRequest>,
     ) -> Result<Response<GetEvidenceResponse>, Status> {
         let id = request.into_inner().evidence_id;
-        Ok(Response::new(GetEvidenceResponse {
-            evidence: Some(Evidence {
-                id,
-                media_type: "application/json".to_string(),
-                bom_kind: "cyclonedx".to_string(),
-                digest: String::new(),
-                size_bytes: 0,
-                storage: None,
-                produced_by_json: String::new(),
-                subject_refs: Vec::new(),
-                predicate_type: String::new(),
-                spec_json: String::new(),
-                created_at: Some(prost_types::Timestamp::default()),
-                valid_time: None,
-                supersedes: Vec::new(),
-                integrity_methods_json: String::new(),
-                classification: "internal".to_string(),
-                extensions_json: String::new(),
-            }),
-        }))
+        let store = self
+            .evidence
+            .read()
+            .map_err(|e| Status::internal(e.to_string()))?;
+        if let Some(ev) = store
+            .get(&id)
+            .or_else(|| store.values().find(|e| e.digest == id))
+        {
+            return Ok(Response::new(GetEvidenceResponse {
+                evidence: Some(ev.clone()),
+            }));
+        }
+        Err(Status::not_found(format!("Evidence `{id}` not found")))
     }
 
     async fn verify_evidence(
@@ -1289,11 +1327,57 @@ impl TransparencyExchangeService for MizanServerState {
         request: Request<VerifyEvidenceRequest>,
     ) -> Result<Response<VerifyEvidenceResponse>, Status> {
         let req = request.into_inner();
+        let id = req.evidence_id;
+        let fetch_and_hash = req.fetch_and_hash;
+
+        let store = self
+            .evidence
+            .read()
+            .map_err(|e| Status::internal(e.to_string()))?;
+        let ev = store
+            .get(&id)
+            .or_else(|| store.values().find(|e| e.digest == id))
+            .ok_or_else(|| Status::not_found(format!("Evidence `{id}` not found")))?;
+
+        let has_blob = self.cas.has_blob(&ev.digest);
+        let mut digest_ok = has_blob;
+        let mut size_ok = has_blob;
+        let mut error = String::new();
+
+        if !has_blob {
+            error = format!("CAS blob not found for digest: {}", ev.digest);
+        } else if fetch_and_hash {
+            match self.cas.get_bytes(&ev.digest) {
+                Ok(bytes) => {
+                    let actual_digest = CasStore::compute_digest(&bytes);
+                    let actual_size = bytes.len() as i64;
+                    digest_ok = actual_digest == ev.digest;
+                    size_ok = actual_size == ev.size_bytes;
+                    if !digest_ok {
+                        error = format!(
+                            "Digest mismatch: expected {}, got {}",
+                            ev.digest, actual_digest
+                        );
+                    } else if !size_ok {
+                        error = format!(
+                            "Size mismatch: expected {}, got {}",
+                            ev.size_bytes, actual_size
+                        );
+                    }
+                }
+                Err(e) => {
+                    digest_ok = false;
+                    size_ok = false;
+                    error = e.to_string();
+                }
+            }
+        }
+
         Ok(Response::new(VerifyEvidenceResponse {
-            evidence_id: req.evidence_id,
-            digest_ok: true,
-            size_ok: true,
-            error: String::new(),
+            evidence_id: id,
+            digest_ok,
+            size_ok,
+            error,
         }))
     }
 
@@ -1457,4 +1541,150 @@ pub async fn start_embedded_server(
     shutdown_rx: tokio::sync::oneshot::Receiver<()>,
 ) -> Result<(), tonic::transport::Error> {
     start_embedded_server_with_state(addr, MizanServerState::default(), shutdown_rx).await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_claims_and_evidence_lifecycle() {
+        let state = MizanServerState::new();
+
+        // 1. Missing claim lookups return not_found
+        let missing_claim_res = state
+            .verify_claim(Request::new(VerifyClaimRequest {
+                claim_id: "non-existent".to_string(),
+                checks: Vec::new(),
+            }))
+            .await;
+        assert!(missing_claim_res.is_err());
+        assert_eq!(missing_claim_res.unwrap_err().code(), tonic::Code::NotFound);
+
+        let missing_receipt_res = state
+            .export_claim_receipt(Request::new(ExportClaimReceiptRequest {
+                claim_id: "non-existent".to_string(),
+            }))
+            .await;
+        assert!(missing_receipt_res.is_err());
+        assert_eq!(
+            missing_receipt_res.unwrap_err().code(),
+            tonic::Code::NotFound
+        );
+
+        // 2. Create a claim
+        let claim = Claim {
+            id: "claim-test-1".to_string(),
+            r#type: "security-assessment".to_string(),
+            trust_state: "candidate".to_string(),
+            ..Default::default()
+        };
+        let create_res = state
+            .create_claim(Request::new(CreateClaimRequest {
+                claim: Some(claim.clone()),
+            }))
+            .await
+            .expect("create_claim should succeed");
+        assert_eq!(create_res.into_inner().claim.unwrap().id, "claim-test-1");
+
+        // 3. Verify claim
+        let verify_res = state
+            .verify_claim(Request::new(VerifyClaimRequest {
+                claim_id: "claim-test-1".to_string(),
+                checks: Vec::new(),
+            }))
+            .await
+            .expect("verify_claim should succeed");
+        let v_inner = verify_res.into_inner();
+        assert_eq!(v_inner.claim_id, "claim-test-1");
+        assert_eq!(v_inner.trust_state, "candidate");
+
+        // 4. Export claim receipt
+        let receipt_res = state
+            .export_claim_receipt(Request::new(ExportClaimReceiptRequest {
+                claim_id: "claim-test-1".to_string(),
+            }))
+            .await
+            .expect("export_claim_receipt should succeed");
+        let r_inner = receipt_res.into_inner();
+        assert_eq!(r_inner.claim_id, "claim-test-1");
+        assert!(!r_inner.receipt_json.is_empty());
+        assert_eq!(
+            r_inner.receipt_digest,
+            CasStore::compute_digest(r_inner.receipt_json.as_bytes())
+        );
+        assert_eq!(r_inner.verification_event_hash, r_inner.receipt_digest);
+
+        // 5. Missing evidence lookups return not_found
+        let missing_ev_res = state
+            .get_evidence(Request::new(GetEvidenceRequest {
+                evidence_id: "non-existent-ev".to_string(),
+            }))
+            .await;
+        assert!(missing_ev_res.is_err());
+        assert_eq!(missing_ev_res.unwrap_err().code(), tonic::Code::NotFound);
+
+        let missing_verify_ev = state
+            .verify_evidence(Request::new(VerifyEvidenceRequest {
+                evidence_id: "non-existent-ev".to_string(),
+                fetch_and_hash: false,
+            }))
+            .await;
+        assert!(missing_verify_ev.is_err());
+        assert_eq!(missing_verify_ev.unwrap_err().code(), tonic::Code::NotFound);
+
+        // 6. Upload evidence
+        let payload = b"SBOM component evidence test payload";
+        let ev = Evidence {
+            id: "ev-test-1".to_string(),
+            media_type: "application/json".to_string(),
+            bom_kind: "cyclonedx".to_string(),
+            ..Default::default()
+        };
+        let upload_res = state
+            .upload_evidence(Request::new(UploadEvidenceRequest {
+                evidence: Some(ev),
+                blob: payload.to_vec(),
+            }))
+            .await
+            .expect("upload_evidence should succeed");
+        let uploaded = upload_res.into_inner().evidence.unwrap();
+        assert_eq!(uploaded.id, "ev-test-1");
+        assert_eq!(uploaded.size_bytes, payload.len() as i64);
+        assert_eq!(uploaded.digest, CasStore::compute_digest(payload));
+
+        // 7. Get evidence
+        let get_ev_res = state
+            .get_evidence(Request::new(GetEvidenceRequest {
+                evidence_id: "ev-test-1".to_string(),
+            }))
+            .await
+            .expect("get_evidence should succeed");
+        assert_eq!(get_ev_res.into_inner().evidence.unwrap().id, "ev-test-1");
+
+        // 8. Verify evidence without and with fetch_and_hash
+        let verify_ev_res1 = state
+            .verify_evidence(Request::new(VerifyEvidenceRequest {
+                evidence_id: "ev-test-1".to_string(),
+                fetch_and_hash: false,
+            }))
+            .await
+            .expect("verify_evidence should succeed");
+        let v_ev1 = verify_ev_res1.into_inner();
+        assert!(v_ev1.digest_ok);
+        assert!(v_ev1.size_ok);
+        assert!(v_ev1.error.is_empty());
+
+        let verify_ev_res2 = state
+            .verify_evidence(Request::new(VerifyEvidenceRequest {
+                evidence_id: "ev-test-1".to_string(),
+                fetch_and_hash: true,
+            }))
+            .await
+            .expect("verify_evidence with fetch_and_hash should succeed");
+        let v_ev2 = verify_ev_res2.into_inner();
+        assert!(v_ev2.digest_ok);
+        assert!(v_ev2.size_ok);
+        assert!(v_ev2.error.is_empty());
+    }
 }

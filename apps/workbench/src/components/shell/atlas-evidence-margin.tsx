@@ -49,7 +49,7 @@ export function AtlasEvidenceMargin({
       <div className="space-y-3">
         <div className="flex items-center justify-between border-b border-ck-hairline pb-2">
           <span className="text-[10px] uppercase font-bold text-ck-fg-mute">
-            Live Evidence Stream
+            Evidence Receipts Stream
           </span>
           <button
             type="button"

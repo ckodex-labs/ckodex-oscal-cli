@@ -1,12 +1,14 @@
 use mizan_oscal::fabric::{
-    OidcProviderConfig, OidcTokenValidator, ResourceType, RootFabricEngine, SpiffeId,
-    SpireWorkloadAttestor, TenantContext, TenantId, TrustDomain, UserId,
+    JwtSvid, OidcClaims, OidcError, OidcProviderConfig, OidcTokenValidator, ResourceType,
+    RootFabricEngine, SpiffeError, SpiffeId, SpireWorkloadAttestor, TenantContext, TenantId,
+    TrustDomain, UserId,
 };
 
 #[test]
 fn test_spiffe_spire_workload_identity_attestation() {
     let td = TrustDomain::new("meridian.runbase.io").expect("valid trust domain");
-    let attestor = SpireWorkloadAttestor::new(td.clone());
+    let secret = b"spire-shared-fabric-secret-key-32b";
+    let attestor = SpireWorkloadAttestor::new(td.clone()).with_shared_secret(secret);
 
     let valid_id: SpiffeId = "spiffe://meridian.runbase.io/ns/prod/sa/mizan-auditor"
         .parse()
@@ -21,22 +23,89 @@ fn test_spiffe_spire_workload_identity_attestation() {
         .parse()
         .expect("parse external id");
     assert!(attestor.verify_spiffe_id(&external_id).is_err());
+
+    // Cryptographic JWT SVID validation
+    let valid_svid = JwtSvid::sign_hs256(
+        valid_id.clone(),
+        vec!["mizan-workbench".to_string()],
+        2100000000,
+        1700000000,
+        secret,
+    )
+    .expect("sign svid");
+    assert!(attestor.verify_jwt_svid(&valid_svid, 1750000000).is_ok());
+
+    // Rejection of alg: none JWT SVID
+    let none_svid = JwtSvid {
+        spiffe_id: valid_id,
+        audience: vec!["mizan-workbench".to_string()],
+        expires_at: 2100000000,
+        issued_at: 1700000000,
+        token: "eyJhbGciOiJub25lIn0.eyJzdWIiOiJzcGlmZmU6Ly9tZXJpZGlhbi5ydW5iYXNlLmlvL25zL3Byb2Qvc2EvbWl6YW4tYXVkaXRvciJ9.".to_string(),
+    };
+    let err_none = attestor.verify_jwt_svid(&none_svid, 1750000000);
+    assert!(matches!(err_none, Err(SpiffeError::UnsafeAlgorithmNone)));
+
+    // Rejection of corrupted signature on SVID
+    let mut tampered_svid = valid_svid;
+    tampered_svid.token.push_str("tampered");
+    let err_tampered = attestor.verify_jwt_svid(&tampered_svid, 1750000000);
+    assert!(matches!(err_tampered, Err(SpiffeError::InvalidSignature)));
 }
 
 #[test]
 fn test_oidc_claims_and_role_extraction() {
-    let cfg = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench");
+    let secret = b"meridian-test-signing-secret-key-32b";
+    let cfg = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench")
+        .with_shared_secret(secret);
     let validator = OidcTokenValidator::new(cfg);
 
-    // Payload: {"iss":"https://auth.runbase.io","sub":"user_884","aud":["mizan-workbench"],"exp":2100000000,"iat":1700000000,"tenant_id":"corp-fintech","roles":["ComplianceArchitect"]}
-    let token = "eyJhbGciOiJub25lIn0.eyJpc3MiOiJodHRwczovL2F1dGgucnVuYmFzZS5pbyIsInN1YiI6InVzZXJfODg0IiwiYXVkIjpbIm1pemFuLXdvcmtiZW5jaCJdLCJleHAiOjIxMDAwMDAwMDAsImlhdCI6MTcwMDAwMDAwMCwidGVuYW50X2lkIjoiY29ycC1maW50ZWNoIiwicm9sZXMiOlsiQ29tcGxpYW5jZUFyY2hpdGVjdCJdfQ.";
+    let claims = OidcClaims {
+        iss: "https://auth.runbase.io".to_string(),
+        sub: "user_884".to_string(),
+        aud: vec!["mizan-workbench".to_string()],
+        exp: 2100000000,
+        iat: 1700000000,
+        email: Some("architect@runbase.io".to_string()),
+        tenant_id: Some("corp-fintech".to_string()),
+        groups: vec![],
+        roles: vec!["ComplianceArchitect".to_string()],
+        name: None,
+    };
 
-    let claims = validator
-        .decode_and_validate(token, 1750000000)
+    // 1. Signed HS256 token verification passes
+    let token = OidcTokenValidator::sign_hs256(&claims, secret).expect("token signature");
+    let decoded = validator
+        .decode_and_validate(&token, 1750000000)
         .expect("token decode");
-    assert_eq!(claims.sub, "user_884");
-    assert_eq!(claims.tenant_id, Some("corp-fintech".to_string()));
-    assert_eq!(claims.roles, vec!["ComplianceArchitect".to_string()]);
+    assert_eq!(decoded.sub, "user_884");
+    assert_eq!(decoded.tenant_id, Some("corp-fintech".to_string()));
+    assert_eq!(decoded.roles, vec!["ComplianceArchitect".to_string()]);
+
+    // 2. Strict mode categorically rejects alg: none tokens
+    let none_token = "eyJhbGciOiJub25lIn0.eyJpc3MiOiJodHRwczovL2F1dGgucnVuYmFzZS5pbyIsInN1YiI6InVzZXJfODg0IiwiYXVkIjpbIm1pemFuLXdvcmtiZW5jaCJdLCJleHAiOjIxMDAwMDAwMDAsImlhdCI6MTcwMDAwMDAwMCwidGVuYW50X2lkIjoiY29ycC1maW50ZWNoIiwicm9sZXMiOlsiQ29tcGxpYW5jZUFyY2hpdGVjdCJdfQ.";
+    let err_none = validator.decode_and_validate(none_token, 1750000000);
+    assert!(matches!(err_none, Err(OidcError::UnsafeAlgorithmNone)));
+
+    // 3. Forged signature fails closed with InvalidSignature
+    let rogue_token =
+        OidcTokenValidator::sign_hs256(&claims, b"attacker-fabricated-key").expect("rogue token");
+    let err_rogue = validator.decode_and_validate(&rogue_token, 1750000000);
+    assert!(matches!(err_rogue, Err(OidcError::InvalidSignature)));
+
+    // 4. Missing signature fails closed with MissingSignature
+    let missing_sig_token = format!(
+        "{}.",
+        token.rsplit_once('.').map(|(prefix, _)| prefix).unwrap()
+    );
+    let err_missing = validator.decode_and_validate(&missing_sig_token, 1750000000);
+    assert!(matches!(err_missing, Err(OidcError::MissingSignature)));
+
+    // 5. Unauthenticated inspection can inspect claims for pre-routing without authorization
+    let (header, unauth_claims) =
+        OidcTokenValidator::inspect_unauthenticated(&token).expect("inspect claims");
+    assert_eq!(header.alg, "HS256");
+    assert_eq!(unauth_claims.sub, "user_884");
 }
 
 #[test]
@@ -121,27 +190,51 @@ fn test_spiffe_malformed_uris_and_schemes() {
 
 #[test]
 fn test_oidc_expired_and_issuer_mismatch() {
-    let cfg = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench");
+    let secret = b"test-verification-secret-32-bytes";
+    let cfg = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench")
+        .with_shared_secret(secret);
     let validator = OidcTokenValidator::new(cfg);
 
     // Expired token (exp: 1000)
-    let expired_token = "eyJhbGciOiJub25lIn0.eyJpc3MiOiJodHRwczovL2F1dGgucnVuYmFzZS5pbyIsInN1YiI6InVzZXJfMSIsImF1ZCI6WyJtaXphbi13b3JrYmVuY2giXSwiZXhwIjoxMDAwLCJpYXQiOjkwMCwidGVuYW50X2lkIjoiZGVmYXVsdCIsInJvbGVzIjpbIlZpZXdlciJdfQ.";
-    assert!(validator.decode_and_validate(expired_token, 5000).is_err());
+    let expired_claims = OidcClaims {
+        iss: "https://auth.runbase.io".to_string(),
+        sub: "user_1".to_string(),
+        aud: vec!["mizan-workbench".to_string()],
+        exp: 1000,
+        iat: 900,
+        email: None,
+        tenant_id: Some("default".to_string()),
+        groups: vec![],
+        roles: vec!["Viewer".to_string()],
+        name: None,
+    };
+    let expired_token =
+        OidcTokenValidator::sign_hs256(&expired_claims, secret).expect("sign expired");
+    let err_exp = validator.decode_and_validate(&expired_token, 5000);
+    assert!(matches!(err_exp, Err(OidcError::TokenExpired(1000, 5000))));
 
     // Issuer mismatch token (iss: https://rogue-auth.com)
-    let rogue_token = "eyJhbGciOiJub25lIn0.eyJpc3MiOiJodHRwczovL3JvZ3VlLWF1dGguY29tIiwic3ViIjoidXNlcl8xIiwiYXVkIjpbIm1pemFuLXdvcmtiZW5jaCJdLCJleHAiOjIxMDAwMDAwMDAsImlhdCI6MTcwMDAwMDAwMCwidGVuYW50X2lkIjoiZGVmYXVsdCIsInJvbGVzIjpbIlZpZXdlciJdfQ.";
-    assert!(
-        validator
-            .decode_and_validate(rogue_token, 1750000000)
-            .is_err()
-    );
+    let rogue_claims = OidcClaims {
+        iss: "https://rogue-auth.com".to_string(),
+        sub: "user_1".to_string(),
+        aud: vec!["mizan-workbench".to_string()],
+        exp: 2100000000,
+        iat: 1700000000,
+        email: None,
+        tenant_id: Some("default".to_string()),
+        groups: vec![],
+        roles: vec!["Viewer".to_string()],
+        name: None,
+    };
+    let rogue_token = OidcTokenValidator::sign_hs256(&rogue_claims, secret).expect("sign rogue");
+    let err_iss = validator.decode_and_validate(&rogue_token, 1750000000);
+    assert!(matches!(err_iss, Err(OidcError::IssuerMismatch { .. })));
 
     // Malformed token without 3 segments
-    assert!(
-        validator
-            .decode_and_validate("not-a-jwt", 1750000000)
-            .is_err()
-    );
+    assert!(matches!(
+        validator.decode_and_validate("not-a-jwt", 1750000000),
+        Err(OidcError::MalformedToken)
+    ));
 }
 
 #[test]

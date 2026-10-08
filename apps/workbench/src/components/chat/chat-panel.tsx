@@ -54,7 +54,9 @@ export function ChatPanel({
   lens,
   onNavigateControl,
 }: ChatPanelProps = {}) {
-  const [isDaemonConnected, setIsDaemonConnected] = React.useState<boolean | null>(null);
+  const [isDaemonConnected, setIsDaemonConnected] = React.useState<
+    boolean | null
+  >(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -91,15 +93,21 @@ export function ChatPanel({
         lower.includes("ac-1") ||
         lower.includes("ac-2")
       ) {
-        const target = lower.includes("ac-2") ? "ac-2" : (selectedControl || "ac-1");
-        const apiRes = await callCliApi("blast-radius", ["examples/sample-catalog.json", "--target", target]);
+        const target = lower.includes("ac-2")
+          ? "ac-2"
+          : selectedControl || "ac-1";
+        const apiRes = await callCliApi("blast-radius", [
+          "examples/sample-catalog.json",
+          "--target",
+          target,
+        ]);
         if (apiRes.ok && apiRes.data) {
           setIsDaemonConnected(true);
           const report = apiRes.data as BlastRadiusReport;
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[NATIVE CLI DAEMON]\nExecuted live \`mizan blast-radius\` on \`examples/sample-catalog.json\` for target \`${target}\`:\n\n- Risk exposure score: **${report.risk_exposure_score ?? 0}**\n- Critical path: **${report.is_critical_path ? "YES" : "NO"}**\n- Direct dependents: **${report.direct_dependents?.length ?? 0}**\n- Transitive dependents: **${report.transitive_dependents?.length ?? 0}**`,
+            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan blast-radius\` on \`examples/sample-catalog.json\` for target \`${target}\`:\n\n- Risk exposure score: **${report.risk_exposure_score ?? 0}**\n- Critical path: **${report.is_critical_path ? "YES" : "NO"}**\n- Direct dependents: **${report.direct_dependents?.length ?? 0}**\n- Transitive dependents: **${report.transitive_dependents?.length ?? 0}**`,
             toolInvocations: [
               {
                 toolName: "compute_blast_radius",
@@ -110,13 +118,15 @@ export function ChatPanel({
           };
         } else {
           setIsDaemonConnected(false);
-          const direct = target === "ac-2" ? ["ia-2", "ac-6"] : ["ac-2", "ac-3"];
-          const transitive = target === "ac-2" ? ["cm-7", "si-4", "sc-7"] : ["ia-5", "sc-13"];
+          const direct =
+            target === "ac-2" ? ["ia-2", "ac-6"] : ["ac-2", "ac-3"];
+          const transitive =
+            target === "ac-2" ? ["cm-7", "si-4", "sc-7"] : ["ia-5", "sc-13"];
           const score = target === "ac-2" ? 78 : 64;
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[IN-BROWSER AST GRAPH ENGINE · CLIENT RUNTIME]\nComputed topological blast radius for target \`${target}\`:\n\n- Risk exposure score: **${score}**\n- Critical path: **YES**\n- Direct dependents: **${direct.join(", ")}** (${direct.length})\n- Transitive dependents: **${transitive.join(", ")}** (${transitive.length})\n- Invariant: Root access-control invariant affects dependent identity & privilege boundaries.`,
+            content: `[IN-BROWSER AST GRAPH ENGINE · INFERRED VALENCE]\nComputed topological blast radius for target \`${target}\`:\n\n- Risk exposure score: **${score}**\n- Critical path: **YES**\n- Direct dependents: **${direct.join(", ")}** (${direct.length})\n- Transitive dependents: **${transitive.join(", ")}** (${transitive.length})\n- Invariant: Root access-control invariant affects dependent identity & privilege boundaries.`,
           };
         }
       } else if (
@@ -124,7 +134,12 @@ export function ChatPanel({
         lower.includes("pmo") ||
         lower.includes("audit")
       ) {
-        const apiRes = await callCliApi("fedramp", ["validate", "examples/sample-catalog.json", "--baseline", "moderate"]);
+        const apiRes = await callCliApi("fedramp", [
+          "validate",
+          "examples/sample-catalog.json",
+          "--baseline",
+          "moderate",
+        ]);
         if (apiRes.ok && apiRes.data) {
           setIsDaemonConnected(true);
           const report = apiRes.data as FedrampReport;
@@ -132,14 +147,14 @@ export function ChatPanel({
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[NATIVE CLI DAEMON]\nExecuted live \`mizan fedramp validate\` on \`examples/sample-catalog.json\` against **FedRAMP Moderate** baseline:\n\n- Compliance verdict: **${isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}**\n- Rules evaluated: **${report.total_rules_checked ?? report.rule_count_evaluated ?? 0}**\n- Violations: **${report.failed_rules ?? report.violation_count ?? report.findings?.length ?? 0}**`,
+            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan fedramp validate\` on \`examples/sample-catalog.json\` against **FedRAMP Moderate** baseline:\n\n- Compliance verdict: **${isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}**\n- Rules evaluated: **${report.total_rules_checked ?? report.rule_count_evaluated ?? 0}**\n- Violations: **${report.failed_rules ?? report.violation_count ?? report.findings?.length ?? 0}**`,
           };
         } else {
           setIsDaemonConnected(false);
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[IN-BROWSER AST ENGINE · CLIENT RUNTIME]\nEvaluated in-memory NIST SP 800-53 / FedRAMP Moderate catalog:\n\n- Compliance verdict: **NON-COMPLIANT (1 finding)**\n- Total controls checked: **9 controls**\n- Violations: **1 violation** (cis-k8s-5.2.1: privileged container in production-api)\n- Recommended remediation: Execute \`mizan fix --rule cis-k8s-5.2.1\` or apply derogation.`,
+            content: `[IN-BROWSER AST ENGINE · INFERRED VALENCE]\nEvaluated in-memory NIST SP 800-53 / FedRAMP Moderate catalog:\n\n- Compliance verdict: **NON-COMPLIANT (1 finding)**\n- Total controls checked: **9 controls**\n- Violations: **1 violation** (cis-k8s-5.2.1: privileged container in production-api)\n- Recommended remediation: Execute \`mizan fix --rule cis-k8s-5.2.1\` or apply derogation.`,
           };
         }
       } else if (lower.includes("sync") || lower.includes("merge")) {
@@ -159,31 +174,33 @@ export function ChatPanel({
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[NATIVE CLI DAEMON]\nExecuted live \`mizan sync\` 3-Way AST Merge across Base, Upstream, and Local:\n\n- Merge clean: **${report.is_clean ? "YES" : "NO"}**\n- Controls merged: **${report.controls_merged ?? 0}**\n- Conflicts: **${report.conflicts?.length ?? 0}**`,
+            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan sync\` 3-Way AST Merge across Base, Upstream, and Local:\n\n- Merge clean: **${report.is_clean ? "YES" : "NO"}**\n- Controls merged: **${report.controls_merged ?? 0}**\n- Conflicts: **${report.conflicts?.length ?? 0}**`,
           };
         } else {
           setIsDaemonConnected(false);
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[IN-BROWSER AST ENGINE · CLIENT RUNTIME]\nReconciled 3-Way AST baselines in memory:\n\n- Merge clean: **YES**\n- Controls evaluated: **9 controls**\n- Conflicts detected: **0 conflicts**\n- Vector state: **COHERENT**`,
+            content: `[IN-BROWSER AST ENGINE · CLAIMED VALENCE]\nReconciled 3-Way AST baselines in memory:\n\n- Merge clean: **YES**\n- Controls evaluated: **9 controls**\n- Conflicts detected: **0 conflicts**\n- Vector state: **COHERENT**`,
           };
         }
       } else {
-        const apiRes = await callCliApi("inspect", ["examples/sample-catalog.json"]);
+        const apiRes = await callCliApi("inspect", [
+          "examples/sample-catalog.json",
+        ]);
         if (apiRes.ok && apiRes.data) {
           setIsDaemonConnected(true);
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[NATIVE CLI DAEMON]\n\`\`\`json\n${JSON.stringify(apiRes.data, null, 2)}\n\`\`\``,
+            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\n\`\`\`json\n${JSON.stringify(apiRes.data, null, 2)}\n\`\`\``,
           };
         } else {
           setIsDaemonConnected(false);
           assistantMsg = {
             id: String(Date.now() + 1),
             role: "assistant",
-            content: `[IN-BROWSER CLIENT RUNTIME]\nLocal CLI daemon is unreachable (running in static web distribution).\nActive in-memory substrate:\n- **9 NIST SP 800-53 controls**\n- **WebCrypto SHA-256 Merkle root engine**\n- **12 Cross-framework mappings** (ITSG-33 / ISO 27001 / CSF)`,
+            content: `[IN-BROWSER CLIENT RUNTIME · INFERRED VALENCE]\nLocal CLI daemon is unreachable (running in static web distribution).\nActive in-memory substrate:\n- **9 NIST SP 800-53 controls**\n- **WebCrypto SHA-256 Merkle root engine**\n- **12 Cross-framework mappings** (ITSG-33 / ISO 27001 / CSF)`,
           };
         }
       }
@@ -216,10 +233,10 @@ export function ChatPanel({
         </div>
         <span className="font-mono text-[10px] text-ck-fg-mute uppercase">
           {isDaemonConnected === true
-            ? "[CONNECTED: NATIVE CLI]"
+            ? "[CONNECTED: NATIVE CLI DAEMON · OBSERVED]"
             : isDaemonConnected === false
-              ? "[CLIENT-SIDE AST RUNTIME]"
-              : "[HYBRID COMPLIANCE KERNEL]"}
+              ? "[CLIENT-SIDE AST RUNTIME · INFERRED]"
+              : "[COMPLIANCE KERNEL · CLAIMED]"}
         </span>
       </div>
 

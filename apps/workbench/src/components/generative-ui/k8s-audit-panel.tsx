@@ -33,7 +33,7 @@ export function K8sAuditPanel() {
     violations: number;
     findings: Finding[];
   }>({
-    clusterStatus: "Connected · In-Process Regorus Engine",
+    clusterStatus: "In-Process Regorus Engine · Inferred Workload Manifests",
     evaluatedPods: 12,
     satisfied: 10,
     violations: 2,
@@ -77,7 +77,7 @@ export function K8sAuditPanel() {
       setIsAuditing(false);
       setAuditResults((prev) => ({
         ...prev,
-        clusterStatus: `Scanned at ${new Date().toLocaleTimeString()}`,
+        clusterStatus: `Evaluated at ${new Date().toLocaleTimeString()} (Inferred Valence)`,
       }));
     }, 600);
   };
@@ -89,15 +89,22 @@ export function K8sAuditPanel() {
           <div className="flex items-center gap-2">
             <Server className="h-4 w-4 text-accent" />
             <CardTitle className="font-mono text-sm tracking-tight">
-              Live Kubernetes Cluster Audit &amp; Regorus Engine
+              Workload Policy Audit &amp; Regorus Engine
             </CardTitle>
           </div>
           <p className="font-mono text-[11px] text-ck-fg-mute">
-            Direct in-process evaluation of live workload Pods against NIST SP
-            800-53 r5 controls via Microsoft Regorus
+            Deterministic in-process evaluation of workload Pod manifests
+            against NIST SP 800-53 r5 controls via Regorus (Inferred / Claimed
+            valence)
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Badge
+            variant="outline"
+            className="font-mono text-[10px] bg-ck-bg-0 text-ck-fg-2 border-ck-hairline"
+          >
+            Valence: INFERRED
+          </Badge>
           <Badge
             variant="outline"
             className="font-mono text-[10px] bg-ck-bg-0 text-ck-fg-1"
@@ -114,7 +121,7 @@ export function K8sAuditPanel() {
             <RefreshCw
               className={`h-3 w-3 ${isAuditing ? "animate-spin" : ""}`}
             />
-            {isAuditing ? "Auditing..." : "Audit Cluster"}
+            {isAuditing ? "Auditing..." : "Audit Workload"}
           </Button>
         </div>
       </CardHeader>

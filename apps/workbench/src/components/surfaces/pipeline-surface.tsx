@@ -56,7 +56,10 @@ export function PipelineSurface({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ command: "pipeline", args: ["run"] }),
         });
-        if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+        if (
+          res.ok &&
+          res.headers.get("content-type")?.includes("application/json")
+        ) {
           const json = await res.json();
           if (json.success && json.data) {
             executedViaDaemon = true;
@@ -67,7 +70,9 @@ export function PipelineSurface({
             setRunHistory((prev) => [
               {
                 no: nextNo,
-                verdict: hasViolations ? "⊭ 1 FAULT (BLOCKED)" : "PASS · 0 FAULTS",
+                verdict: hasViolations
+                  ? "⊭ 1 FAULT (BLOCKED)"
+                  : "PASS · 0 FAULTS",
                 duration: "24ms",
                 time: "just now",
               },

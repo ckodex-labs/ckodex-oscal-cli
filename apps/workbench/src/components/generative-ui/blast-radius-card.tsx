@@ -77,9 +77,14 @@ export function BlastRadiusCard({ report }: BlastRadiusCardProps) {
             <div className="flex flex-wrap gap-1">
               {report.direct_dependents.map((dep, idx) => {
                 const id = typeof dep === "string" ? dep : dep.id;
-                const title = typeof dep === "string" ? dep : (dep.title || dep.id);
+                const title =
+                  typeof dep === "string" ? dep : dep.title || dep.id;
                 return (
-                  <span key={id || idx} className="ck-hash text-[11px]" title={title}>
+                  <span
+                    key={id || idx}
+                    className="ck-hash text-[11px]"
+                    title={title}
+                  >
                     {id}
                   </span>
                 );
@@ -89,24 +94,25 @@ export function BlastRadiusCard({ report }: BlastRadiusCardProps) {
         )}
 
         {/* Downstream Impact Path */}
-        {report.downstream_impact_paths && report.downstream_impact_paths.length > 0 && (
-          <div className="border-t border-ck-hairline pt-2">
-            <div className="mb-1 text-[11px] font-semibold text-ck-fg-1">
-              Propagation Trajectory:
+        {report.downstream_impact_paths &&
+          report.downstream_impact_paths.length > 0 && (
+            <div className="border-t border-ck-hairline pt-2">
+              <div className="mb-1 text-[11px] font-semibold text-ck-fg-1">
+                Propagation Trajectory:
+              </div>
+              <div className="space-y-1">
+                {report.downstream_impact_paths.slice(0, 3).map((p, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center gap-1 text-[11px] text-ck-fg-mute"
+                  >
+                    <ArrowDownRight className="h-3 w-3 flex-shrink-0 text-accent" />
+                    <span>{p.join(" → ")}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="space-y-1">
-              {report.downstream_impact_paths.slice(0, 3).map((p, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-1 text-[11px] text-ck-fg-mute"
-                >
-                  <ArrowDownRight className="h-3 w-3 flex-shrink-0 text-accent" />
-                  <span>{p.join(" → ")}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          )}
       </CardContent>
     </Card>
   );

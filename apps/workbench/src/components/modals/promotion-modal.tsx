@@ -39,8 +39,9 @@ export function PromotionModal({
             </Badge>
           </div>
           <DialogDescription className="font-sans text-xs text-ck-fg-2 mt-1">
-            Promotion is a governed architectural act. The following cryptographic
-            and schema invariants must hold before release commit tags are signed.
+            Promotion is a governed architectural act. The following
+            cryptographic and schema invariants must hold before release commit
+            tags are signed.
           </DialogDescription>
         </DialogHeader>
 

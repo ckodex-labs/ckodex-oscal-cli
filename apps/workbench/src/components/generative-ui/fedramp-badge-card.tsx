@@ -13,8 +13,13 @@ interface FedrampBadgeCardProps {
 export function FedrampBadgeCard({ report }: FedrampBadgeCardProps) {
   const isPassed = report.passed ?? report.is_compliant ?? false;
   const docKind = report.document_kind || report.kind || "OSCAL Document";
-  const violationCount = report.violation_count ?? report.failed_rules ?? report.findings.length;
-  const ruleCount = report.rule_count_evaluated ?? report.total_rules_checked ?? ((report.passed_rules ?? 0) + (report.failed_rules ?? report.findings.length));
+  const violationCount =
+    report.violation_count ?? report.failed_rules ?? report.findings.length;
+  const ruleCount =
+    report.rule_count_evaluated ??
+    report.total_rules_checked ??
+    (report.passed_rules ?? 0) +
+      (report.failed_rules ?? report.findings.length);
 
   return (
     <Card className="my-2 border-ck-hairline-strong bg-ck-bg-1 shadow-[3px_3px_0_var(--ck-fg-1)]">
@@ -50,9 +55,7 @@ export function FedrampBadgeCard({ report }: FedrampBadgeCardProps) {
       <CardContent className="space-y-3 pt-3 font-mono text-xs text-ck-fg-2">
         <div className="flex items-center justify-between border border-ck-hairline p-2 bg-ck-bg-0">
           <span className="text-ck-fg-mute">PMO Rules Evaluated:</span>
-          <span className="font-semibold text-ck-fg-1">
-            {ruleCount}
-          </span>
+          <span className="font-semibold text-ck-fg-1">{ruleCount}</span>
         </div>
 
         {report.findings.length > 0 ? (

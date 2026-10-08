@@ -1,3 +1,14 @@
+/**
+ * Multi-Tier OSCAL Transport Adapter
+ *
+ * ARCHITECTURAL CONTRACT:
+ * - Tier 1 (Desktop Native): Tauri IPC (`window.__TAURI__.core.invoke`) when running inside the Tauri shell.
+ * - Tier 2 (Local Web Server): Node.js `child_process.spawn` invoking the local `mizan` CLI binary via `callOscalCli`.
+ * - Tier 3 (Static / Air-Gapped Web Distribution): In-browser OSCAL AST kernel and WebCrypto Merkle engine.
+ *
+ * NOTE: `callOscalCli` is designed for server-side execution (Next.js Node.js runtime) and local dev bridges.
+ */
+
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
@@ -25,7 +36,10 @@ function getMizanBinary(): { bin: string; argsPrefix: string[] } {
     return { bin: localBin, argsPrefix: [] };
   }
 
-  return { bin: "cargo", argsPrefix: ["run", "--quiet", "--bin", "mizan", "--"] };
+  return {
+    bin: "cargo",
+    argsPrefix: ["run", "--quiet", "--bin", "mizan", "--"],
+  };
 }
 
 export async function callOscalCli(args: string[]): Promise<string> {

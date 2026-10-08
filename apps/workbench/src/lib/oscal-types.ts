@@ -83,10 +83,13 @@ export type LensMode =
 export type ThemeMode = "ledger" | "vault" | "hc";
 
 export type Presence = "empty" | "present" | "unknown" | "redacted";
-export type DirectionalValence = "positive" | "negative" | "neutral" | "mixed" | "unresolved";
+export type DirectionalValence =
+  "positive" | "negative" | "neutral" | "mixed" | "unresolved";
 export type AntiRelation = "none" | "contradicts" | "attacks" | "invalidates";
-export type Coherence = "coherent" | "partially_coherent" | "decoherent" | "reconciling";
-export type EvidenceStatus = "claimed" | "inferred" | "observed" | "verified" | "attested" | "quarantined";
+export type Coherence =
+  "coherent" | "partially_coherent" | "decoherent" | "reconciling";
+export type EvidenceStatus =
+  "claimed" | "inferred" | "observed" | "verified" | "attested" | "quarantined";
 
 export interface VectorState {
   presence: Presence;

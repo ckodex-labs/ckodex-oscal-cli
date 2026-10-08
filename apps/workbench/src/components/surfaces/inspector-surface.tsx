@@ -1,7 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -35,7 +41,8 @@ export interface InspectorSurfaceProps {
 
 export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
   const [dragActive, setDragActive] = React.useState(false);
-  const [inspectResult, setInspectResult] = React.useState<InspectResult | null>(null);
+  const [inspectResult, setInspectResult] =
+    React.useState<InspectResult | null>(null);
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [exportedCapsule, setExportedCapsule] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -94,7 +101,8 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
               controlsCount = root.controls.length;
             } else if (Array.isArray(root.groups)) {
               controlsCount = root.groups.reduce(
-                (acc: number, g: any) => acc + (Array.isArray(g.controls) ? g.controls.length : 0),
+                (acc: number, g: any) =>
+                  acc + (Array.isArray(g.controls) ? g.controls.length : 0),
                 0,
               );
             }
@@ -106,13 +114,19 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
         }
 
         if (modelType === "unknown") {
-          errors.push("Document root does not match any official OSCAL v1.2.3 model");
+          errors.push(
+            "Document root does not match any official OSCAL v1.2.3 model",
+          );
         }
       }
 
       // Compute pseudo-Merkle root from sha256 and uuid
-      const merkleLeafBuffer = new TextEncoder().encode(`${sha256}:${docUuid}:${controlsCount}`);
-      const merkleRoot = await computeSha256(merkleLeafBuffer.buffer as ArrayBuffer);
+      const merkleLeafBuffer = new TextEncoder().encode(
+        `${sha256}:${docUuid}:${controlsCount}`,
+      );
+      const merkleRoot = await computeSha256(
+        merkleLeafBuffer.buffer as ArrayBuffer,
+      );
 
       setInspectResult({
         fileName: file.name,
@@ -231,13 +245,17 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-ck-hairline-strong pb-4">
         <div>
           <h2 className="font-serif text-xl tracking-tight text-ck-fg-1">
-            Live File Workspace &amp; Merkle Inspector
+            Workspace &amp; Merkle Inspector
           </h2>
           <p className="font-mono text-xs text-ck-fg-mute">
-            Direct in-browser inspection, WebCrypto SHA-256 hashing, and air-gap evidence capsule generation
+            Direct in-browser inspection, WebCrypto SHA-256 hashing, and air-gap
+            evidence capsule generation
           </p>
         </div>
-        <Badge variant="outline" className="font-mono text-xs self-start sm:self-auto border-ck-accent text-ck-accent">
+        <Badge
+          variant="outline"
+          className="font-mono text-xs self-start sm:self-auto border-ck-accent text-ck-accent"
+        >
           [CLIENT-SIDE ENGINE]
         </Badge>
       </div>
@@ -264,13 +282,17 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
         />
         <div className="space-y-2 max-w-md mx-auto">
           <div className="font-mono text-xs uppercase tracking-wider text-ck-accent font-bold">
-            {isProcessing ? "Processing File..." : "[SELECT OR DRAG OSCAL FILE]"}
+            {isProcessing
+              ? "Processing File..."
+              : "[SELECT OR DRAG OSCAL FILE]"}
           </div>
           <p className="font-mono text-xs text-ck-fg-2">
-            Upload any OSCAL JSON document (Catalog, Profile, SSP, Component Definition, or POA&amp;M).
+            Upload any OSCAL JSON document (Catalog, Profile, SSP, Component
+            Definition, or POA&amp;M).
           </p>
           <p className="font-mono text-[10px] text-ck-fg-mute">
-            Execution occurs entirely in your browser memory using WebCrypto. No payload leaves your machine.
+            Execution occurs entirely in your browser memory using WebCrypto. No
+            payload leaves your machine.
           </p>
         </div>
       </div>
@@ -284,7 +306,10 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
                 <div>
                   <CardTitle className="font-mono text-sm text-ck-fg-1 flex items-center gap-2">
                     <span>{inspectResult.fileName}</span>
-                    <Badge variant="secondary" className="font-mono text-[10px]">
+                    <Badge
+                      variant="secondary"
+                      className="font-mono text-[10px]"
+                    >
                       {inspectResult.modelType}
                     </Badge>
                     {inspectResult.isValid ? (
@@ -308,7 +333,9 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
                     className="font-mono text-xs border-ck-accent text-ck-accent hover:bg-ck-accent/10"
                     onClick={handleExportCapsule}
                   >
-                    {exportedCapsule ? "[CAPSULE DOWNLOADED]" : "Export Air-Gap Capsule"}
+                    {exportedCapsule
+                      ? "[CAPSULE DOWNLOADED]"
+                      : "Export Air-Gap Capsule"}
                   </Button>
                 </div>
               </div>
@@ -317,18 +344,29 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
             <CardContent className="pt-4 space-y-4 font-mono text-xs">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="border border-ck-hairline p-3 bg-ck-bg-1 space-y-1">
-                  <div className="text-[10px] text-ck-fg-mute uppercase">Document UUID</div>
-                  <div className="text-ck-fg-1 font-bold truncate">{inspectResult.uuid}</div>
-                </div>
-                <div className="border border-ck-hairline p-3 bg-ck-bg-1 space-y-1">
-                  <div className="text-[10px] text-ck-fg-mute uppercase">Controls / Components</div>
-                  <div className="text-ck-fg-1 font-bold">
-                    {inspectResult.controlsCount} controls · {inspectResult.componentsCount} components
+                  <div className="text-[10px] text-ck-fg-mute uppercase">
+                    Document UUID
+                  </div>
+                  <div className="text-ck-fg-1 font-bold truncate">
+                    {inspectResult.uuid}
                   </div>
                 </div>
                 <div className="border border-ck-hairline p-3 bg-ck-bg-1 space-y-1">
-                  <div className="text-[10px] text-ck-fg-mute uppercase">File Size</div>
-                  <div className="text-ck-fg-1 font-bold">{inspectResult.fileSizeBytes} bytes</div>
+                  <div className="text-[10px] text-ck-fg-mute uppercase">
+                    Controls / Components
+                  </div>
+                  <div className="text-ck-fg-1 font-bold">
+                    {inspectResult.controlsCount} controls ·{" "}
+                    {inspectResult.componentsCount} components
+                  </div>
+                </div>
+                <div className="border border-ck-hairline p-3 bg-ck-bg-1 space-y-1">
+                  <div className="text-[10px] text-ck-fg-mute uppercase">
+                    File Size
+                  </div>
+                  <div className="text-ck-fg-1 font-bold">
+                    {inspectResult.fileSizeBytes} bytes
+                  </div>
                 </div>
               </div>
 
@@ -340,7 +378,9 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
                 <div className="space-y-1">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-ck-fg-mute">SHA-256 Digest:</span>
-                    <span className="text-ck-accent select-all font-mono">{inspectResult.sha256Digest}</span>
+                    <span className="text-ck-accent select-all font-mono">
+                      {inspectResult.sha256Digest}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="text-ck-fg-mute">Merkle Root Proof:</span>
@@ -354,7 +394,9 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
               {/* Validation Feedback */}
               {inspectResult.validationErrors.length > 0 && (
                 <div className="border border-rose-300 dark:border-rose-900/50 bg-rose-50/50 dark:bg-rose-950/20 p-3 space-y-1 text-rose-700 dark:text-rose-400">
-                  <div className="font-bold text-[11px] uppercase">[Validation Warnings]</div>
+                  <div className="font-bold text-[11px] uppercase">
+                    [Validation Warnings]
+                  </div>
                   <ul className="list-disc list-inside space-y-0.5 text-[11px]">
                     {inspectResult.validationErrors.map((err, i) => (
                       <li key={i}>{err}</li>
@@ -365,10 +407,14 @@ export function InspectorSurface({ onAddReceipt }: InspectorSurfaceProps = {}) {
 
               {/* AST Snippet */}
               <div className="space-y-1 pt-2">
-                <div className="text-[10px] text-ck-fg-mute uppercase">Document AST Preview</div>
+                <div className="text-[10px] text-ck-fg-mute uppercase">
+                  Document AST Preview
+                </div>
                 <pre className="p-3 bg-ck-bg-1 border border-ck-hairline text-ck-fg-2 text-[11px] max-h-60 overflow-y-auto">
                   {inspectResult.rawText.slice(0, 2000)}
-                  {inspectResult.rawText.length > 2000 ? "\n... (truncated for preview)" : ""}
+                  {inspectResult.rawText.length > 2000
+                    ? "\n... (truncated for preview)"
+                    : ""}
                 </pre>
               </div>
             </CardContent>

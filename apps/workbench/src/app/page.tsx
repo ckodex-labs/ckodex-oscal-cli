@@ -77,12 +77,12 @@ export default function WorkbenchPage() {
     mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [surface]);
 
-async function computeFactSha256(fact: string): Promise<string> {
-  const enc = new TextEncoder();
-  const buffer = await crypto.subtle.digest("SHA-256", enc.encode(fact));
-  const hashArr = Array.from(new Uint8Array(buffer));
-  return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
-}
+  async function computeFactSha256(fact: string): Promise<string> {
+    const enc = new TextEncoder();
+    const buffer = await crypto.subtle.digest("SHA-256", enc.encode(fact));
+    const hashArr = Array.from(new Uint8Array(buffer));
+    return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
 
   // Evidence Receipts
   const [receipts, setReceipts] = React.useState<ReceiptEntry[]>([

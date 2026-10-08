@@ -228,14 +228,21 @@ export function CicdSbomPanel() {
     }
 
     try {
-      let evalData: { passed: boolean; findings: string[]; engine: string } | null = null;
+      let evalData: {
+        passed: boolean;
+        findings: string[];
+        engine: string;
+      } | null = null;
       try {
         const res = await fetch("/api/eval", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ rule: selectedRule, payload }),
         });
-        if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+        if (
+          res.ok &&
+          res.headers.get("content-type")?.includes("application/json")
+        ) {
           const json = await res.json();
           if (json.success && json.data) {
             evalData = {
@@ -484,8 +491,8 @@ export function CicdSbomPanel() {
                   $ mizan export sarif -i catalog.json -o mizan-sarif.json
                 </div>
                 <div className="text-green-700 dark:text-green-400 mt-1">
-                  [OK] Exported 9 controls to SARIF v2.1.0 schema with rule-level
-                  NIST URIs
+                  [OK] Exported 9 controls to SARIF v2.1.0 schema with
+                  rule-level NIST URIs
                 </div>
               </div>
               <Button

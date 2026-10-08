@@ -155,9 +155,9 @@ export function Masthead({
 
         <div className="ml-auto flex items-center gap-2">
           <span className="text-[10px] text-ck-fg-mute">engine:</span>
-          <span className="inline-flex items-center gap-1 font-semibold text-green-700 dark:text-green-400">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-            RUST METASCHEMA CORE ONLINE
+          <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 dark:text-emerald-400">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            OSCAL METASCHEMA CORE ACTIVE
           </span>
         </div>
       </div>

@@ -252,7 +252,7 @@ export function AtlasNav({
       items: [
         {
           id: "inspector" as SurfaceId,
-          label: "Live Inspector",
+          label: "Workspace Inspector",
           countKey: "inspector",
           keyNum: "0",
         },
@@ -308,7 +308,7 @@ export function AtlasNav({
         ))}
       </div>
 
-      {/* Documentation & Live Evidence Links */}
+      {/* Documentation & Cryptographic Evidence Links */}
       <div className="border-t border-ck-hairline pt-3 space-y-1 text-[11px]">
         <span className="text-[10px] uppercase font-bold text-ck-fg-mute tracking-wider block px-1 pb-0.5">
           Documentation & Evidence

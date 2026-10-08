@@ -87,7 +87,10 @@ export function JurisdictionSlsaPanel() {
             args: ["verify", "mizan-pipeline-output/slsa-provenance.json"],
           }),
         });
-        if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+        if (
+          res.ok &&
+          res.headers.get("content-type")?.includes("application/json")
+        ) {
           const json = await res.json();
           if (json.success && json.data) {
             isVerified = Boolean(json.data.is_valid);
@@ -101,7 +104,10 @@ export function JurisdictionSlsaPanel() {
       if (!data) {
         const sampleSubject = "mizan-release-v1.4.3";
         const enc = new TextEncoder();
-        const digestBuf = await crypto.subtle.digest("SHA-256", enc.encode(sampleSubject));
+        const digestBuf = await crypto.subtle.digest(
+          "SHA-256",
+          enc.encode(sampleSubject),
+        );
         const digestHex = Array.from(new Uint8Array(digestBuf))
           .map((b) => b.toString(16).padStart(2, "0"))
           .join("");
@@ -109,7 +115,8 @@ export function JurisdictionSlsaPanel() {
         isVerified = true;
         data = {
           is_valid: true,
-          builder_id: "https://github.com/ckodex-labs/ckodex-oscal-cli/actions/runs/36184886733",
+          builder_id:
+            "https://github.com/ckodex-labs/ckodex-oscal-cli/actions/runs/36184886733",
           build_type: "https://slsa.dev/provenance/v1",
           subject_name: sampleSubject,
           subject_digest: `sha256:${digestHex}`,
@@ -283,12 +290,15 @@ export function JurisdictionSlsaPanel() {
                 <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-mono">
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                   <span>
-                    Verified by mizan CLI · {verifyResult.subject_name} ({verifyResult.merkle_root?.slice(0, 19)}…)
+                    {verifyResult.verification_engine ===
+                    "In-Browser WebCrypto Substrate"
+                      ? `[INFERRED] Verified in-browser (WebCrypto substrate) · ${verifyResult.subject_name}`
+                      : `[OBSERVED] Verified by mizan CLI daemon · ${verifyResult.subject_name} (${verifyResult.merkle_root?.slice(0, 19)}…)`}
                   </span>
                 </div>
               ) : (
                 <span className="text-xs text-muted-foreground font-mono">
-                  Unverified · Click to verify with mizan attest verify
+                  Unverified · Click to verify provenance attestation
                 </span>
               )}
             </div>

@@ -62,7 +62,7 @@ export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
     },
     {
       key: "0",
-      label: "Live Inspector",
+      label: "Workspace Inspector",
       desc: "In-browser OSCAL validation & air-gap capsule export",
     },
     {

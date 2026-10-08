@@ -54,7 +54,8 @@ export function FabricSurface() {
   ]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isDaemonMode, setIsDaemonMode] = React.useState<boolean | null>(null);
-  const [selectedTenantId, setSelectedTenantId] = React.useState<string>("default");
+  const [selectedTenantId, setSelectedTenantId] =
+    React.useState<string>("default");
   const [newTenantId, setNewTenantId] = React.useState("");
   const [newTenantName, setNewTenantName] = React.useState("");
   const [newTenantTier, setNewTenantTier] = React.useState<
@@ -92,7 +93,10 @@ export function FabricSurface() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command: "fabric", args: ["tenant", "list"] }),
       });
-      if (res.ok && res.headers.get("content-type")?.includes("application/json")) {
+      if (
+        res.ok &&
+        res.headers.get("content-type")?.includes("application/json")
+      ) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setIsDaemonMode(true);
@@ -106,7 +110,10 @@ export function FabricSurface() {
             status: "ACTIVE",
           }));
           setTenants(records);
-          if (records.length > 0 && !records.some((r) => r.id === selectedTenantId)) {
+          if (
+            records.length > 0 &&
+            !records.some((r) => r.id === selectedTenantId)
+          ) {
             setSelectedTenantId(records[0].id);
           }
           return;
@@ -129,7 +136,12 @@ export function FabricSurface() {
     if (!newTenantId || !newTenantName) return;
 
     const cleanId = newTenantId.toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const quota = newTenantTier === "Enterprise" ? "500" : newTenantTier === "Pro" ? "50" : "10";
+    const quota =
+      newTenantTier === "Enterprise"
+        ? "500"
+        : newTenantTier === "Pro"
+          ? "50"
+          : "10";
 
     const newRecord: TenantRecord = {
       id: cleanId,
@@ -161,7 +173,10 @@ export function FabricSurface() {
         }),
       }).catch(() => {});
 
-      setTenants((prev) => [...prev.filter((t) => t.id !== cleanId), newRecord]);
+      setTenants((prev) => [
+        ...prev.filter((t) => t.id !== cleanId),
+        newRecord,
+      ]);
       setNewTenantId("");
       setNewTenantName("");
       setSelectedTenantId(cleanId);
@@ -170,8 +185,7 @@ export function FabricSurface() {
     }
   };
 
-  const selectedTenant =
-    tenants.find((t) => t.id === selectedTenantId) ||
+  const selectedTenant = tenants.find((t) => t.id === selectedTenantId) ||
     tenants[0] || {
       id: "default",
       name: "Default Local Workspace",
@@ -196,21 +210,33 @@ export function FabricSurface() {
             </span>
           </div>
           <p className="text-xs text-ck-fg-3 mt-1 font-sans">
-            Tenant partition management via <code>TenantContext::assert_same_tenant</code> and persistent CLI registry (<code>.mizan/tenants.json</code>).
+            Tenant partition management via{" "}
+            <code>TenantContext::assert_same_tenant</code> and persistent CLI
+            registry (<code>.mizan/tenants.json</code>).
           </p>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
           <Badge
             variant="outline"
-            className="font-mono text-[10px] uppercase text-emerald-700 dark:text-emerald-400 whitespace-nowrap shrink-0"
+            className={`font-mono text-[10px] uppercase whitespace-nowrap shrink-0 ${
+              isDaemonMode === true
+                ? "text-emerald-700 dark:text-emerald-400 border-emerald-500/40"
+                : "text-ck-fg-2 border-ck-hairline-strong"
+            }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1" />
+            <span
+              className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                isDaemonMode === true
+                  ? "bg-emerald-500 animate-pulse"
+                  : "bg-amber-500"
+              }`}
+            />
             {isDaemonMode === true
-              ? "Fabric: Connected Native Daemon"
+              ? "Fabric: Connected Native Daemon · Observed"
               : isDaemonMode === false
-                ? "Fabric: Client Multi-Tenant Store"
-                : "Fabric: Operational"}
+                ? "Fabric: Local Multi-Tenant Store · Claimed"
+                : "Fabric: Standalone Client Runtime"}
           </Badge>
           <div className="px-2.5 py-1 border border-ck-hairline-strong bg-ck-bg-1 text-ck-fg-2 text-[11px] rounded-xs whitespace-nowrap shrink-0">
             Trust Domain:{" "}
@@ -228,7 +254,9 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-2 min-w-0">
-                <span className="shrink-0 font-mono text-xs text-ck-accent">[T]</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">
+                  [T]
+                </span>
                 <span className="whitespace-nowrap">
                   Tenants ({tenants.length})
                 </span>
@@ -322,7 +350,9 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-1.5 min-w-0">
-                <span className="shrink-0 font-mono text-xs text-ck-accent">[P]</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">
+                  [P]
+                </span>
                 <span className="whitespace-nowrap">Active Partition</span>
               </h2>
               <Badge
@@ -415,7 +445,9 @@ export function FabricSurface() {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center justify-between border-b border-ck-hairline pb-2 gap-1.5 min-w-0">
               <h2 className="font-bold text-sm text-ck-fg-1 flex items-center gap-2 min-w-0">
-                <span className="shrink-0 font-mono text-xs text-ck-accent">[W]</span>
+                <span className="shrink-0 font-mono text-xs text-ck-accent">
+                  [W]
+                </span>
                 <span className="whitespace-nowrap">
                   Workloads ({workloads.length})
                 </span>

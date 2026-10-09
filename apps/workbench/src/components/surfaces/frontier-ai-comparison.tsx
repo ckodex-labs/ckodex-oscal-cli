@@ -44,7 +44,7 @@ import {
 /* Types & Domain Models                                              */
 /* ------------------------------------------------------------------ */
 
-export type FrontierProviderId = "anthropic" | "google" | "azure-openai";
+export type FrontierProviderId = "anthropic" | "google" | "azure-openai" | "cohere";
 export type ComparisonTab =
   | "matrix"
   | "fedramp"
@@ -500,11 +500,147 @@ const FRONTIER_PROFILES: Record<FrontierProviderId, FrontierModelProfile> = {
       status: "verified",
     },
   },
+  cohere: {
+    id: "cohere",
+    modelName: "Cohere North 2 / Command R+",
+    providerOrg: "Cohere Sovereign Enterprise (North Admin)",
+    cloudEnclave: "Customer-Managed Air-Gapped K8s / Private VPC (AWS/Azure/OCI)",
+    deploymentBoundary: "Sovereign Air-Gapped / Private VPC Enclave with Zero Public Internet Dependency",
+    fedramp: {
+      level: "FedRAMP High Agency ATO",
+      packageId: "COH-NORTH-2026",
+      jabApproved: false,
+      dodImpactLevel: "DoD IL4/IL5",
+      authorizationDate: "2026-10-05",
+      continuousMonitoringCadence: "North Admin automated audit stream + SIEM syslog forwarding",
+      vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 101),
+    },
+    safetyFramework: {
+      frameworkName: "Cohere Responsible AI & North Autonomy Framework",
+      currentTier: "Sovereign Gated Autonomy with Human-in-the-Loop Policies",
+      cbrnThresholdContainment: "In-line prompt & response safety guardrails with configurable compliance policies",
+      cyberOffenseContainment: "North Admin agent autonomy policies: destructive command and shell execution blocked by default",
+      weightsSecurityHsm: true,
+      vectorState: makeVectorState("present", "positive", "none", "coherent", "attested", "enforced", 102),
+    },
+    saifPillars: {
+      cyberFoundations: "Air-gapped Kubernetes clusters, FIPS 140-3 CMEK, Sigstore Cosign signed container images",
+      threatDetection: "North Admin real-time guardrail logging, token consumption anomaly detection",
+      automatedDefenses: "North Admin in-line PII redaction and prompt injection classification filters",
+      platformHarmonization: "OIDC / SAML 2.0 / SCIM 2.0 enterprise directory synchronization and RBAC",
+      adaptiveControls: "Per-agent token spend quotas, rate limits, and automated budget circuit breakers",
+      contextualizedRisk: "Zero Data Retention (ZDR) guarantee with complete local model weight custody",
+      vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 103),
+    },
+    mitreAtlas: {
+      directInjection: {
+        techniqueId: "AML.T0051.001",
+        techniqueName: "LLM Direct Prompt Injection",
+        defenseMechanism: "North Admin in-line prompt classifier and delimiter sanitization filter",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      indirectInjection: {
+        techniqueId: "AML.T0051.002",
+        techniqueName: "LLM Indirect Prompt Injection",
+        defenseMechanism: "Document chunk context isolation & RAG citation verification gates",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      jailbreak: {
+        techniqueId: "AML.T0054",
+        techniqueName: "LLM Adversarial Jailbreak",
+        defenseMechanism: "Multi-turn safety classification and agent autonomy policy bounds",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      insecureOutput: {
+        techniqueId: "AML.T0043",
+        techniqueName: "Insecure Output Handling",
+        defenseMechanism: "Human-in-the-loop approval workflows for state-mutating tool invocations",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      modelExtraction: {
+        techniqueId: "AML.T0044",
+        techniqueName: "Model Extraction / Logit Probing",
+        defenseMechanism: "Logit truncation, per-user token quotas, and air-gapped network egress deny-all",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      denialOfMlService: {
+        techniqueId: "AML.T0029",
+        techniqueName: "Denial of ML Service",
+        defenseMechanism: "North Admin sliding-window rate limiting and hard spend caps",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      dataPoisoning: {
+        techniqueId: "AML.T0018",
+        techniqueName: "Training Data Poisoning",
+        defenseMechanism: "Customer-isolated fine-tuning environments with verified data hashes",
+        coverageLevel: "High",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      supplyChainTaintedWeights: {
+        techniqueId: "AML.T0040",
+        techniqueName: "ML Supply Chain Compromise",
+        defenseMechanism: "Sigstore Cosign signatures and SLSA provenance for all model weight checkpoints",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      excessiveAgency: {
+        techniqueId: "AML.T0053",
+        techniqueName: "LLM Excessive Agency / Tool Abuse",
+        defenseMechanism: "North Admin granular connector ACLs and mandatory human approval gates",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+      systemPromptExtraction: {
+        techniqueId: "AML.T0055",
+        techniqueName: "System Prompt Extraction",
+        defenseMechanism: "Internal prompt abstraction and output leak detection guardrails",
+        coverageLevel: "Full",
+        vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 104),
+      },
+    },
+    supplyChain: {
+      modelCardStandard: "Cohere Model Governance Card & OSCAL Component Definition v1.2.3",
+      slsaLevel: "SLSA v1.2 Build L3",
+      aiBomFormat: "CycloneDX 1.6 AI",
+      sigstoreVerified: true,
+      watermarkTechnology: "Embed v3 compression signature & model weight hash validation",
+      watermarkResistance: "Tamper-Resistant (SynthID)",
+      vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 105),
+    },
+    egressIsolation: {
+      zeroDataRetentionGuaranteed: true,
+      cmekSupport: true,
+      privateNetworking: "Full Air-Gap capability with 100% on-premises/VPC Kubernetes isolation",
+      promptInjectionLatencyMs: 35,
+      promptShieldTechnology: "North Admin in-line Guardrail & Safety Classifier",
+      vectorState: makeVectorState("present", "positive", "none", "coherent", "verified", "active", 106),
+    },
+    merkleReceipt: {
+      treeSize: 4096,
+      logIndex: 2844,
+      merkleRoot: "7e94c92f15e8d890b05b81ea19e1c955a5369bb8853b0066d7ad5f0ee233e101",
+      leafHash: "d3910f22aa184102efb0114920aa4589d891bc045187e0245a909ef121579801",
+      inclusionProof: [
+        "c2134b99319ef8411210459812cc9a5021e89410ea89bcf20155ad1289cf0099",
+        "3d4f18392100efcb9512ea5098931215ea781bc09a441e89cf0025719ef82041",
+        "129bbef2411985eeea78810239b9c0257ea119842100e4781bc09e9921571214",
+      ],
+      rfcLogId: "urn:rfc9162:log:us-gov-ai-transparency-v1",
+      timestamp: "2026-10-09T08:14:25Z",
+      status: "verified",
+    },
+  },
 };
 
 const PROVENANCE_FRONTIER: Provenance = fixture(
   "frontier audit record",
-  "Cryptographically attested compliance snapshots and MITRE ATLAS defenses across Anthropic, Google, and Azure OpenAI sovereign boundaries.",
+  "Cryptographically attested compliance snapshots and MITRE ATLAS defenses across Anthropic, Google, Azure OpenAI, and Cohere North sovereign boundaries.",
 );
 
 /* ------------------------------------------------------------------ */
@@ -603,8 +739,8 @@ export function FrontierAiComparison({
       <StatGrid>
         <StatTile
           label="Frontier Providers"
-          value="3 Verified"
-          hint="Anthropic, Google, Azure OpenAI"
+          value="4 Verified"
+          hint="Anthropic, Google, Azure OpenAI, Cohere"
           tone="neutral"
         />
         <StatTile
@@ -659,6 +795,7 @@ export function FrontierAiComparison({
               { value: "anthropic", label: "Claude 3.5 (AWS)" },
               { value: "google", label: "Gemini 1.5 (GCP)" },
               { value: "azure-openai", label: "GPT-4o (Azure)" },
+              { value: "cohere", label: "Cohere North (Air-Gap)" },
             ]}
           />
         </Toolbar>

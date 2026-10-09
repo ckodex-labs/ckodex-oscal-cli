@@ -44,10 +44,7 @@ pub(super) fn run_fedramp(args: &FedrampCliArgs, format: OutputFormat) -> Result
             if !report.findings.is_empty() {
                 println!("\nPMO Rule Violations:");
                 for f in &report.findings {
-                    println!(
-                        "  - [{}] {} (Severity: {})",
-                        f.rule_id, f.title, f.severity
-                    );
+                    println!("  - [{}] {} (Severity: {})", f.rule_id, f.title, f.severity);
                     println!("     Detail: {}", f.detail);
                 }
             } else {

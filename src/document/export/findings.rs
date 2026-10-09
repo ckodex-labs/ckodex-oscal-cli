@@ -50,8 +50,8 @@ fn extract_one(f: &Value) -> Option<ExtractedFinding> {
             Some("PASSED") => FindingDisposition::Satisfied,
             _ => FindingDisposition::Unknown,
         };
-        let message = str_at(f, "violation")
-            .map_or_else(|| format!("Rule {rule_id}"), String::from);
+        let message =
+            str_at(f, "violation").map_or_else(|| format!("Rule {rule_id}"), String::from);
         return Some(ExtractedFinding {
             rule_id: rule_id.to_string(),
             title: None,
@@ -186,7 +186,10 @@ mod tests {
             None,
         )
         .unwrap();
-        let ids: Vec<_> = collect_catalog_controls(&doc).into_iter().map(|c| c.0).collect();
+        let ids: Vec<_> = collect_catalog_controls(&doc)
+            .into_iter()
+            .map(|c| c.0)
+            .collect();
         assert_eq!(ids, vec!["ac-1", "ac-2", "ac-2.1"]);
         assert!(extract_findings(&doc).is_empty());
     }

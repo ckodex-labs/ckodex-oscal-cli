@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use super::findings::{collect_catalog_controls, extract_findings, FindingDisposition};
+use super::findings::{FindingDisposition, collect_catalog_controls, extract_findings};
 use crate::{
     document::parser::OscalDocument,
     error::{AppError, Result},

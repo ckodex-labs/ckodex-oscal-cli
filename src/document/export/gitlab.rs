@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-use super::findings::{extract_findings, FindingDisposition};
+use super::findings::{FindingDisposition, extract_findings};
 use crate::{
     document::parser::OscalDocument,
     error::{AppError, Result},
@@ -199,6 +199,9 @@ mod tests {
         .unwrap();
         let report = GitLabReportExporter::export_from_oscal(&doc, Path::new("ar.json")).unwrap();
         assert_eq!(report.vulnerabilities.len(), 1);
-        assert_eq!(report.vulnerabilities[0].identifiers[0].value, "k8s-no-root");
+        assert_eq!(
+            report.vulnerabilities[0].identifiers[0].value,
+            "k8s-no-root"
+        );
     }
 }

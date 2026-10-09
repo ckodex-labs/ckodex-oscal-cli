@@ -1,0 +1,1741 @@
+{
+  "catalog": {
+    "uuid": "8e3c5a6b-91d4-4f27-a508-3e4b7c12d901",
+    "metadata": {
+      "title": "MITRE ATLAS\u2122 (Adversarial Threat Landscape for Artificial-Intelligence Systems) Catalog",
+      "published": "2024-04-15T00:00:00Z",
+      "last-modified": "2024-04-15T00:00:00Z",
+      "version": "4.5.0",
+      "oscal-version": "1.2.3",
+      "remarks": "Authoritative OSCAL v1.2.3 catalog representation of the MITRE ATLAS framework with bidirectional crosswalks to NIST SP 800-53 Rev 5 and NIST AI RMF 1.0.",
+      "roles": [
+        {
+          "id": "author",
+          "title": "Document Author",
+          "short-name": "Author",
+          "description": "Entity responsible for authoring the threat matrix catalog"
+        },
+        {
+          "id": "publisher",
+          "title": "Document Publisher",
+          "short-name": "Publisher",
+          "description": "Entity responsible for publishing the verified OSCAL artifact"
+        }
+      ],
+      "parties": [
+        {
+          "uuid": "7b8c9d01-e2f3-4a5b-8c9d-0123456789ab",
+          "type": "organization",
+          "name": "The MITRE Corporation",
+          "short-name": "MITRE",
+          "links": [
+            {
+              "href": "https://atlas.mitre.org",
+              "rel": "reference"
+            }
+          ]
+        },
+        {
+          "uuid": "8c9d01e2-f3a4-4b5c-9d01-23456789abcd",
+          "type": "organization",
+          "name": "National Institute of Standards and Technology",
+          "short-name": "NIST",
+          "links": [
+            {
+              "href": "https://csrc.nist.gov",
+              "rel": "reference"
+            }
+          ]
+        }
+      ],
+      "responsible-parties": [
+        {
+          "role-id": "publisher",
+          "party-uuids": [
+            "7b8c9d01-e2f3-4a5b-8c9d-0123456789ab"
+          ]
+        },
+        {
+          "role-id": "author",
+          "party-uuids": [
+            "7b8c9d01-e2f3-4a5b-8c9d-0123456789ab"
+          ]
+        }
+      ]
+    },
+    "groups": [
+      {
+        "id": "AML.TA0002",
+        "class": "tactic",
+        "title": "Reconnaissance",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0002"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0002"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0002_overview",
+            "name": "overview",
+            "prose": "The adversary gathers intelligence about target AI/ML models, system architectures, data pipelines, hardware accelerators, training repositories, and production inference endpoints to inform and plan downstream attack vectors."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0000",
+            "class": "technique",
+            "title": "Search for Public ML Artifacts",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0000"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0000"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0002"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "RA-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SA-11"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-22"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 1.5"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 2.3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0000",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0000"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0000_smt",
+                "name": "statement",
+                "prose": "Adversaries search open code repositories (e.g. GitHub), public model registries and hubs (e.g. Hugging Face), pre-print publication servers (e.g. arXiv), and corporate developer blogs to discover sensitive information about target ML architectures, model checkpoints, fine-tuning datasets, hyperparameter configurations, and API specs."
+              },
+              {
+                "id": "AML.T0000_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Enforce strict enterprise asset inventory management and information disclosure policies. Prevent developers from publishing proprietary model cards, architecture specifics, and trained weights to public registries without cryptographic review. Regularly scan public code repositories and model hubs for unauthorized brand or codebase leaks."
+              },
+              {
+                "id": "AML.T0000_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Continuously monitor public repositories, model sharing platforms, and external threat intelligence feeds for unauthorized leaks of internal model files, proprietary checkpoints, system prompts, or private API credentials."
+              },
+              {
+                "id": "AML.T0000_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: RA-3 (Risk Assessment), SA-11 (Developer Testing and Evaluation), AC-22 (Publicly Accessible Content); and NIST AI RMF: MAP 1.5 (Context Mapping), MAP 2.3 (Data and Asset Requirements), GOVERN 1.2 (Compliance Oversight)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0001",
+            "class": "technique",
+            "title": "Active Probing",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0001"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0001"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0002"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-5"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 1.3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.7"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0001",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0001"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0001_smt",
+                "name": "statement",
+                "prose": "Adversaries query exposed ML inference APIs or model interfaces with systematically structured probe inputs and observe output confidences, probability distributions, response latency, token generation counts, and system error responses to deduce underlying decision boundaries, tokenizers, system prompts, and defensive guardrail thresholds."
+              },
+              {
+                "id": "AML.T0001_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Deploy strict rate limiting, adaptive IP/token quota throttling, and bot mitigation controls on public ML inference endpoints. Suppress raw floating-point confidence vectors and logits, returning only truncated categorical labels. Sanitize internal error messages to prevent leakage of model versions and framework traces."
+              },
+              {
+                "id": "AML.T0001_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Monitor inference request telemetry for repetitive boundary-probing patterns, sequential queries with high Hamming distances, high-frequency token variations, and burst query volumes originating from single tenants, API keys, or IP clusters."
+              },
+              {
+                "id": "AML.T0001_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-4 (Information System Monitoring), AC-4 (Information Flow Enforcement), SC-5 (Denial of Service Protection); and NIST AI RMF: MEASURE 2.6 (Formal Safety Testing), MANAGE 1.3 (Production Monitoring), MEASURE 2.7 (Reliability and Robustness)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "AML.TA0003",
+        "class": "tactic",
+        "title": "Resource Development",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0003"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0003"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0003_overview",
+            "name": "overview",
+            "prose": "The adversary establishes, acquires, or prepares resources\u2014including base foundation models, fine-tuning datasets, computing infrastructure, persona templates, adversarial prompts, or optimization algorithms\u2014to support future operations against AI systems."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0016",
+            "class": "technique",
+            "title": "Acquire ML Artifacts",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0016"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0016"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0003"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SR-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SA-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-7"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 3.5"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 1.3"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0016",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0016"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0016_smt",
+                "name": "statement",
+                "prose": "Adversaries acquire publicly accessible pretrained foundation models, embeddings, open datasets, or open-source weights that match or approximate the victim target architecture to build offline surrogate shadow models or optimize transferrable adversarial payloads."
+              },
+              {
+                "id": "AML.T0016_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Establish organizational governance requiring cryptographically verified AI-BOMs (Artificial Intelligence Bills of Materials) for all third-party base models. Validate cryptographic digests (SHA-256) and Sigstore attestations for pre-trained weights prior to admission into corporate training and inference pipelines."
+              },
+              {
+                "id": "AML.T0016_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Log and audit all developer downloads of external model weights and dataset archives into enterprise environments. Track and scan admitted model weights using vulnerability and integrity analyzers."
+              },
+              {
+                "id": "AML.T0016_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SR-3 (Supply Chain Controls and Processes), SA-4 (Acquisition Process), SI-7 (Software, Firmware, and Information Integrity); and NIST AI RMF: GOVERN 1.2 (Third-Party Policies), MAP 3.5 (Third-Party Risks), MANAGE 1.3 (Procurement Governance)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0017",
+            "class": "technique",
+            "title": "Develop Adversarial ML Capabilities",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0017"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0017"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0003"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "RA-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "PM-16"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "CA-8"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 3.1"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 1.1"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.5"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0017",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0017"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0017_smt",
+                "name": "statement",
+                "prose": "Adversaries write custom exploit tooling, discrete token optimization scripts, gradient-based perturbation generators (e.g., FGSM, PGD), or prompt-fuzzing harnesses to automate evasion, inversion, or injection attacks against victim ML platforms."
+              },
+              {
+                "id": "AML.T0017_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Conduct continuous adversarial red-teaming and automated penetration testing against AI systems prior to and during production deployment. Update defensive alignment datasets with newly discovered adversarial patterns and gradient attacks."
+              },
+              {
+                "id": "AML.T0017_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Employ ML threat intelligence feeds to track novel adversary tooling and jailbreak generation algorithms. Ingest known adversarial token sequences and payload signatures into edge WAF and application guardrail filters."
+              },
+              {
+                "id": "AML.T0017_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: RA-3 (Risk Assessment), PM-16 (Threat Awareness Program), CA-8 (Penetration Testing); and NIST AI RMF: GOVERN 3.1 (Workforce Capacity and Threat Readiness), MAP 1.1 (Adversarial Context), MEASURE 2.5 (Adversarial Testing)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "AML.TA0004",
+        "class": "tactic",
+        "title": "Initial Access",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0004"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0004"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0004_overview",
+            "name": "overview",
+            "prose": "The adversary seeks to gain an initial foothold or unauthorized execution path into an AI system, application runtime, or model interaction boundary through direct interaction, untrusted context injection, or supply chain manipulation."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0051",
+            "class": "technique",
+            "title": "LLM Prompt Injection",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0051"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0051"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0004"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-10"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 1.5"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0051",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0051"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0051_smt",
+                "name": "statement",
+                "prose": "Adversaries craft malicious natural language prompts or escape sequences directly into conversational interfaces (direct prompt injection) or embed them within external data ingested by the model, such as retrieved documents, web searches, customer tickets, emails, or SQL records (indirect prompt injection), instructing the LLM to ignore prior system prompts, exfiltrate data, or execute unauthorized tool invocations."
+              },
+              {
+                "id": "AML.T0051_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Enforce strict separation between trusted system instructions and untrusted user/external context using clear syntactic delimiters and structural schemas. Implement dual-LLM architectures where an unprivileged model analyzes untrusted input before forwarding sanitized data to the privileged executor. Apply atomic capability leases and principle of least privilege to agent tool execution."
+              },
+              {
+                "id": "AML.T0051_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Inspect inbound prompts and context payloads with dedicated prompt injection classifiers. Monitor agent tool invocation logs for sudden privilege escalation, unauthorized API calls, unexpected parameter values, or deviations from nominal execution graphs."
+              },
+              {
+                "id": "AML.T0051_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-10 (Information Input Validation), SI-4 (Information System Monitoring), AC-3 (Access Enforcement), AC-6 (Least Privilege); and NIST AI RMF: MANAGE 2.4 (Risk Treatment Strategies), MEASURE 2.6 (Safety and Security Evaluation), MAP 1.5 (System Boundary Mapping)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0054",
+            "class": "technique",
+            "title": "LLM Jailbreak",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0054"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0054"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0004"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-10"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-15"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-6"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-18"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.7"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0054",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0054"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0054_smt",
+                "name": "statement",
+                "prose": "Adversaries use linguistic framing techniques\u2014such as adversarial roleplay (e.g. DAN/unrestricted persona), hypothetical research scenarios, cipher/base64 encoding, foreign languages, or recursive multi-turn conversational steering\u2014to circumvent model alignment filters and safety guardrails, compelling the LLM to output restricted, dangerous, toxic, or policy-violating information."
+              },
+              {
+                "id": "AML.T0054_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Deploy multi-layered defense-in-depth guardrails: input filtering, safety system prompt conditioning, internal activation monitoring, and output moderation classifiers. Couple probabilistic safety filters with deterministic Atomic Policy Guards that block prohibited concepts regardless of prompt framing."
+              },
+              {
+                "id": "AML.T0054_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Analyze inbound user prompts for known jailbreak linguistic signatures, persona-shift commands, character-level cipher manipulations, and excessive token obfuscation. Log safety filter trigger events and monitor repeat evasion attempts from user sessions."
+              },
+              {
+                "id": "AML.T0054_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-10 (Information Input Validation), SI-15 (Information Output Filtering), AC-6 (Least Privilege), SC-18 (Mobile Code / Dynamic Execution); and NIST AI RMF: MANAGE 2.4 (Safety Guardrail Treatment), MEASURE 2.7 (Robustness Assessment), GOVERN 1.2 (Acceptable Use Oversight)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0040",
+            "class": "technique",
+            "title": "ML Supply Chain Compromise",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0040"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0040"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0004"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SR-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SR-5"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-7"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 3.5"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 1.3"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0040",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0040"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0040_smt",
+                "name": "statement",
+                "prose": "Adversaries compromise upstream software packages, dependencies, third-party model weights, or dataset pipelines. For example, malicious serialized models (such as unsafe Python pickle, PyTorch `.pt`, or NumPy files) containing embedded arbitrary OS command execution payloads are hosted on public model hubs to compromise systems upon deserialization."
+              },
+              {
+                "id": "AML.T0040_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Enforce safe, non-executable model serialization formats such as Safetensors. Prohibit unverified deserialization of Python pickle archives. Implement mandatory AI-BOM generation, cryptographic signature validation (Sigstore/Cosign), and dependency scanning across all imported ML packages and model repositories."
+              },
+              {
+                "id": "AML.T0040_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Scan model files and pipeline artifacts with static analysis tools (e.g., Fickling, ModelScan) to detect embedded code execution payloads, deserialization hooks, or abnormal tensors before loading into memory."
+              },
+              {
+                "id": "AML.T0040_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SR-3 (Supply Chain Controls and Processes), SR-5 (Acquisition Strategy), SI-7 (Software, Firmware, and Information Integrity), SI-3 (Malicious Code Protection); and NIST AI RMF: GOVERN 1.2 (Supply Chain Governance), MAP 3.5 (Dependency Risk Identification), MANAGE 1.3 (Procurement Controls)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "AML.TA0001",
+        "class": "tactic",
+        "title": "ML Attack Staging",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0001"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0001"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0001_overview",
+            "name": "overview",
+            "prose": "The adversary leverages access and knowledge to tailor attack parameters, craft adversarial perturbation samples, train surrogate shadow models, or contaminate training/validation data before triggering operational effects."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0048",
+            "class": "technique",
+            "title": "Inversion",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0048"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0048"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0001"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-28"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "PT-2"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.11"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 4.1"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 4.1"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0048",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0048"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0048_smt",
+                "name": "statement",
+                "prose": "Adversaries exploit access to ML model outputs, loss functions, confidence scores, or embedding vectors to reconstruct sensitive proprietary training data, personal identifiable information (PII), confidential medical records, or biometric templates memorized during training."
+              },
+              {
+                "id": "AML.T0048_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Train models with differential privacy guarantees (DP-SGD) to bound individual sample memorization. Truncate or coarsen returned output logits and confidences. Implement membership inference defenses, output perturbation, and strict authorization on sensitive model embedding spaces."
+              },
+              {
+                "id": "AML.T0048_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Detect repeated, systematic reconstruction queries against specific classes or feature distributions. Monitor for high query volumes with marginal variations designed to optimize reconstruction gradients."
+              },
+              {
+                "id": "AML.T0048_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SC-28 (Protection of Information at Rest), AC-4 (Information Flow Enforcement), SI-4 (Information System Monitoring), PT-2 (Authority to Process Personally Identifiable Information); and NIST AI RMF: MEASURE 2.11 (Privacy Risk Measurement), MANAGE 4.1 (Privacy Risk Treatment), GOVERN 4.1 (Privacy Compliance Oversight)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0018",
+            "class": "technique",
+            "title": "Data Poisoning",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0018"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0018"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0001"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-7"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AU-10"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SR-3"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-44"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 2.3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0018",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0018"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0018_smt",
+                "name": "statement",
+                "prose": "Adversaries manipulate training, fine-tuning, or retrieval-augmented datasets by injecting maliciously labeled examples, corrupted features, or subtle trigger patterns (backdoor triggers). When the poisoned model encounters the trigger during production inference, it produces adversary-controlled decisions while behaving normally on benign data."
+              },
+              {
+                "id": "AML.T0018_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Establish cryptographic data provenance, immutable audit trails, and strict access controls for training datasets and data lakes. Employ statistical outlier detection, clean-label verification, and spectral signature analysis on newly ingested training records. Validate model performance against held-out golden benchmark datasets before production deployment."
+              },
+              {
+                "id": "AML.T0018_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Monitor training loss trajectories and gradient distributions for anomalous spikes. Audit fine-tuning data pipelines and RAG vector databases for anomalous text clusters, repeated trigger tokens, or unauthorized dataset mutations."
+              },
+              {
+                "id": "AML.T0018_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-7 (Software, Firmware, and Information Integrity), AU-10 (Non-Repudiation), SR-3 (Supply Chain Controls and Processes), SC-44 (Scientific Integrity); and NIST AI RMF: MAP 2.3 (Data Curation Quality), MEASURE 2.6 (Dataset Integrity Validation), MANAGE 2.4 (Poisoning Defense Controls)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0015",
+            "class": "technique",
+            "title": "Evade ML Model",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0015"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0015"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0001"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-10"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SA-11"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MAP 1.5"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0015",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0015"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0015_smt",
+                "name": "statement",
+                "prose": "Adversaries craft subtle adversarial perturbations to input data (such as image pixel noise, audio frequency shifts, or synonym substitution in text) that are imperceptible or benign to human inspection but cause the ML classifier to reliably misclassify the input."
+              },
+              {
+                "id": "AML.T0015_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Incorporate adversarial training with robust optimization techniques into model development. Apply randomized input smoothing, feature squeezing, and defensive preprocessing. Utilize split-conformal prediction sets to generate calibrated confidence bands and detect out-of-distribution inputs."
+              },
+              {
+                "id": "AML.T0015_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Measure input divergence metrics and cosine distances in embedding space relative to typical training distributions. Monitor prediction entropy and flag inputs causing extreme uncertainty or erratic classification changes."
+              },
+              {
+                "id": "AML.T0015_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-10 (Information Input Validation), SI-4 (Information System Monitoring), SA-11 (Developer Testing and Evaluation); and NIST AI RMF: MEASURE 2.6 (Adversarial Robustness Evaluation), MANAGE 2.4 (Adversarial Robustness Treatment), MAP 1.5 (Input Threat Modeling)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "AML.TA0009",
+        "class": "tactic",
+        "title": "Exfiltration",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0009"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0009"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0009_overview",
+            "name": "overview",
+            "prose": "The adversary steals intellectual property, proprietary model weights, hyperparameter configurations, private system prompts, or embedded training data from the victim AI environment or inference interface."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0044",
+            "class": "technique",
+            "title": "Model Extraction",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0044"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0044"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0009"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-7"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-5"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.11"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 4.2"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0044",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0044"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0044_smt",
+                "name": "statement",
+                "prose": "Adversaries repeatedly query an exposed model API with synthetic or targeted prompts to collect input-output prediction distributions, using the responses to train a duplicate surrogate model that extracts the proprietary intellectual property and capabilities of the victim system."
+              },
+              {
+                "id": "AML.T0044_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Embed watermarking signals into model predictions to prove copyright infringement in stolen models. Enforce aggressive query rate limits, query budget caps per tenant, and behavioral anomaly detection against synthetic dataset generation patterns."
+              },
+              {
+                "id": "AML.T0044_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Analyze API access logs for query coverage across input domain spaces, sustained high-volume queries with synthetic features, and clients harvesting millions of predictions across wide categorical spaces."
+              },
+              {
+                "id": "AML.T0044_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: AC-4 (Information Flow Enforcement), SC-7 (Boundary Protection), SI-4 (Information System Monitoring), SC-5 (Denial of Service Protection); and NIST AI RMF: MEASURE 2.11 (IP and Confidential Asset Protection), MANAGE 4.2 (Ongoing Monitoring for IP Harvesting), GOVERN 1.2 (Intellectual Property Governance)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0024",
+            "class": "technique",
+            "title": "Exfiltration via ML Inference API",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0024"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0024"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0009"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AU-6"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-7"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-15"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 1.3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 3.1"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0024",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0024"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0024_smt",
+                "name": "statement",
+                "prose": "Adversaries force an AI assistant or agent with access to sensitive internal databases, environment variables, or private user files to encode and leak confidential data inside generated responses, summary text, or markdown hyperlinks that transmit secrets to external listening servers."
+              },
+              {
+                "id": "AML.T0024_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Enforce outbound DLP (Data Loss Prevention) inspect on all generated completions. Disallow the rendering of arbitrary external image links or markdown URL redirects in user interfaces. Restrict agent network egress to authorized, inspected gateways."
+              },
+              {
+                "id": "AML.T0024_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Inspect model output streams for sensitive regex patterns (API tokens, private keys, PII, SSNs). Monitor agent network connections for outbound HTTP requests containing URL-encoded query parameters originating from generated context."
+              },
+              {
+                "id": "AML.T0024_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: AC-4 (Information Flow Enforcement), AU-6 (Audit Record Review, Analysis, and Reporting), SC-7 (Boundary Protection), SI-15 (Information Output Filtering); and NIST AI RMF: MANAGE 1.3 (Data Leakage Prevention Controls), MEASURE 2.6 (Data Exfiltration Channel Assessment), GOVERN 3.1 (Egress Monitoring and Containment Policy)."
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "AML.TA0011",
+        "class": "tactic",
+        "title": "Impact",
+        "props": [
+          {
+            "name": "label",
+            "value": "AML.TA0011"
+          },
+          {
+            "name": "sort-id",
+            "value": "aml.ta0011"
+          },
+          {
+            "name": "type",
+            "value": "tactic"
+          }
+        ],
+        "parts": [
+          {
+            "id": "AML.TA0011_overview",
+            "name": "overview",
+            "prose": "The adversary disrupts, degrades, or manipulates the operational integrity, availability, or downstream decisions of AI systems, leading to real-world harm, operational compromise, or economic loss."
+          }
+        ],
+        "controls": [
+          {
+            "id": "AML.T0043",
+            "class": "technique",
+            "title": "Insecure Output Handling",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0043"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0043"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0011"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-15"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-10"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-18"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AC-3"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.7"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 1.2"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0043",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0043"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0043_smt",
+                "name": "statement",
+                "prose": "Downstream applications, shell interpreters, web browsers, or agent execution fabrics consume untrusted or adversarial LLM outputs without sanitization, allowing an adversary who manipulated the LLM to trigger secondary vulnerabilities such as remote code execution (RCE), SQL injection, server-side request forgery (SSRF), or unauthorized transactional mutations."
+              },
+              {
+                "id": "AML.T0043_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Treat all AI model outputs as untrusted user input. Apply strict output sanitization, parameterized queries, and HTML encoding. Execute agent tool invocations within ephemeral, strongly isolated microVM sandboxes under bounded Capability Leases. Prohibit direct pipe of LLM output into system shells."
+              },
+              {
+                "id": "AML.T0043_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Log and audit all downstream system commands, SQL queries, and API calls dispatched by agent systems. Monitor sandbox process execution trees for abnormal child processes, unauthorized shell spawns, or file system writes outside designated workspaces."
+              },
+              {
+                "id": "AML.T0043_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-15 (Information Output Filtering), SI-10 (Information Input Validation), SC-18 (Mobile Code / Dynamic Execution), AC-3 (Access Enforcement); and NIST AI RMF: MANAGE 2.4 (Output Sandboxing and Filtering), MEASURE 2.7 (Integration Reliability Verification), GOVERN 1.2 (Execution Privilege Governance)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0029",
+            "class": "technique",
+            "title": "Denial of ML Service",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0029"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0029"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0011"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-5"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "CP-2"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-4"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SC-6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 3.1"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.1"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 2.1"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0029",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0029"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0029_smt",
+                "name": "statement",
+                "prose": "Adversaries craft computationally exorbitant queries (sponge examples), recursive agent tool loops, abnormally large context token payloads, or high-concurrency request floods designed to exhaust accelerator (GPU/TPU) VRAM, trigger thermal throttling, saturate inference queues, or incur catastrophic API billing charges, denying service to legitimate users."
+              },
+              {
+                "id": "AML.T0029_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Enforce strict hard limits on maximum input and output token lengths. Implement request timeouts, queue depth thresholds, and concurrency budgets per tenant. Deploy hardware circuit breakers and graceful degradation failover to smaller quantized models during traffic surges."
+              },
+              {
+                "id": "AML.T0029_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Monitor GPU/TPU accelerator utilization, inference latency spikes, memory allocation watermarks, and per-user token consumption velocity. Alert on queries exhibiting non-linear execution time growth or abnormal computational complexity."
+              },
+              {
+                "id": "AML.T0029_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SC-5 (Denial of Service Protection), CP-2 (Contingency Plan), SI-4 (Information System Monitoring), SC-6 (Resource Allocation); and NIST AI RMF: MANAGE 3.1 (Resilience to Compute Overload), MEASURE 2.1 (Availability and Throughput Metrics), GOVERN 2.1 (Resource Quotas and Continuity)."
+              }
+            ]
+          },
+          {
+            "id": "AML.T0031",
+            "class": "technique",
+            "title": "Erode ML Model Integrity",
+            "props": [
+              {
+                "name": "label",
+                "value": "AML.T0031"
+              },
+              {
+                "name": "sort-id",
+                "value": "aml.t0031"
+              },
+              {
+                "name": "framework",
+                "value": "MITRE ATLAS"
+              },
+              {
+                "name": "tactic",
+                "value": "AML.TA0011"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SI-7"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "SA-11"
+              },
+              {
+                "name": "mapped-control",
+                "ns": "http://csrc.nist.gov/ns/oscal/sp800-53r5",
+                "value": "AU-2"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MEASURE 2.6"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "MANAGE 2.4"
+              },
+              {
+                "name": "mapped-function",
+                "ns": "https://airc.nist.gov/AI-RMF",
+                "value": "GOVERN 4.1"
+              }
+            ],
+            "links": [
+              {
+                "href": "https://atlas.mitre.org/techniques/AML.T0031",
+                "rel": "reference",
+                "text": "MITRE ATLAS Technique AML.T0031"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789002",
+                "rel": "related",
+                "text": "NIST SP 800-53 Rev 5 Security Controls"
+              },
+              {
+                "href": "#3f2a1b04-8b1e-4321-9abc-123456789003",
+                "rel": "related",
+                "text": "NIST AI Risk Management Framework 1.0"
+              }
+            ],
+            "parts": [
+              {
+                "id": "AML.T0031_smt",
+                "name": "statement",
+                "prose": "Adversaries systematically induce persistent bias, gradual concept drift, or performance degradation in models that continuously learn or update in production, eroding user trust and organizational confidence until the system becomes unreliable or is retired by operators."
+              },
+              {
+                "id": "AML.T0031_mit",
+                "name": "guidance",
+                "title": "Mitigation and Countermeasures",
+                "prose": "Decouple live inference from online weight updating; require batch verification and regression testing on gold-standard verification suites before updating production models. Implement automated drift detection and rollback mechanisms to restore known-good model checkpoints."
+              },
+              {
+                "id": "AML.T0031_det",
+                "name": "detection",
+                "title": "Detection and Telemetry",
+                "prose": "Continuously track model prediction distributions, confidence histograms, and evaluation metrics against reference baselines. Trigger alerts on significant statistical drift, accuracy drops, or anomalous spikes in user feedback reports."
+              },
+              {
+                "id": "AML.T0031_map",
+                "name": "mapping",
+                "title": "Framework Crosswalk",
+                "prose": "Maps directly to NIST SP 800-53 Rev 5: SI-7 (Software, Firmware, and Information Integrity), SA-11 (Developer Testing and Evaluation), AU-2 (Event Logging); and NIST AI RMF: MEASURE 2.6 (Model Drift and Alignment Testing), MANAGE 2.4 (Regression Gates and Guardrails), GOVERN 4.1 (Continuous Assurance Oversight)."
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "back-matter": {
+      "resources": [
+        {
+          "uuid": "3f2a1b04-8b1e-4321-9abc-123456789001",
+          "title": "MITRE ATLAS Matrix Documentation",
+          "description": "Adversarial Threat Landscape for Artificial-Intelligence Systems knowledge base of adversary tactics, techniques, and case studies for machine learning systems.",
+          "rlinks": [
+            {
+              "href": "https://atlas.mitre.org"
+            }
+          ]
+        },
+        {
+          "uuid": "3f2a1b04-8b1e-4321-9abc-123456789002",
+          "title": "NIST SP 800-53 Revision 5",
+          "description": "Security and Privacy Controls for Information Systems and Organizations.",
+          "rlinks": [
+            {
+              "href": "https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final"
+            }
+          ]
+        },
+        {
+          "uuid": "3f2a1b04-8b1e-4321-9abc-123456789003",
+          "title": "NIST Artificial Intelligence Risk Management Framework (AI RMF 1.0)",
+          "description": "Guidance for managing risks in the design, development, deployment, and evaluation of AI systems.",
+          "rlinks": [
+            {
+              "href": "https://airc.nist.gov/AI-RMF"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

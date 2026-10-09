@@ -1,0 +1,249 @@
+{
+  "$schema": "http://csrc.nist.gov/ns/oscal/1.2.3/oscal-profile-schema.json",
+  "profile": {
+    "uuid": "8b5f3964-6729-4d64-96c2-48fb8061e88a",
+    "metadata": {
+      "title": "Frontier AI & MITRE ATLAS Security Overlay Profile",
+      "published": "2026-10-09T16:00:00Z",
+      "last-modified": "2026-10-09T16:00:00Z",
+      "version": "1.0.0",
+      "oscal-version": "1.2.3",
+      "props": [
+        {
+          "name": "profile-type",
+          "value": "overlay"
+        },
+        {
+          "name": "target-environment",
+          "value": "Frontier AI Systems (Anthropic Claude, Google Gemini, OpenAI GPT-4o)"
+        },
+        {
+          "name": "threat-framework",
+          "value": "MITRE ATLAS"
+        },
+        {
+          "name": "base-profile",
+          "value": "NIST SP 800-53 Rev 5 Moderate Impact Baseline"
+        }
+      ],
+      "roles": [
+        {
+          "id": "author",
+          "title": "Profile Author"
+        }
+      ],
+      "parties": [
+        {
+          "uuid": "86caef6c-8a8b-4a55-8dbf-9b2e047460fa",
+          "type": "organization",
+          "name": "Frontier AI Safety & Security Working Group"
+        }
+      ],
+      "responsible-parties": [
+        {
+          "role-id": "author",
+          "party-uuids": [
+            "86caef6c-8a8b-4a55-8dbf-9b2e047460fa"
+          ]
+        }
+      ],
+      "remarks": "OSCAL v1.2.3 profile overlay tailoring the NIST SP 800-53 Rev 5 Moderate Baseline for Frontier AI architectures (Anthropic Claude, Google Gemini, OpenAI GPT-4o) with defense-in-depth mitigations against MITRE ATLAS threat techniques."
+    },
+    "imports": [
+      {
+        "href": "../nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json",
+        "include-all": {}
+      }
+    ],
+    "merge": {
+      "as-is": true
+    },
+    "modify": {
+      "set-parameters": [
+        {
+          "param-id": "si-10_prm_1",
+          "label": "Prompt Injection Filtering, Semantic Input Guardrails, and Structural Token Parsing",
+          "usage": "Specifies input validation controls for frontier AI models against direct/indirect prompt injection (MITRE ATLAS AML.T0051) and jailbreaks (AML.T0054).",
+          "values": [
+            "prompt injection filtering, semantic input guardrails, and structural token parsing"
+          ]
+        },
+        {
+          "param-id": "ac-3_prm_1",
+          "label": "Constitutional AI Rules and Strict Tenant Context Isolation",
+          "usage": "Specifies access enforcement controls enforcing model behavioral constraints and multi-tenant isolation.",
+          "values": [
+            "constitutional AI rules and strict tenant context isolation"
+          ]
+        },
+        {
+          "param-id": "sc-13_prm_1",
+          "label": "FIPS 140-3 Validated Encryption for Model Weights and Inference Tensors",
+          "usage": "Specifies cryptographic mechanisms protecting model weights at rest and inference tensors across distributed accelerators.",
+          "values": [
+            "FIPS 140-3 validated encryption for model weights and inference tensors"
+          ]
+        },
+        {
+          "param-id": "sa-11_prm_1",
+          "label": "Automated Frontier Red-Teaming, CBRN Risk Evaluation, and MITRE ATLAS Matrix Coverage",
+          "usage": "Specifies developer testing and evaluation requirements for frontier AI deployments.",
+          "values": [
+            "automated frontier red-teaming, CBRN risk evaluation, and MITRE ATLAS matrix coverage"
+          ]
+        }
+      ],
+      "alters": [
+        {
+          "control-id": "si-10",
+          "adds": [
+            {
+              "position": "ending",
+              "props": [
+                {
+                  "name": "threat-framework",
+                  "value": "MITRE ATLAS"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0051: LLM Prompt Injection"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0054: LLM Jailbreak"
+                }
+              ],
+              "parts": [
+                {
+                  "name": "guidance",
+                  "prose": "Frontier AI deployments must enforce multi-layer semantic guardrails, prompt injection classifiers, and token-level input validation to neutralize adversarial prompt crafting prior to inference execution."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "control-id": "ac-3",
+          "adds": [
+            {
+              "position": "ending",
+              "props": [
+                {
+                  "name": "threat-framework",
+                  "value": "MITRE ATLAS"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0024: Exfiltration via ML Inference API"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0038: Model Inversion"
+                }
+              ],
+              "parts": [
+                {
+                  "name": "guidance",
+                  "prose": "Access enforcement must maintain strict cryptographic and memory tenant boundary isolation across context windows, KV-caches, and embedding stores, augmented by Constitutional AI policy guardrails."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "control-id": "sc-13",
+          "adds": [
+            {
+              "position": "ending",
+              "props": [
+                {
+                  "name": "threat-framework",
+                  "value": "MITRE ATLAS"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0005: Create Adversarial Machine Learning Artifacts"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0017: Adversarial Data Extraction"
+                }
+              ],
+              "parts": [
+                {
+                  "name": "guidance",
+                  "prose": "Model weights, safetensors checkpoint shards, and distributed inference tensors across GPU interconnects (NVLink/RoCE) must utilize FIPS 140-3 validated cryptographic modules in transit and at rest."
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "control-id": "sa-11",
+          "adds": [
+            {
+              "position": "ending",
+              "props": [
+                {
+                  "name": "threat-framework",
+                  "value": "MITRE ATLAS"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0040: ML-Enabled Cyber Attack Automation"
+                },
+                {
+                  "name": "mitre-atlas-technique",
+                  "value": "AML.T0048: Abuse of Legitimate AI Capabilities"
+                }
+              ],
+              "parts": [
+                {
+                  "name": "guidance",
+                  "prose": "Developer testing must incorporate automated frontier red-teaming frameworks covering the complete MITRE ATLAS adversarial tactics, alongside mandatory CBRN evaluation gates and autonomous cyber weaponization safeguards."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "back-matter": {
+      "resources": [
+        {
+          "uuid": "4c9e8a71-4632-4420-b021-9a7f3e82d02a",
+          "title": "NIST SP 800-53 Rev 5 Moderate Impact Baseline Profile",
+          "description": "Baseline security profile providing the foundational security and privacy controls for moderate impact systems.",
+          "rlinks": [
+            {
+              "href": "../nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json",
+              "media-type": "application/oscal.profile+json"
+            }
+          ]
+        },
+        {
+          "uuid": "df81389e-ec86-4f35-97e0-94e8db006764",
+          "title": "MITRE ATLAS (Adversarial Threat Landscape for Artificial-Intelligence Systems)",
+          "description": "Knowledge base of adversary tactics, techniques, and case studies based on real-world observations of attacks on artificial intelligence systems.",
+          "rlinks": [
+            {
+              "href": "https://atlas.mitre.org",
+              "media-type": "text/html"
+            }
+          ]
+        },
+        {
+          "uuid": "75806c59-bfaf-47e1-85bc-23ff3a648bce",
+          "title": "Frontier Model Safety Commitments and Red-Teaming Standards",
+          "description": "Technical standards and safety policies governing frontier AI models (Anthropic Claude, Google Gemini, OpenAI GPT-4o) including severe cyber and CBRN threat evaluation.",
+          "rlinks": [
+            {
+              "href": "https://www.frontiermodelforum.org",
+              "media-type": "text/html"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

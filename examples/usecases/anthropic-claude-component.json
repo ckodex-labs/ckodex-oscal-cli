@@ -1,0 +1,1055 @@
+{
+  "component-definition": {
+    "uuid": "4ffefb33-c8ae-4d6e-a27c-c853316d7060",
+    "metadata": {
+      "title": "Anthropic Claude Enterprise and ClaudeGov on AWS GovCloud OSCAL Component Definition",
+      "published": "2026-10-09T00:00:00Z",
+      "last-modified": "2026-10-09T00:00:00Z",
+      "version": "2026.1",
+      "oscal-version": "1.2.3",
+      "remarks": "OSCAL v1.2.3 Component Definition specification for Anthropic Claude Enterprise and ClaudeGov foundation model services (Claude 3.5 Sonnet, Claude 3.5 Haiku, Claude 3.7 Sonnet) mapped to NIST SP 800-53 Rev 5 Moderate and High baselines.",
+      "props": [
+        {
+          "name": "framework",
+          "value": "NIST SP 800-53 Rev 5"
+        },
+        {
+          "name": "baseline",
+          "value": "FedRAMP High / DoD IL4-IL5 / Moderate Baseline"
+        },
+        {
+          "name": "safety-policy",
+          "value": "Anthropic Responsible Scaling Policy (RSP) ASL-2 / ASL-3"
+        },
+        {
+          "name": "alignment-methodology",
+          "value": "Constitutional AI (RLAIF + RLHF)"
+        },
+        {
+          "name": "fips-compliance",
+          "value": "FIPS 140-3 Validated Cryptographic Modules"
+        },
+        {
+          "name": "data-retention-policy",
+          "value": "Zero Data Retention (ZDR) for Enterprise / ClaudeGov"
+        }
+      ],
+      "roles": [
+        {
+          "id": "csp-provider",
+          "title": "Cloud Service Provider / AI Model Developer",
+          "description": "Anthropic, PBC is the developer and provider of the Claude frontier models, inference APIs, and safety systems."
+        },
+        {
+          "id": "iaas-provider",
+          "title": "Infrastructure Provider (AWS GovCloud)",
+          "description": "Amazon Web Services (AWS) provides the GovCloud (US) enclave, underlying compute, networking, and Bedrock managed hosting."
+        },
+        {
+          "id": "customer-security-officer",
+          "title": "Customer Information System Security Officer (ISSO)",
+          "description": "Responsible for managing enterprise SSO, IAM role policies, VPC endpoints, and KMS customer-managed keys."
+        }
+      ],
+      "parties": [
+        {
+          "uuid": "a2c778a7-d88a-48dc-88a4-a1411faeb664",
+          "type": "organization",
+          "name": "Anthropic, PBC",
+          "short-name": "Anthropic",
+          "links": [
+            {
+              "href": "https://www.anthropic.com",
+              "rel": "website"
+            },
+            {
+              "href": "https://www.anthropic.com/news/claudegov",
+              "rel": "claudegov-announcement"
+            },
+            {
+              "href": "https://www.anthropic.com/responsible-scaling-policy",
+              "rel": "responsible-scaling-policy"
+            }
+          ],
+          "email-addresses": [
+            "security@anthropic.com"
+          ],
+          "addresses": [
+            {
+              "addr-lines": [
+                "548 Market St, PMB 90375"
+              ],
+              "city": "San Francisco",
+              "state": "CA",
+              "postal-code": "94104",
+              "country": "USA"
+            }
+          ]
+        },
+        {
+          "uuid": "a12354b4-fb16-4069-9e40-91831192c186",
+          "type": "organization",
+          "name": "Amazon Web Services, Inc.",
+          "short-name": "AWS",
+          "links": [
+            {
+              "href": "https://aws.amazon.com/govcloud-us/",
+              "rel": "govcloud-enclave"
+            },
+            {
+              "href": "https://aws.amazon.com/bedrock/",
+              "rel": "amazon-bedrock"
+            }
+          ],
+          "email-addresses": [
+            "aws-security@amazon.com"
+          ]
+        }
+      ],
+      "responsible-parties": [
+        {
+          "role-id": "csp-provider",
+          "party-uuids": [
+            "a2c778a7-d88a-48dc-88a4-a1411faeb664"
+          ]
+        },
+        {
+          "role-id": "iaas-provider",
+          "party-uuids": [
+            "a12354b4-fb16-4069-9e40-91831192c186"
+          ]
+        }
+      ]
+    },
+    "components": [
+      {
+        "uuid": "b62cffda-56c8-4f47-aa6a-c6f08264efba",
+        "type": "service",
+        "title": "Anthropic Claude Enterprise API Platform",
+        "description": "Managed multi-tenant foundation model inference platform providing Claude 3.5 and Claude 3.7 model invocation via HTTPS REST endpoints with enterprise identity management (SAML 2.0 / SCIM), role-based access control (RBAC), fine-grained workspace scoping, zero data retention (ZDR), and SIEM audit export.",
+        "purpose": "Enterprise-grade generative AI and reasoning inference service.",
+        "protocols": [
+          {
+            "uuid": "5b20693e-a62d-4e6e-9c46-c7f2ee8c53ab",
+            "name": "https",
+            "title": "Hypertext Transfer Protocol Secure (TLS 1.3)",
+            "port-ranges": [
+              {
+                "start": 443,
+                "end": 443,
+                "transport": "TCP"
+              }
+            ]
+          }
+        ],
+        "props": [
+          {
+            "name": "service-type",
+            "value": "SaaS / Inference API"
+          },
+          {
+            "name": "retention-default",
+            "value": "Zero Data Retention (ZDR)"
+          },
+          {
+            "name": "model-family",
+            "value": "Claude 3.5 / Claude 3.7"
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "afbd14ac-3bbc-4275-ab4d-4479baf8b9a3",
+            "source": "https://doi.org/10.6028/NIST.SP.800-53r5",
+            "description": "NIST SP 800-53 Rev 5 control implementations provided by the Anthropic Claude Enterprise API Platform.",
+            "implemented-requirements": [
+              {
+                "uuid": "27dc58c3-e1d7-4ca0-b1ff-6d42f54bb31d",
+                "control-id": "ac-2",
+                "description": "Anthropic Claude Enterprise implements automated account lifecycle management supporting SCIM 2.0 protocol for automated user provisioning and deprovisioning from customer Identity Providers (IdP). Workspaces enforce distinct administrative roles (Primary Owner, Owner, Admin, Member, Developer). Inactive accounts and departed users are immediately revoked via IdP directory synchronization.",
+                "set-parameters": [
+                  {
+                    "param-id": "ac-02_odp.01",
+                    "values": [
+                      "enterprise-sso",
+                      "scim-2.0-directory-sync"
+                    ]
+                  },
+                  {
+                    "param-id": "ac-02_odp.02",
+                    "values": [
+                      "user-id",
+                      "email",
+                      "workspace-role",
+                      "sso-attributes"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "ac-2_smt",
+                    "uuid": "92377f80-223a-4b6e-8434-626575532c40",
+                    "description": "Enterprise workspace account provisioning, tracking, and deactivation are managed via automated SCIM 2.0 integrations and customer SAML IdPs."
+                  },
+                  {
+                    "statement-id": "ac-2_smt.a",
+                    "uuid": "0fbf2682-d9e8-4b4c-b28b-bec429a9f3da",
+                    "description": "Identifies and categorizes system account types into Workspace Owner, Admin, Developer, and Billing accounts."
+                  },
+                  {
+                    "statement-id": "ac-2_smt.c",
+                    "uuid": "16589921-b8ff-46b6-925d-2342157a6e31",
+                    "description": "Enforces supervisor and organization-approved authorization prior to workspace access."
+                  },
+                  {
+                    "statement-id": "ac-2_smt.d",
+                    "uuid": "15113f2f-a399-4b88-a17a-5c3d287cbde8",
+                    "description": "Establishes, activates, modifies, and disables accounts in accordance with automated SCIM lifecycle events."
+                  }
+                ]
+              },
+              {
+                "uuid": "2295d954-9fd9-4412-9393-4e7289c422e4",
+                "control-id": "ac-3",
+                "description": "Access enforcement is performed at the API Gateway Policy Enforcement Point (PEP). Requests to model inference endpoints (messages API) require authenticated bearer tokens or cryptographically generated API keys. Role-Based Access Control (RBAC) verifies caller permissions against workspace policies before routing requests to inference workers.",
+                "statements": [
+                  {
+                    "statement-id": "ac-3_smt",
+                    "uuid": "0f119873-26a1-4069-a1e8-99632b1eb2a1",
+                    "description": "API Gateway PEP validates bearer tokens and scoped API keys, strictly enforcing workspace RBAC policies and model access authorization."
+                  }
+                ]
+              },
+              {
+                "uuid": "9fe8af80-44b2-4fb2-9716-dc1509ba3b32",
+                "control-id": "ac-6",
+                "description": "Least privilege is enforced across administrative consoles and API tokens. API keys are strictly workspace-scoped and can be configured with granular model invocation boundaries (e.g., restricting access to specific Claude models or extended thinking reasoning budgets). System administrators must use dedicated administrative roles separate from developer or billing roles.",
+                "statements": [
+                  {
+                    "statement-id": "ac-6_smt",
+                    "uuid": "d63c3ae9-5370-41fd-8c91-b52eec0953f6",
+                    "description": "Enforces least privilege by isolating developer token scopes, restricting administrative capabilities to explicit admin roles, and bounding model access parameters."
+                  }
+                ]
+              },
+              {
+                "uuid": "c95944fa-9eeb-4adf-9528-88bf8ee4ec17",
+                "control-id": "au-2",
+                "description": "The Claude Enterprise API Platform logs security-relevant events, including successful and failed authentication attempts, API key creation and revocation, workspace membership modifications, role transitions, inference invocations, rate-limit triggers, and administrative configuration changes.",
+                "set-parameters": [
+                  {
+                    "param-id": "au-02_odp.01",
+                    "values": [
+                      "user-authentication",
+                      "api-key-lifecycle",
+                      "workspace-membership-change",
+                      "inference-request-metadata",
+                      "rate-limit-event",
+                      "administrative-change"
+                    ]
+                  },
+                  {
+                    "param-id": "au-02_odp.03",
+                    "values": [
+                      "continuous-real-time-logging"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "au-2_smt",
+                    "uuid": "41112182-e40b-44c9-aeda-c3fd02bfdd81",
+                    "description": "Generates immutable audit records for all administrative, authentication, and API execution events."
+                  },
+                  {
+                    "statement-id": "au-2_smt.a",
+                    "uuid": "96d55c4b-1a28-44f6-a45d-71bf50cd1a3b",
+                    "description": "Identifies auditable event types including user login, key issuance, workspace modification, and model endpoint requests."
+                  }
+                ]
+              },
+              {
+                "uuid": "24900606-f602-4575-80a9-be4eb9335dcc",
+                "control-id": "au-3",
+                "description": "Audit records capture the UTC ISO 8601 timestamp, event type, actor identifier (user email, user UUID, or API key ID), organization UUID, workspace UUID, source IP address, HTTP user agent, targeted resource/endpoint, HTTP response code, unique request UUID, and token consumption metrics. Customer prompt content and completions are excluded from operational audit records to preserve confidentiality under the Zero Data Retention policy.",
+                "statements": [
+                  {
+                    "statement-id": "au-3_smt",
+                    "uuid": "fd02c8b8-fd88-494d-af36-ec0b4549e287",
+                    "description": "Audit entries contain complete forensic metadata including timestamp, source IP, actor identity, request UUID, and outcome status without capturing sensitive prompt content."
+                  },
+                  {
+                    "statement-id": "au-3_smt.a",
+                    "uuid": "ef5b73d8-cc84-4e21-b2ce-ed2cf669556b",
+                    "description": "Captures event timestamp in UTC."
+                  },
+                  {
+                    "statement-id": "au-3_smt.b",
+                    "uuid": "fe4a0754-a05a-459d-9773-19a64329f0c4",
+                    "description": "Captures event location and API ingress endpoint."
+                  },
+                  {
+                    "statement-id": "au-3_smt.c",
+                    "uuid": "04820732-52df-4972-9d7a-026bcea5110f",
+                    "description": "Captures source IP address and user agent."
+                  },
+                  {
+                    "statement-id": "au-3_smt.d",
+                    "uuid": "581c93d2-6113-40ef-91ed-97051f10d853",
+                    "description": "Captures actor identity and workspace credentials."
+                  },
+                  {
+                    "statement-id": "au-3_smt.e",
+                    "uuid": "2ece2a25-cb8b-454c-b01d-e1c47171276f",
+                    "description": "Captures execution outcome, status code, and error details."
+                  }
+                ]
+              },
+              {
+                "uuid": "ee700e6a-572f-42d5-a6a6-9666b261f93d",
+                "control-id": "au-6",
+                "description": "Audit logs are accessible via the Enterprise Audit Log API and can be streamed directly to enterprise SIEM platforms (Splunk, Datadog, AWS CloudWatch, S3 log shipping). Automated log analysis monitors for anomalous authentication spikes, brute-force attempts, and unauthorized API key generation.",
+                "set-parameters": [
+                  {
+                    "param-id": "au-06_odp.01",
+                    "values": [
+                      "real-time-siem-streaming",
+                      "daily-audit-reconciliation"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "au-6_smt",
+                    "uuid": "7356d3ce-f645-4f0e-b789-82634f03dd8b",
+                    "description": "Provides automated SIEM ingestion APIs and internal anomaly detection on authentication and access logs."
+                  }
+                ]
+              },
+              {
+                "uuid": "609c5b07-de56-451e-8182-f96ff2b75d66",
+                "control-id": "au-12",
+                "description": "Tamper-evident audit record generation is built natively into API gateways and administrative control plane services. Audit logs are written to write-once storage mechanisms with cryptographic checksum verification preventing record alteration or deletion.",
+                "set-parameters": [
+                  {
+                    "param-id": "au-12_odp.01",
+                    "values": [
+                      "anthropic-api-gateway",
+                      "identity-broker",
+                      "workspace-admin-service"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "au-12_smt",
+                    "uuid": "b72f5abd-3993-4393-abf8-0866bf1960c0",
+                    "description": "Ensures audit records are generated at all API entry points and securely delivered to immutable audit repositories."
+                  }
+                ]
+              },
+              {
+                "uuid": "1a88e15f-aebf-4fe2-8bad-b73c072e40b9",
+                "control-id": "ia-2",
+                "description": "Identification and authentication of human users is enforced via Enterprise Single Sign-On (SAML 2.0 / OIDC) federated with corporate Identity Providers (Okta, Microsoft Entra ID, Ping Identity). Multi-Factor Authentication (MFA) is strictly mandated via the customer IdP, supporting FIDO2/WebAuthn hardware keys and PIV/CAC smart cards.",
+                "statements": [
+                  {
+                    "statement-id": "ia-2_smt",
+                    "uuid": "23452258-734d-4224-bb60-e2d722a67d94",
+                    "description": "Mandates SAML 2.0/OIDC SSO with enterprise MFA enforcement for all console and management access."
+                  }
+                ]
+              },
+              {
+                "uuid": "cee7b547-bdb1-4c71-86d9-8e45b5f941cb",
+                "control-id": "ia-5",
+                "description": "API keys are generated using high-entropy cryptographic pseudorandom generators (minimum 256 bits of entropy). Keys are presented to users exactly once upon creation and stored exclusively as salted SHA-256 cryptographic hashes. Anthropic provides automated key rotation APIs and immediate revocation capabilities.",
+                "set-parameters": [
+                  {
+                    "param-id": "ia-05_odp.01",
+                    "values": [
+                      "90-days-recommended-rotation",
+                      "immediate-upon-compromise"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "ia-5_smt",
+                    "uuid": "62bd3952-a3da-430b-8376-932af4ea2be9",
+                    "description": "Manages high-entropy API keys using SHA-256 hashing at rest, customer-driven rotation policies, and programmatic revocation."
+                  }
+                ]
+              },
+              {
+                "uuid": "bee1e375-9d05-424e-ae3a-a9363a289a04",
+                "control-id": "sc-8",
+                "description": "Transmission confidentiality and integrity is enforced across all client connections using TLS 1.3 (with fallback to TLS 1.2 using FIPS-approved cipher suites such as ECDHE-RSA-AES256-GCM-SHA384 and ECDHE-ECDSA-AES256-GCM-SHA384). HTTP Strict Transport Security (HSTS) with long max-age and preload is enforced across all domains.",
+                "set-parameters": [
+                  {
+                    "param-id": "sc-08_odp",
+                    "values": [
+                      "tls-1.3",
+                      "tls-1.2-fips-ciphers",
+                      "hsts-enforced"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sc-8_smt",
+                    "uuid": "1b2e9124-d226-4ee4-8097-9934a8734b1c",
+                    "description": "Enforces TLS 1.3 and FIPS-compliant cipher suites with Perfect Forward Secrecy for all data in transit."
+                  }
+                ]
+              },
+              {
+                "uuid": "3610e089-1a45-43a9-91c1-7523aa667633",
+                "control-id": "sc-28",
+                "description": "Anthropic guarantees Zero Data Retention (ZDR) for Enterprise API customers: customer prompts, system messages, and generated completions reside strictly in volatile GPU/CPU RAM during request execution and are purged upon completion of the streaming response. Customer inference data is never written to disk, never logged in plain text, and never used to train or fine-tune Anthropic foundation models. Ephemeral prompt caches are encrypted with AES-256 and expire strictly according to customer-configured TTLs.",
+                "set-parameters": [
+                  {
+                    "param-id": "sc-28_odp.01",
+                    "values": [
+                      "volatile-ram-ephemeral-processing",
+                      "aes-256-gcm-for-temporary-caching"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sc-28_smt",
+                    "uuid": "3619b4a9-4452-4e35-a52a-4e557a4ee084",
+                    "description": "Guarantees Zero Data Retention: customer prompt and completion payloads are processed ephemerally in RAM, never stored at rest, and never utilized for model training."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uuid": "d7540318-9b0b-48f3-a173-7ded0e3de06c",
+        "type": "service",
+        "title": "Anthropic ClaudeGov on AWS GovCloud (US)",
+        "description": "Sovereign, air-gap-capable foundation model deployment operating inside AWS GovCloud (US) enclaves via Amazon Bedrock. Tailored for US Government defense, intelligence, and civilian agencies, providing FedRAMP High JAB Authorized, DoD Impact Level 4 (IL4), and Impact Level 5 (IL5) compliance. Employs FIPS 140-3 validated cryptographic modules, dedicated AWS PrivateLink VPC Endpoints, and customer-managed KMS encryption keys operated exclusively by screened US persons.",
+        "purpose": "FedRAMP High and DoD IL4/IL5 compliant sovereign AI reasoning infrastructure for government and defense agencies.",
+        "protocols": [
+          {
+            "uuid": "f91d5038-8a41-44ff-873c-bd2cee0b023c",
+            "name": "aws-privatelink",
+            "title": "AWS PrivateLink VPC Endpoint (FIPS 140-3 TLS 1.3)",
+            "port-ranges": [
+              {
+                "start": 443,
+                "end": 443,
+                "transport": "TCP"
+              }
+            ]
+          }
+        ],
+        "props": [
+          {
+            "name": "service-type",
+            "value": "Sovereign GovCloud Foundation Model Deployment"
+          },
+          {
+            "name": "authorization-status",
+            "value": "FedRAMP High JAB Authorized / DoD IL4 / DoD IL5"
+          },
+          {
+            "name": "sovereignty",
+            "value": "US Persons on US Soil (AWS GovCloud US-East / US-West)"
+          },
+          {
+            "name": "itar-compliance",
+            "value": "ITAR Compliant Boundary"
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "f710470a-3548-4e8d-a8f7-07f2cff502cd",
+            "source": "https://doi.org/10.6028/NIST.SP.800-53r5",
+            "description": "NIST SP 800-53 Rev 5 control implementations provided by Anthropic ClaudeGov on AWS GovCloud (US).",
+            "implemented-requirements": [
+              {
+                "uuid": "a3c1a2f7-92ab-4046-9fe2-25ea2ce62786",
+                "control-id": "ac-4",
+                "description": "ClaudeGov enforces information flow boundaries using AWS PrivateLink and VPC Interface Endpoints. Customer agencies connect to Bedrock Claude inference endpoints directly from within their dedicated Amazon Virtual Private Clouds (VPCs) without traversing the public internet. Enclave boundary controls prevent data exfiltration and isolate inference data within the GovCloud security perimeter.",
+                "set-parameters": [
+                  {
+                    "param-id": "ac-04_odp",
+                    "values": [
+                      "aws-privatelink-vpc-endpoint",
+                      "govcloud-enclave-isolation",
+                      "no-public-internet-egress"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "ac-4_smt",
+                    "uuid": "e1d65a66-a18c-4386-afc8-555af08da401",
+                    "description": "Enforces private network isolation using AWS PrivateLink VPC endpoints, confining all model communication strictly within authorized GovCloud VPC boundaries."
+                  }
+                ]
+              },
+              {
+                "uuid": "392d6c25-ccae-4fb1-811c-3cbe736ab4d4",
+                "control-id": "sc-7",
+                "description": "Boundary protection is established through the AWS GovCloud (US) FedRAMP High accredited boundary. Traffic is inspected by AWS WAF rulesets, protected by AWS Shield DDoS mitigation, and constrained by VPC Security Groups and Network Access Control Lists (NACLs). All ingress points enforce rate limits and cryptographic session termination.",
+                "set-parameters": [
+                  {
+                    "param-id": "sc-07_odp",
+                    "values": [
+                      "aws-govcloud-boundary",
+                      "aws-waf-managed-rules",
+                      "aws-shield-advanced"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sc-7_smt",
+                    "uuid": "bd32fbc7-b255-4c42-9efb-188016ab8694",
+                    "description": "Maintains physical and logical perimeter boundaries around ClaudeGov inference infrastructure in AWS GovCloud."
+                  },
+                  {
+                    "statement-id": "sc-7_smt.a",
+                    "uuid": "ba995ea7-3dc5-4271-81d5-91c1ee6acd16",
+                    "description": "Monitors and controls communications at internal and external boundaries."
+                  },
+                  {
+                    "statement-id": "sc-7_smt.b",
+                    "uuid": "1e38c650-a2f8-40d0-85d3-c86e561a8519",
+                    "description": "Employs dedicated VPC subnets and firewall appliances to partition inference enclaves."
+                  },
+                  {
+                    "statement-id": "sc-7_smt.c",
+                    "uuid": "6df3a8dc-b40d-49c6-8f53-cabaa2affe81",
+                    "description": "Restricts external connections to approved private VPC endpoints."
+                  }
+                ]
+              },
+              {
+                "uuid": "0e0b2eb8-2006-4854-92a3-6e9475e1691e",
+                "control-id": "sc-13",
+                "description": "ClaudeGov enforces FIPS 140-3 validated cryptography for all data encryption, decryption, and digital signature verification. Customer agencies control encryption keys using AWS Key Management Service (AWS KMS) Customer Managed Keys (CMK) configured in FIPS 140-3 Level 3 Hardware Security Modules (HSMs). In-transit data is protected using FIPS-validated TLS endpoints.",
+                "set-parameters": [
+                  {
+                    "param-id": "sc-13_odp.01",
+                    "values": [
+                      "fips-140-3-level-3-hsm",
+                      "aes-256-gcm-encryption",
+                      "aws-kms-cmk-customer-owned"
+                    ]
+                  },
+                  {
+                    "param-id": "sc-13_odp.02",
+                    "values": [
+                      "fips-approved-cryptography-modules"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sc-13_smt",
+                    "uuid": "172b2e4e-ed19-44ce-89c9-6333c3656fcc",
+                    "description": "Employs FIPS 140-3 validated cryptographic modules and customer-managed KMS keys for all cryptographic functions."
+                  },
+                  {
+                    "statement-id": "sc-13_smt.a",
+                    "uuid": "208e6ac0-b407-44b9-8300-adaa42dd6b4f",
+                    "description": "Applies FIPS 140-3 validated cryptographic mechanisms to secure model communications and customer enclaves."
+                  }
+                ]
+              },
+              {
+                "uuid": "db7f3623-c9e2-4a2a-a6a6-899b2e3e77e8",
+                "control-id": "cp-9",
+                "description": "ClaudeGov foundation model deployments maintain multi-Availability Zone (multi-AZ) redundancy within AWS GovCloud regions. Immutable model checkpoints and runtime deployment configurations are redundantly distributed to ensure rapid recovery and high availability during disaster scenarios.",
+                "statements": [
+                  {
+                    "statement-id": "cp-9_smt",
+                    "uuid": "b3032165-07c4-4f47-bce6-7eef58283c69",
+                    "description": "Replicates immutable model container images and checkpoints across multiple GovCloud availability zones for high availability and disaster recovery."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "uuid": "81a33d07-e1a3-44e9-92a1-7dba9e1e6df7",
+        "type": "software",
+        "title": "Anthropic Claude Frontier Model Core & Constitutional AI Safety Engine",
+        "description": "Core neural weights and runtime safety engine powering Claude 3.5 Sonnet, Claude 3.5 Haiku, and Claude 3.7 Sonnet (hybrid extended thinking). Governed by Anthropic's Responsible Scaling Policy (RSP) under AI Safety Level 2 (ASL-2) and ASL-3 protocols, incorporating Constitutional AI (RLAIF), automated red-teaming for CBRN and autonomous cyber offensive capabilities, prompt injection defenses, and structured JSON Schema tool execution guards.",
+        "purpose": "Performs safe frontier reasoning, extended thinking, alignment enforcement, and prompt injection mitigation.",
+        "props": [
+          {
+            "name": "model-versions",
+            "value": "claude-3-5-sonnet-20241022, claude-3-5-haiku-20241022, claude-3-7-sonnet-20250219"
+          },
+          {
+            "name": "safety-standard",
+            "value": "Anthropic Responsible Scaling Policy (RSP) ASL-2 / ASL-3"
+          },
+          {
+            "name": "alignment-type",
+            "value": "Constitutional AI / RLAIF / RLHF"
+          },
+          {
+            "name": "context-window",
+            "value": "200,000 tokens (up to 1,000,000 tokens in ClaudeGov)"
+          },
+          {
+            "name": "reasoning-capability",
+            "value": "Hybrid Extended Thinking (Claude 3.7 Sonnet)"
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "1078daaf-6eba-4d63-8cef-7823743009e5",
+            "source": "https://doi.org/10.6028/NIST.SP.800-53r5",
+            "description": "NIST SP 800-53 Rev 5 control implementations provided by the Anthropic Claude Frontier Model Core and Safety Engine.",
+            "implemented-requirements": [
+              {
+                "uuid": "4882ad89-3c2f-49ed-bf71-27d092021371",
+                "control-id": "si-4",
+                "description": "Continuous runtime inference monitoring incorporates automated safety classifiers to detect adversarial prompt injection attacks, jailbreak attempts, and CBRN/cyber threat proliferation requests. Behavioral anomaly detection monitors token production patterns and unusual reasoning token allocation, alerting security operations to potential policy evasion attempts.",
+                "set-parameters": [
+                  {
+                    "param-id": "si-04_odp.01",
+                    "values": [
+                      "adversarial-prompt-injection-detection",
+                      "cbrn-misuse-monitoring",
+                      "jailbreak-attempt-classification"
+                    ]
+                  },
+                  {
+                    "param-id": "si-04_odp.02",
+                    "values": [
+                      "automated-neural-safety-classifiers",
+                      "heuristics-and-embeddings"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "si-4_smt",
+                    "uuid": "a53636d0-ec19-4d67-9c1e-9562d889fc2e",
+                    "description": "Deploys real-time runtime safety classifiers and heuristic monitoring to detect adversarial prompt injection and safety violations."
+                  },
+                  {
+                    "statement-id": "si-4_smt.a",
+                    "uuid": "f6c65257-c4f5-46c6-9e80-b429ede61df4",
+                    "description": "Monitors inference inputs and reasoning tokens for indicators of adversarial evasion or malicious instruction overrides."
+                  }
+                ]
+              },
+              {
+                "uuid": "60635826-8afe-4c47-8874-7a1b7eff4d79",
+                "control-id": "si-10",
+                "description": "Rigorous information input validation is implemented across multiple layers: (1) UTF-8 encoding validation and control character normalization; (2) context window token bounding (up to 200k/1M tokens); (3) context boundary fence isolation separating developer system prompts from untrusted user inputs and third-party tool outputs; (4) prompt injection filtering and jailbreak defenses; and (5) strict JSON Schema validation for tool/function calling definitions, ensuring arguments conform to strongly typed contracts prior to client execution.",
+                "set-parameters": [
+                  {
+                    "param-id": "si-10_odp",
+                    "values": [
+                      "utf-8-normalization",
+                      "context-window-token-bounds",
+                      "tool-call-json-schema-validation",
+                      "prompt-injection-fence-delimiters"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "si-10_smt",
+                    "uuid": "80bcb108-3fd4-406d-8f0a-fe10e25b66cf",
+                    "description": "Validates inputs via character normalization, token boundaries, prompt injection delimiters, and strict tool-call JSON Schema verification."
+                  }
+                ]
+              },
+              {
+                "uuid": "61689f30-c602-471f-aa3f-706a39672d83",
+                "control-id": "si-11",
+                "description": "Error handling mechanisms return standardized, sanitized error payloads (e.g., standard HTTP 400, 401, 403, 429, 500 status codes with abstract error types). System prompts, internal chain-of-thought tokens, model hyper-parameters, execution call stacks, and underlying infrastructure details are strictly suppressed and prevented from leaking in error messages.",
+                "set-parameters": [
+                  {
+                    "param-id": "si-11_odp",
+                    "values": [
+                      "security-operations-team",
+                      "authenticated-api-caller"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "si-11_smt",
+                    "uuid": "d6778cb7-7831-44db-9474-cb9aec75e4c6",
+                    "description": "Suppresses internal system prompts, reasoning scratchpads, and execution traces from client error messages, returning only sanitized, structured error codes."
+                  },
+                  {
+                    "statement-id": "si-11_smt.a",
+                    "uuid": "c496130a-d1d1-4c9f-acaf-1f5eb6477061",
+                    "description": "Generates structured error messages that prevent disclosure of internal model architecture or security classifier states."
+                  }
+                ]
+              },
+              {
+                "uuid": "852a51cf-f4ac-4ad3-b336-992d662739ca",
+                "control-id": "si-16",
+                "description": "Memory protection is enforced at the compute substrate and neural runtime levels. Inference operates in isolated GPU memory spaces. Activation buffers and KV-caches for distinct requests are isolated using hardware memory segmentation, preventing cross-tenant memory leakage or prompt contamination during batched inference.",
+                "statements": [
+                  {
+                    "statement-id": "si-16_smt",
+                    "uuid": "89491cde-32b6-4de1-87a6-3fb9193db31b",
+                    "description": "Enforces hardware-level GPU memory segmentation and volatile memory zeroing between inference requests to eliminate cross-session memory remnants."
+                  }
+                ]
+              },
+              {
+                "uuid": "e2a49905-386e-4537-ae62-2fb71b9cf247",
+                "control-id": "sa-11",
+                "description": "Anthropic's Responsible Scaling Policy (RSP) defines formal AI Safety Level 2 (ASL-2) and ASL-3 evaluation protocols required prior to model training and deployment. Before releasing Claude 3.5 Sonnet, Claude 3.5 Haiku, and Claude 3.7 Sonnet, the models undergo extensive automated evaluations and expert red-teaming for: (1) Chemical, Biological, Radiological, and Nuclear (CBRN) weapon development assistance; (2) autonomous cyber offensive capabilities (vulnerability exploitation, automated weaponization); and (3) autonomous self-replication. Independent red-teaming attestations and pre-deployment evaluation findings are shared with the US Artificial Intelligence Safety Institute (US AISI) and UK AISI.",
+                "set-parameters": [
+                  {
+                    "param-id": "sa-11_odp.01",
+                    "values": [
+                      "pre-deployment-rsp-asl-evaluations",
+                      "cbrn-threat-battery",
+                      "cyber-offensive-benchmarks",
+                      "us-uk-aisi-red-team-attestations"
+                    ]
+                  },
+                  {
+                    "param-id": "sa-11_odp.02",
+                    "values": [
+                      "prior-to-frontier-model-promotion-and-release"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sa-11_smt",
+                    "uuid": "e823271d-824f-48a9-a311-62c6d1937d16",
+                    "description": "Conducts exhaustive pre-deployment testing under the Responsible Scaling Policy, including autonomous cyber offense benchmarks, CBRN evaluations, and US/UK AISI red teaming."
+                  },
+                  {
+                    "statement-id": "sa-11_smt.a",
+                    "uuid": "5aaded19-3b64-4ba5-b8c0-cf92ca4671d3",
+                    "description": "Executes testing plan covering frontier safety evaluations and Constitutional AI alignment verification."
+                  },
+                  {
+                    "statement-id": "sa-11_smt.b",
+                    "uuid": "79a7c0d9-5780-4f6d-abd9-8baec021b5d2",
+                    "description": "Performs red-teaming and penetration testing across prompt injection, jailbreaking, and dual-use capabilities."
+                  },
+                  {
+                    "statement-id": "sa-11_smt.c",
+                    "uuid": "cb591924-cdff-4418-8fe4-0d3f69c8c864",
+                    "description": "Verifies test results and obtains formal executive authorization prior to production deployment."
+                  }
+                ]
+              },
+              {
+                "uuid": "1560de45-97a1-4006-b6d5-fd7f4bc3a45b",
+                "control-id": "sa-15",
+                "description": "Development processes follow Anthropic's Constitutional AI methodology. Training pipelines combine Reinforcement Learning from AI Feedback (RLAIF) and Reinforcement Learning from Human Feedback (RLHF) against a codified set of safety and human rights principles, embedding alignment directly into neural parameters and minimizing harmful outputs at the model layer.",
+                "statements": [
+                  {
+                    "statement-id": "sa-15_smt",
+                    "uuid": "9c261992-7cdb-4e18-aa59-a08c88b83cbf",
+                    "description": "Follows Constitutional AI engineering methodology to systematically embed ethical principles and behavioral safety boundaries into model weights."
+                  }
+                ]
+              },
+              {
+                "uuid": "ebbc9437-3c39-44bf-85eb-9bd4a9b1aec2",
+                "control-id": "sr-3",
+                "description": "Supply chain security encompasses training data integrity and foundation model weight protection. Training corpora are vetted, deduplicated, and tracked with cryptographic provenance ledgers. Model weights are stored in encrypted, air-gapped repositories with multi-party quorum hardware authorization for weight access. Containerized inference runtime images are built using verified SBOMs and signed with cryptographic attestations (Cosign/Sigstore).",
+                "set-parameters": [
+                  {
+                    "param-id": "sr-03_odp.01",
+                    "values": [
+                      "foundation-model-weights",
+                      "training-corpora-provenance",
+                      "inference-runtime-containers"
+                    ]
+                  },
+                  {
+                    "param-id": "sr-03_odp.03",
+                    "values": [
+                      "multi-party-quorum-access",
+                      "cryptographic-weight-hashing",
+                      "sbom-vulnerability-scanning"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "sr-3_smt",
+                    "uuid": "bd0a0171-5559-439a-ae0a-d1c0304b5c5b",
+                    "description": "Enforces supply chain integrity through provenance tracking, multi-party weight access controls, and container SBOM signing."
+                  },
+                  {
+                    "statement-id": "sr-3_smt.a",
+                    "uuid": "ba01a037-2d53-45c1-a920-29b5ddd788c1",
+                    "description": "Maintains strict supply chain risk management policies covering third-party datasets and compute providers."
+                  }
+                ]
+              },
+              {
+                "uuid": "d122906a-2c9b-4ff9-a2fe-b1146c485b76",
+                "control-id": "ra-3",
+                "description": "Risk assessments are systematically conducted throughout model development lifecycles in accordance with the Responsible Scaling Policy. Anthropic evaluates catastrophic risk thresholds, societal impacts, misuse potential, and emergent capabilities across each frontier iteration (Claude 3.5 and Claude 3.7).",
+                "set-parameters": [
+                  {
+                    "param-id": "ra-03_odp.01",
+                    "values": [
+                      "frontier-ai-catastrophic-risk-assessment",
+                      "asl-capability-evaluation-report"
+                    ]
+                  },
+                  {
+                    "param-id": "ra-03_odp.03",
+                    "values": [
+                      "prior-to-frontier-training-and-major-model-releases"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "ra-3_smt",
+                    "uuid": "f686254d-a2c8-4623-b0a6-b8bdf143e8dd",
+                    "description": "Executes comprehensive risk assessments evaluating dual-use risks and catastrophic harm thresholds prior to deployment."
+                  }
+                ]
+              },
+              {
+                "uuid": "10ebe7d6-3703-4bef-8c00-9495632de475",
+                "control-id": "ra-5",
+                "description": "Vulnerability monitoring combines automated infrastructure vulnerability scanning with continuous adversarial AI red-teaming. In-house and third-party red teams continuously probe models for novel jailbreaks, prompt injection bypasses, and data extraction vectors. Identified vulnerabilities trigger rapid updates to safety classifiers and model guardrails.",
+                "set-parameters": [
+                  {
+                    "param-id": "ra-05_odp.01",
+                    "values": [
+                      "continuous-adversarial-red-teaming",
+                      "weekly-container-vulnerability-scanning"
+                    ]
+                  },
+                  {
+                    "param-id": "ra-05_odp.03",
+                    "values": [
+                      "critical-vulnerabilities-within-24h",
+                      "high-vulnerabilities-within-7d"
+                    ]
+                  }
+                ],
+                "statements": [
+                  {
+                    "statement-id": "ra-5_smt",
+                    "uuid": "92c9a7b9-63a7-410c-9ba0-ae90c292484b",
+                    "description": "Monitors and scans for vulnerabilities through continuous adversarial red teaming and automated container scanning."
+                  },
+                  {
+                    "statement-id": "ra-5_smt.a",
+                    "uuid": "636f8499-1ec0-42e5-b8a8-381801eb0a28",
+                    "description": "Scans for system vulnerabilities and model jailbreak susceptibility at regular intervals."
+                  }
+                ]
+              },
+              {
+                "uuid": "88f9d083-d192-48ec-9ca7-0b0a167ed7dc",
+                "control-id": "cm-8",
+                "description": "Maintains an authoritative, immutable inventory of deployed foundation model components. Deployed models are identified by exact immutable model IDs (e.g., `claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`, `claude-3-7-sonnet-20250219`), with documented lifecycle states, deprecation schedules, and hardware accelerators.",
+                "statements": [
+                  {
+                    "statement-id": "cm-8_smt",
+                    "uuid": "62b3755a-c9d9-44e4-be91-792ef7217b91",
+                    "description": "Maintains an immutable inventory of all deployed foundation model weights, version identifiers, and associated runtime environments."
+                  }
+                ]
+              },
+              {
+                "uuid": "925664d5-cd3d-426e-a19b-484648f211dd",
+                "control-id": "pl-8",
+                "description": "Anthropic's security architecture formally implements the Responsible Scaling Policy (RSP) tiering structure. At AI Safety Level 2 (ASL-2) and ASL-3, defense-in-depth security architectures enforce physical security, air-gapped weight storage, strict operational security, and segregated deployment infrastructure designed to prevent state-sponsored model theft or unauthorized activation.",
+                "statements": [
+                  {
+                    "statement-id": "pl-8_smt",
+                    "uuid": "37903b2e-74b6-4302-a2bd-3ac6d9709926",
+                    "description": "Architects security controls in accordance with the Responsible Scaling Policy, establishing robust defense-in-depth around model weights and inference environments."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "capabilities": [
+      {
+        "uuid": "a344d8ff-eded-42e0-a0a5-ca18e5abdef9",
+        "name": "Responsible Scaling Policy (RSP) & Frontier Model Safety (ASL-2 / ASL-3)",
+        "description": "Comprehensive frontier AI safety governance encompassing pre-deployment evaluations for CBRN and cyber warfare risks, Constitutional AI alignment (RLAIF), independent red-teaming attestations (US/UK AISI), and hardware-secured model weight protection under Anthropic's Responsible Scaling Policy.",
+        "props": [
+          {
+            "name": "safety-level",
+            "value": "ASL-2 / ASL-3"
+          },
+          {
+            "name": "external-attestation",
+            "value": "US Artificial Intelligence Safety Institute (US AISI) / UK AISI"
+          }
+        ],
+        "incorporates-components": [
+          {
+            "component-uuid": "81a33d07-e1a3-44e9-92a1-7dba9e1e6df7",
+            "description": "The Claude Model Core executes Constitutional AI alignment, pre-deployment evaluation batteries, and adversarial red-teaming defenses."
+          }
+        ]
+      },
+      {
+        "uuid": "88da0a8a-1af6-4ec4-b9bd-55094ab9c6d7",
+        "name": "Enterprise Identity, Authentication & Role-Based Access Governance",
+        "description": "Enterprise identity federation, automated user lifecycle management via SCIM 2.0, mandatory MFA, workspace-level RBAC, scoped API token issuance, and AWS IAM SigV4 role delegation.",
+        "props": [
+          {
+            "name": "sso-protocols",
+            "value": "SAML 2.0 / OIDC / SCIM 2.0"
+          },
+          {
+            "name": "mfa-standard",
+            "value": "FIDO2 / WebAuthn / PIV-CAC"
+          }
+        ],
+        "incorporates-components": [
+          {
+            "component-uuid": "b62cffda-56c8-4f47-aa6a-c6f08264efba",
+            "description": "Claude Enterprise API enforces SAML 2.0 SSO, SCIM 2.0 provisioning, and workspace role isolation."
+          },
+          {
+            "component-uuid": "d7540318-9b0b-48f3-a173-7ded0e3de06c",
+            "description": "ClaudeGov enforces AWS IAM SigV4 authentication, ABAC attribute tags, and GovCloud enclave credentials."
+          }
+        ]
+      },
+      {
+        "uuid": "a587d972-3365-47eb-b7ef-6b48374bb0d7",
+        "name": "Zero Data Retention & FIPS 140-3 Cryptographic Isolation",
+        "description": "Guaranteed Zero Data Retention (ZDR) preventing customer data persistence or model training, combined with end-to-end FIPS 140-3 validated encryption in transit (TLS 1.3) and at rest (AWS KMS Customer Managed Keys).",
+        "props": [
+          {
+            "name": "retention-policy",
+            "value": "Zero Customer Data Retention (ZDR)"
+          },
+          {
+            "name": "cryptography",
+            "value": "FIPS 140-3 Validated / TLS 1.3 / AES-256-GCM"
+          }
+        ],
+        "incorporates-components": [
+          {
+            "component-uuid": "b62cffda-56c8-4f47-aa6a-c6f08264efba",
+            "description": "Provides volatile RAM ephemeral inference execution and zero data retention for Enterprise API workloads."
+          },
+          {
+            "component-uuid": "d7540318-9b0b-48f3-a173-7ded0e3de06c",
+            "description": "Provides customer-owned KMS CMK encryption and FIPS 140-3 HSM key protection in AWS GovCloud."
+          }
+        ]
+      },
+      {
+        "uuid": "89efeee9-0887-4b81-bf2f-852039f7c033",
+        "name": "Sovereign Enclave Boundary Isolation & FedRAMP High Governance",
+        "description": "Dedicated AWS GovCloud (US) private network routing via AWS PrivateLink VPC Endpoints, ITAR compliance, US persons operational control, and FedRAMP High JAB Authorization.",
+        "props": [
+          {
+            "name": "accreditation",
+            "value": "FedRAMP High JAB Authorized / DoD IL4 / DoD IL5"
+          },
+          {
+            "name": "network-isolation",
+            "value": "AWS PrivateLink VPC Interface Endpoints"
+          }
+        ],
+        "incorporates-components": [
+          {
+            "component-uuid": "d7540318-9b0b-48f3-a173-7ded0e3de06c",
+            "description": "Provides private VPC endpoint ingress, GovCloud enclave boundary protection, and ITAR compliant hosting."
+          }
+        ]
+      },
+      {
+        "uuid": "02282531-1c4f-46a9-a73d-604b04a9c96f",
+        "name": "Prompt Injection Defense, Input Sanitization & Tool Execution Sandboxing",
+        "description": "Multi-tier defense-in-depth against prompt injection and jailbreaks, context boundary delimitation, strict JSON Schema validation for tool invocation, and sanitized error structures suppressing internal system prompts.",
+        "props": [
+          {
+            "name": "injection-defense",
+            "value": "Context Boundary Delimiters + Automated Classifiers"
+          },
+          {
+            "name": "tool-validation",
+            "value": "Strict JSON Schema Verification"
+          }
+        ],
+        "incorporates-components": [
+          {
+            "component-uuid": "81a33d07-e1a3-44e9-92a1-7dba9e1e6df7",
+            "description": "Executes prompt injection detection, input validation fences, and structured tool call parameter validation."
+          },
+          {
+            "component-uuid": "b62cffda-56c8-4f47-aa6a-c6f08264efba",
+            "description": "Enforces API request validation, rate limiting, and sanitized error responses."
+          }
+        ]
+      }
+    ],
+    "back-matter": {
+      "resources": [
+        {
+          "uuid": "595c5985-7738-418e-be09-40c9631e5c08",
+          "title": "Anthropic Responsible Scaling Policy (RSP)",
+          "description": "Formal policy defining AI Safety Levels (ASL-1 through ASL-4) and mandatory safety and security commitments for frontier models.",
+          "rlinks": [
+            {
+              "href": "https://www.anthropic.com/responsible-scaling-policy"
+            }
+          ]
+        },
+        {
+          "uuid": "04bef154-34ac-4411-a4db-826e45bd77a7",
+          "title": "ClaudeGov Announcement & Security Profile",
+          "description": "Overview of Anthropic Claude deployments in AWS GovCloud (US) via Amazon Bedrock for government agencies.",
+          "rlinks": [
+            {
+              "href": "https://www.anthropic.com/news/claudegov"
+            }
+          ]
+        },
+        {
+          "uuid": "2e4372fe-82ce-4e42-a8ec-0234105d8853",
+          "title": "FedRAMP Marketplace Authorization (Amazon Bedrock / ClaudeGov)",
+          "description": "FedRAMP High JAB Authorization package and continuous monitoring repository.",
+          "rlinks": [
+            {
+              "href": "https://marketplace.fedramp.gov/products/F1607067935"
+            }
+          ]
+        },
+        {
+          "uuid": "38c7c4ec-34e5-4236-8b53-3f96ed69d18a",
+          "title": "NIST Special Publication 800-53 Revision 5",
+          "description": "Security and Privacy Controls for Information Systems and Organizations.",
+          "rlinks": [
+            {
+              "href": "https://doi.org/10.6028/NIST.SP.800-53r5"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -45,6 +45,8 @@ import {
 } from "./atlas/family-grid";
 import { ControlDetail } from "./atlas/control-detail";
 import { TopologyMap } from "./atlas/topology-map";
+import { MitreAtlasMatrix } from "./atlas/mitre-atlas-matrix";
+import { FrontierAiComparison } from "./frontier-ai-comparison";
 import { INPUT } from "./atlas/ui";
 
 export interface AtlasSurfaceProps {
@@ -65,9 +67,9 @@ export function AtlasSurface({
   const catInspect = useSnapshot<InspectResult>("nist-catalog-inspect");
 
   const [mode, setMode] = React.useState<GridMode>("baseline");
-  const [viewType, setViewType] = React.useState<"topology" | "grid">(
-    lens === "architect" ? "topology" : "grid",
-  );
+  const [viewType, setViewType] = React.useState<
+    "topology" | "grid" | "mitre" | "frontier"
+  >(lens === "architect" ? "topology" : "grid");
   const [pulseActive, setPulseActive] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [family, setFamily] = React.useState<string>("all");
@@ -416,14 +418,22 @@ export function AtlasSurface({
           title={
             viewType === "topology"
               ? "Hexagonal Topology Map"
-              : mode === "baseline"
-                ? "Baseline by family"
-                : "Catalog by family"
+              : viewType === "mitre"
+                ? "MITRE ATLAS Threat Matrix"
+                : viewType === "frontier"
+                  ? "Frontier AI Provider Comparison"
+                  : mode === "baseline"
+                    ? "Baseline by family"
+                    : "Catalog by family"
           }
           subtitle={
             viewType === "topology"
               ? "Interactive geometric territorial map of 20 NIST families and 18 architectural corridors"
-              : `${visible.length} of ${modeSet.length} controls shown`
+              : viewType === "mitre"
+                ? "Adversarial Threat Landscape for AI Systems crosswalked to NIST SP 800-53 Rev 5"
+                : viewType === "frontier"
+                  ? "Compliance, ASL safety tiers, SAIF pillars, and defense coverage for Anthropic, Google, and Azure OpenAI"
+                  : `${visible.length} of ${modeSet.length} controls shown`
           }
           provenance={prov}
         >
@@ -443,10 +453,14 @@ export function AtlasSurface({
               <Segmented
                 label="View mode"
                 value={viewType}
-                onChange={(v) => setViewType(v as "topology" | "grid")}
+                onChange={(v) =>
+                  setViewType(v as "topology" | "grid" | "mitre" | "frontier")
+                }
                 options={[
                   { value: "topology", label: "Hexagonal Map" },
                   { value: "grid", label: "Family Grid" },
+                  { value: "mitre", label: "MITRE ATLAS" },
+                  { value: "frontier", label: "Frontier AI" },
                 ]}
               />
               {viewType === "grid" && (
@@ -497,7 +511,16 @@ export function AtlasSurface({
               )}
             </Toolbar>
 
-            {viewType === "topology" ? (
+            {viewType === "mitre" ? (
+              <MitreAtlasMatrix
+                selectedControlId={selectedId}
+                onSelectControl={select}
+              />
+            ) : viewType === "frontier" ? (
+              <FrontierAiComparison
+                lens={lens}
+              />
+            ) : viewType === "topology" ? (
               <div className="space-y-3">
                 <p
                   aria-live="polite"

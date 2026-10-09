@@ -1,0 +1,614 @@
+{
+  "$schema": "http://csrc.nist.gov/ns/oscal/1.2.3/oscal-mapping-schema.json",
+  "mapping-collection": {
+    "uuid": "4f9d2a6b-8012-4eb1-995b-7b86d48392e0",
+    "metadata": {
+      "title": "NIST SP 800-53 Rev 5 to MITRE ATLAS & NIST AI RMF 1.0 Crosswalk",
+      "published": "2026-10-09T16:30:00Z",
+      "last-modified": "2026-10-09T16:30:00Z",
+      "version": "1.0.0",
+      "oscal-version": "1.2.3",
+      "remarks": "Authoritative bidirectional threat-informed crosswalk mapping MITRE ATLAS techniques to NIST SP 800-53 Rev 5 controls and NIST AI RMF 1.0 core functions."
+    },
+    "provenance": {
+      "method": "hybrid",
+      "matching-rationale": "functional",
+      "status": "complete",
+      "mapping-description": "Functional Mitigation Crosswalk for Adversarial AI Systems: Maps adversary tactics and techniques against AI systems to compensating and mitigating security controls."
+    },
+    "mappings": [
+      {
+        "uuid": "7a01c36b-6712-4b21-82d2-8b387b3a9010",
+        "method": "hybrid",
+        "matching-rationale": "functional",
+        "status": "complete",
+        "source-resource": {
+          "type": "catalog",
+          "href": "mitre-atlas-catalog.json",
+          "remarks": "MITRE ATLAS v5.6.0"
+        },
+        "target-resource": {
+          "type": "catalog",
+          "href": "../nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json",
+          "remarks": "NIST SP 800-53 Rev 5.2.0"
+        },
+        "maps": [
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000001",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Execution"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.2, GV-2.1"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.1, MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.3, MS-2.6"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.3"
+                  }
+                ],
+                "id-ref": "AML.T0051",
+                "type": "control",
+                "remarks": "LLM Prompt Injection"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Primary Input Filter"
+                  }
+                ],
+                "id-ref": "SI-10",
+                "type": "control",
+                "remarks": "Information Input Validation"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Execution Boundary Guard"
+                  }
+                ],
+                "id-ref": "AC-3",
+                "type": "control",
+                "remarks": "Access Enforcement"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Runtime Threat Detection"
+                  }
+                ],
+                "id-ref": "SI-4",
+                "type": "control",
+                "remarks": "System Monitoring"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000002",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Privilege Escalation, Defense Evasion"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.2, GV-4.1"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.5, MP-4.1"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.3, MS-2.6"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.2"
+                  }
+                ],
+                "id-ref": "AML.T0054",
+                "type": "control",
+                "remarks": "LLM Jailbreak"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Semantic Preprocessing"
+                  }
+                ],
+                "id-ref": "SI-10",
+                "type": "control",
+                "remarks": "Information Input Validation"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Multi-tier Guardrail Isolation"
+                  }
+                ],
+                "id-ref": "SC-7",
+                "type": "control",
+                "remarks": "Boundary Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Adversarial Red-Teaming"
+                  }
+                ],
+                "id-ref": "SA-11",
+                "type": "control",
+                "remarks": "Developer Testing and Evaluation"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000003",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "AI Attack Staging / Defense Evasion"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.2"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.1, MP-3.2"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.3, MS-2.6"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.3"
+                  }
+                ],
+                "id-ref": "AML.T0043",
+                "type": "control",
+                "remarks": "Craft Adversarial Data / Insecure Output Handling"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Output Token Sanitization"
+                  }
+                ],
+                "id-ref": "SI-10",
+                "type": "control",
+                "remarks": "Information Input Validation"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Transport Integrity"
+                  }
+                ],
+                "id-ref": "SC-8",
+                "type": "control",
+                "remarks": "Transmission Confidentiality and Integrity"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Robustness Benchmarking"
+                  }
+                ],
+                "id-ref": "SA-11",
+                "type": "control",
+                "remarks": "Developer Testing and Evaluation"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000004",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Initial Access, Defense Evasion, Impact"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.2"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.3, MS-3.2"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.3"
+                  }
+                ],
+                "id-ref": "AML.T0015",
+                "type": "control",
+                "remarks": "Evade AI Model (Adversarial Perturbation)"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Adversarial Denoising"
+                  }
+                ],
+                "id-ref": "SI-3",
+                "type": "control",
+                "remarks": "Malicious Code Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Statistical Drift Telemetry"
+                  }
+                ],
+                "id-ref": "SI-4",
+                "type": "control",
+                "remarks": "System Monitoring"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Perturbation Fuzzing"
+                  }
+                ],
+                "id-ref": "SA-11",
+                "type": "control",
+                "remarks": "Developer Testing and Evaluation"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000005",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Resource Development, Persistence"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-5.1, GV-5.2"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-2.3, MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.4"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-3.1, MN-4.2"
+                  }
+                ],
+                "id-ref": "AML.T0020",
+                "type": "control",
+                "remarks": "Poison Training Data"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Dataset Provenance Verification"
+                  }
+                ],
+                "id-ref": "SA-12",
+                "type": "control",
+                "remarks": "Supply Chain Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Cryptographic Dataset Checksums"
+                  }
+                ],
+                "id-ref": "SI-7",
+                "type": "control",
+                "remarks": "Software, Firmware, and Information Integrity"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Data Pipeline Audit Trail"
+                  }
+                ],
+                "id-ref": "AU-2",
+                "type": "control",
+                "remarks": "Event Logging"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000006",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Persistence, AI Attack Staging"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.3, GV-5.1"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-2.2, MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.3, MS-2.4"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-3.1, MN-4.2"
+                  }
+                ],
+                "id-ref": "AML.T0018",
+                "type": "control",
+                "remarks": "Manipulate AI Model"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "AI-BOM / SLSA Provenance"
+                  }
+                ],
+                "id-ref": "SA-12",
+                "type": "control",
+                "remarks": "Supply Chain Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Signed Safetensors Checkpoints"
+                  }
+                ],
+                "id-ref": "SI-7",
+                "type": "control",
+                "remarks": "Software, Firmware, and Information Integrity"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Dual-Custody Promotion"
+                  }
+                ],
+                "id-ref": "CM-3",
+                "type": "control",
+                "remarks": "Configuration Change Control"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000007",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "AI Model Access / Collection"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-1.2, GV-2.1"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.1, MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.5"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.3"
+                  }
+                ],
+                "id-ref": "AML.T0044",
+                "type": "control",
+                "remarks": "Full AI Model Access (Model Inversion & Extraction)"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "KMS Weight Encryption"
+                  }
+                ],
+                "id-ref": "SC-13",
+                "type": "control",
+                "remarks": "Cryptographic Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Query Rate & Entropy Caps"
+                  }
+                ],
+                "id-ref": "AC-4",
+                "type": "control",
+                "remarks": "Information Flow Enforcement"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "VRAM Cryptographic Sanitization"
+                  }
+                ],
+                "id-ref": "MP-6",
+                "type": "control",
+                "remarks": "Media Sanitization"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Tenant Model Isolation"
+                  }
+                ],
+                "id-ref": "AC-3",
+                "type": "control",
+                "remarks": "Access Enforcement"
+              }
+            ]
+          },
+          {
+            "uuid": "c011a01b-90a1-43e8-8a01-510000000008",
+            "matching-rationale": "functional",
+            "relationship": "mitigates",
+            "sources": [
+              {
+                "props": [
+                  {
+                    "name": "tactic",
+                    "value": "Execution, Privilege Escalation"
+                  },
+                  {
+                    "name": "ai-rmf-GOVERN",
+                    "value": "GV-2.1, GV-4.1"
+                  },
+                  {
+                    "name": "ai-rmf-MAP",
+                    "value": "MP-3.4, MP-3.5"
+                  },
+                  {
+                    "name": "ai-rmf-MEASURE",
+                    "value": "MS-2.6, MS-3.2"
+                  },
+                  {
+                    "name": "ai-rmf-MANAGE",
+                    "value": "MN-2.1, MN-2.2"
+                  }
+                ],
+                "id-ref": "AML.T0053",
+                "type": "control",
+                "remarks": "AI Agent Tool Invocation (Excessive Agency)"
+              }
+            ],
+            "targets": [
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Attenuated Capability Leases"
+                  }
+                ],
+                "id-ref": "AC-6",
+                "type": "control",
+                "remarks": "Least Privilege"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "Machine Agent Identity Scoping"
+                  }
+                ],
+                "id-ref": "AC-2",
+                "type": "control",
+                "remarks": "Account Management"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "MicroVM / Sandbox Isolation"
+                  }
+                ],
+                "id-ref": "SC-7",
+                "type": "control",
+                "remarks": "Boundary Protection"
+              },
+              {
+                "props": [
+                  {
+                    "name": "role",
+                    "value": "HITL Mutation Approval Gates"
+                  }
+                ],
+                "id-ref": "AC-3",
+                "type": "control",
+                "remarks": "Access Enforcement"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

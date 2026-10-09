@@ -296,6 +296,199 @@ export function TopologyMap({
     return map;
   }, [index.baseline]);
 
+  // Active target calculations for tactical spotlight & defocus
+  const activeControl = hoveredControl ?? selectedControl;
+  const activeFamId = focusedFam ?? (activeControl ? activeControl.family : null);
+  const hasActiveSelection = Boolean(activeFamId || activeControl);
+
+  const connectedFamIds = React.useMemo(() => {
+    if (!activeFamId) return new Set<string>();
+    const set = new Set<string>([activeFamId]);
+    for (const [fam1, fam2] of CORRIDORS) {
+      if (fam1 === activeFamId) set.add(fam2);
+      if (fam2 === activeFamId) set.add(fam1);
+    }
+    return set;
+  }, [activeFamId]);
+
+  const selectedControlNode = React.useMemo(() => {
+    if (!selectedId) return null;
+    for (const nodes of familyNodes.values()) {
+      const found = nodes.find((n) => n.control.id === selectedId);
+      if (found) return found;
+    }
+    return null;
+  }, [selectedId, familyNodes]);
+
+  const hoveredControlNode = React.useMemo(() => {
+    if (!hoverId) return null;
+    for (const nodes of familyNodes.values()) {
+      const found = nodes.find((n) => n.control.id === hoverId);
+      if (found) return found;
+    }
+    return null;
+  }, [hoverId, familyNodes]);
+
+  // Corridor conduit rendering helper
+  const renderCorridor = (
+    fam1: string,
+    fam2: string,
+    label: string,
+    idx: number,
+    isElevated: boolean,
+  ) => {
+    const f1 = FAMILY_COORD_MAP.get(fam1);
+    const f2 = FAMILY_COORD_MAP.get(fam2);
+    if (!f1 || !f2) return null;
+
+    const dx = f2.cx - f1.cx;
+    const dy = f2.cy - f1.cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const ux = dx / dist;
+    const uy = dy / dist;
+
+    const x1 = f1.cx + f1.r * ux;
+    const y1 = f1.cy + f1.r * uy;
+    const x2 = f2.cx - f2.r * ux;
+    const y2 = f2.cy - f2.r * uy;
+
+    const nx = -uy;
+    const ny = ux;
+    const isConnectedToSelected =
+      selectedFamilyId === fam1 || selectedFamilyId === fam2;
+    const isConnectedToFocused =
+      focusedFam === fam1 || focusedFam === fam2;
+    const isCorridorHovered =
+      hoveredCorridor?.fam1 === fam1 && hoveredCorridor?.fam2 === fam2;
+    const isHighlighted =
+      isConnectedToSelected ||
+      isConnectedToFocused ||
+      isCorridorHovered ||
+      pulseActive;
+
+    const sep = isHighlighted ? 2.5 : 1.8;
+    const rx1_a = x1 + nx * sep;
+    const ry1_a = y1 + ny * sep;
+    const rx2_a = x2 + nx * sep;
+    const ry2_a = y2 + ny * sep;
+
+    const rx1_b = x1 - nx * sep;
+    const ry1_b = y1 - ny * sep;
+    const rx2_b = x2 - nx * sep;
+    const ry2_b = y2 - ny * sep;
+
+    const m1x = x1 * 0.65 + x2 * 0.35;
+    const m1y = y1 * 0.65 + y2 * 0.35;
+    const m2x = x1 * 0.35 + x2 * 0.65;
+    const m2y = y1 * 0.35 + y2 * 0.65;
+
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    const labelW = Math.max(54, label.length * 5.6 + 16);
+
+    return (
+      <g
+        key={`corridor-${isElevated ? "hi" : "lo"}-${idx}`}
+        className="cursor-pointer govx-trans-layer"
+        filter={!isElevated && hasActiveSelection ? "url(#govx-defocus)" : isElevated ? "url(#govx-conduit-glow)" : undefined}
+        opacity={!isElevated ? (hasActiveSelection ? 0.16 : 0.35) : 1}
+        onMouseEnter={() => setHoveredCorridor({ fam1, fam2, label })}
+        onMouseLeave={() => setHoveredCorridor(null)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setFocusedFam((prev) => (prev === fam1 ? null : fam1));
+          onSelectControl(fam1 + "-1");
+        }}
+      >
+        <title>{`${fam1.toUpperCase()} <-> ${fam2.toUpperCase()}: ${label}`}</title>
+        <line
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke="transparent"
+          strokeWidth={18}
+        />
+        {/* Dual outer rails */}
+        <line
+          x1={rx1_a}
+          y1={ry1_a}
+          x2={rx2_a}
+          y2={ry2_a}
+          stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+          strokeWidth={isHighlighted ? 1.5 : 0.8}
+          strokeOpacity={isHighlighted ? 0.95 : 0.4}
+        />
+        <line
+          x1={rx1_b}
+          y1={ry1_b}
+          x2={rx2_b}
+          y2={ry2_b}
+          stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+          strokeWidth={isHighlighted ? 1.5 : 0.8}
+          strokeOpacity={isHighlighted ? 0.95 : 0.4}
+        />
+        {/* Structural tie struts */}
+        <line
+          x1={m1x + nx * sep}
+          y1={m1y + ny * sep}
+          x2={m1x - nx * sep}
+          y2={m1y - ny * sep}
+          stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+          strokeWidth={0.8}
+          strokeOpacity={isHighlighted ? 0.9 : 0.35}
+        />
+        <line
+          x1={m2x + nx * sep}
+          y1={m2y + ny * sep}
+          x2={m2x - nx * sep}
+          y2={m2y - ny * sep}
+          stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+          strokeWidth={0.8}
+          strokeOpacity={isHighlighted ? 0.9 : 0.35}
+        />
+        {/* Center Signal Flow Rail */}
+        <line
+          x1={x1}
+          y1={y1}
+          x2={x2}
+          y2={y2}
+          stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline)"}
+          strokeWidth={isHighlighted ? 2 : 0.8}
+          strokeOpacity={isHighlighted ? 1 : 0.25}
+          className={isHighlighted || pulseActive ? "corridor-active-flow" : ""}
+        />
+
+        {/* High-visibility Corridor Label Badge */}
+        {(overlay === "corridors" || isHighlighted) && (
+          <g transform={`translate(${midX}, ${midY})`}>
+            <rect
+              x={-labelW / 2}
+              y={-14}
+              width={labelW}
+              height={16}
+              rx={3}
+              fill="var(--ck-bg-1)"
+              stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+              strokeWidth={isHighlighted ? 1.2 : 0.8}
+              strokeOpacity={isHighlighted ? 0.95 : 0.6}
+            />
+            <text
+              x={0}
+              y={-2.5}
+              textAnchor="middle"
+              className={`font-mono text-[8.5px] pointer-events-none select-none transition-colors ${
+                isHighlighted ? "fill-ck-accent font-bold" : "fill-ck-fg-2"
+              }`}
+            >
+              {label}
+            </text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
   // Normalized search query for dimming non-matching nodes
   const nq = query.trim().toLowerCase();
 
@@ -514,6 +707,15 @@ export function TopologyMap({
               <stop offset="50%" stopColor="var(--ck-accent)" stopOpacity="0.12" />
               <stop offset="100%" stopColor="var(--ck-accent)" stopOpacity="0" />
             </linearGradient>
+            <filter id="govx-defocus" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="1.6" />
+            </filter>
+            <filter id="govx-node-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3.5" floodColor="var(--ck-accent)" floodOpacity="0.85" />
+            </filter>
+            <filter id="govx-conduit-glow" x="-30%" y="-30%" width="160%" height="160%">
+              <feDropShadow dx="0" dy="0" stdDeviation="2.5" floodColor="var(--ck-accent)" floodOpacity="0.75" />
+            </filter>
             <style>{`
               @keyframes corridorDash {
                 to { stroke-dashoffset: -20; }
@@ -525,6 +727,9 @@ export function TopologyMap({
               .corridor-active-flow {
                 stroke-dasharray: 5 4;
                 animation: corridorDash 0.85s linear infinite;
+              }
+              .govx-trans-layer {
+                transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1), filter 0.25s cubic-bezier(0.4, 0, 0.2, 1);
               }
             `}</style>
           </defs>
@@ -586,202 +791,115 @@ export function TopologyMap({
             transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}
             className="transition-transform duration-100 ease-out"
           >
-            {/* Dependency Corridors: High-Assurance Dual-Rail Conduits */}
-            {CORRIDORS.map(([fam1, fam2, label], idx) => {
-              const f1 = FAMILY_COORD_MAP.get(fam1);
-              const f2 = FAMILY_COORD_MAP.get(fam2);
-              if (!f1 || !f2) return null;
+            {/* LAYER 1: Inactive Background Corridors */}
+            <g className="corridors-background-layer">
+              {CORRIDORS.map(([fam1, fam2, label], idx) => {
+                const isActive = activeFamId && (fam1 === activeFamId || fam2 === activeFamId);
+                const isHovered = hoveredCorridor?.fam1 === fam1 && hoveredCorridor?.fam2 === fam2;
+                if (isActive || isHovered) return null; // rendered in elevated Layer 3
+                return renderCorridor(fam1, fam2, label, idx, false);
+              })}
+            </g>
 
-              const dx = f2.cx - f1.cx;
-              const dy = f2.cy - f1.cy;
-              const dist = Math.hypot(dx, dy) || 1;
-              const ux = dx / dist;
-              const uy = dy / dist;
+            {/* LAYER 2: Family Hexagon Base Polygons */}
+            <g className="family-polygons-layer">
+              {FAMILY_COORDS.map((fc) => {
+                const fam = index.familyById.get(fc.id);
+                const baselineCount = fam?.in_baseline ?? 0;
+                const isSelectedFam = selectedFamilyId === fc.id;
+                const isFocused = focusedFam === fc.id;
+                const isTargetFam = fc.id === activeFamId;
+                const isConnectedFam = connectedFamIds.has(fc.id);
+                const isDimmed = hasActiveSelection && !isTargetFam && !isConnectedFam;
 
-              // Clip from hexagon perimeter to hexagon perimeter
-              const x1 = f1.cx + f1.r * ux;
-              const y1 = f1.cy + f1.r * uy;
-              const x2 = f2.cx - f2.r * ux;
-              const y2 = f2.cy - f2.r * uy;
+                return (
+                  <g
+                    key={`fam-poly-${fc.id}`}
+                    className="cursor-pointer govx-trans-layer"
+                    filter={isDimmed ? "url(#govx-defocus)" : undefined}
+                    opacity={isDimmed ? 0.32 : isConnectedFam && !isTargetFam ? 0.72 : 1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFocusedFam((prev) => (prev === fc.id ? null : fc.id));
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      handleFamilyDoubleClick(fc.id);
+                    }}
+                  >
+                    <title>{`${fc.id.toUpperCase()}: ${fam?.title ?? fc.short} (${baselineCount} baseline controls) · Double-click to zoom into family`}</title>
+                    <polygon
+                      data-family-hex={fc.id}
+                      points={getHexPolygonPoints(fc.cx, fc.cy, fc.r)}
+                      fill={isTargetFam ? "var(--ck-accent)" : "var(--ck-fg-1)"}
+                      fillOpacity={isTargetFam ? 0.08 : isFocused ? 0.1 : isSelectedFam ? 0.06 : 0.025}
+                      stroke={
+                        isTargetFam
+                          ? "var(--ck-accent)"
+                          : isFocused
+                            ? "var(--ck-fg-1)"
+                            : isConnectedFam
+                              ? "var(--ck-accent)"
+                              : "var(--ck-hairline-strong)"
+                      }
+                      strokeWidth={isTargetFam ? 2 : isConnectedFam ? 1.2 : 1}
+                      strokeDasharray={isConnectedFam && !isTargetFam ? "3 3" : undefined}
+                      className="transition-colors duration-150"
+                    />
+                  </g>
+                );
+              })}
+            </g>
 
-              // Perpendicular normal vector for dual-rail bus
-              const nx = -uy;
-              const ny = ux;
-              const isConnectedToSelected =
-                selectedFamilyId === fam1 || selectedFamilyId === fam2;
-              const isConnectedToFocused =
-                focusedFam === fam1 || focusedFam === fam2;
-              const isCorridorHovered =
-                hoveredCorridor?.fam1 === fam1 && hoveredCorridor?.fam2 === fam2;
-              const isHighlighted =
-                isConnectedToSelected ||
-                isConnectedToFocused ||
-                isCorridorHovered ||
-                pulseActive;
+            {/* LAYER 3: Elevated Active Corridors (Rendered ABOVE family polygons) */}
+            <g className="corridors-elevated-layer">
+              {CORRIDORS.map(([fam1, fam2, label], idx) => {
+                const isActive = activeFamId && (fam1 === activeFamId || fam2 === activeFamId);
+                const isHovered = hoveredCorridor?.fam1 === fam1 && hoveredCorridor?.fam2 === fam2;
+                if (!isActive && !isHovered) return null; // already rendered in Layer 1
+                return renderCorridor(fam1, fam2, label, idx, true);
+              })}
+            </g>
 
-              const sep = isHighlighted ? 2.5 : 1.8;
-
-              // Outer Rails A & B
-              const rx1_a = x1 + nx * sep;
-              const ry1_a = y1 + ny * sep;
-              const rx2_a = x2 + nx * sep;
-              const ry2_a = y2 + ny * sep;
-
-              const rx1_b = x1 - nx * sep;
-              const ry1_b = y1 - ny * sep;
-              const rx2_b = x2 - nx * sep;
-              const ry2_b = y2 - ny * sep;
-
-              // Midpoints for structural tie struts
-              const m1x = x1 * 0.65 + x2 * 0.35;
-              const m1y = y1 * 0.65 + y2 * 0.35;
-              const m2x = x1 * 0.35 + x2 * 0.65;
-              const m2y = y1 * 0.35 + y2 * 0.65;
-
-              return (
-                <g
-                  key={`corridor-${idx}`}
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoveredCorridor({ fam1, fam2, label })}
-                  onMouseLeave={() => setHoveredCorridor(null)}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFocusedFam((prev) => (prev === fam1 ? null : fam1));
-                    onSelectControl(fam1 + "-1");
-                  }}
-                >
-                  <title>{`${fam1.toUpperCase()} <-> ${fam2.toUpperCase()}: ${label}`}</title>
-                  {/* Expanded invisible hit target for easy mouse hover */}
-                  <line
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke="transparent"
-                    strokeWidth={16}
-                  />
-
-                  {/* Dual-Rail Outer Conduits */}
-                  <line
-                    x1={rx1_a}
-                    y1={ry1_a}
-                    x2={rx2_a}
-                    y2={ry2_a}
-                    stroke={
-                      isHighlighted
-                        ? "var(--ck-accent)"
-                        : "var(--ck-hairline-strong)"
-                    }
-                    strokeWidth={isHighlighted ? 1.4 : 0.8}
-                    strokeOpacity={isHighlighted ? 0.95 : 0.35}
-                  />
-                  <line
-                    x1={rx1_b}
-                    y1={ry1_b}
-                    x2={rx2_b}
-                    y2={ry2_b}
-                    stroke={
-                      isHighlighted
-                        ? "var(--ck-accent)"
-                        : "var(--ck-hairline-strong)"
-                    }
-                    strokeWidth={isHighlighted ? 1.4 : 0.8}
-                    strokeOpacity={isHighlighted ? 0.95 : 0.35}
-                  />
-
-                  {/* Structural Tie Struts */}
-                  <line
-                    x1={m1x + nx * sep}
-                    y1={m1y + ny * sep}
-                    x2={m1x - nx * sep}
-                    y2={m1y - ny * sep}
-                    stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
-                    strokeWidth={0.8}
-                    strokeOpacity={isHighlighted ? 0.9 : 0.35}
-                  />
-                  <line
-                    x1={m2x + nx * sep}
-                    y1={m2y + ny * sep}
-                    x2={m2x - nx * sep}
-                    y2={m2y - ny * sep}
-                    stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
-                    strokeWidth={0.8}
-                    strokeOpacity={isHighlighted ? 0.9 : 0.35}
-                  />
-
-                  {/* Center Signal Flow Rail */}
-                  <line
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    stroke={
-                      isHighlighted
-                        ? "var(--ck-accent)"
-                        : "var(--ck-hairline)"
-                    }
-                    strokeWidth={isHighlighted ? 1.8 : 0.8}
-                    strokeOpacity={isHighlighted ? 0.95 : 0.25}
-                    className={isHighlighted || pulseActive ? "corridor-active-flow" : ""}
-                  />
-
-                  {(overlay === "corridors" || isHighlighted) && (
-                    <text
-                      x={(x1 + x2) / 2}
-                      y={(y1 + y2) / 2 - 5}
-                      textAnchor="middle"
-                      className={`font-mono text-[8.5px] pointer-events-none transition-colors ${
-                        isHighlighted
-                          ? "fill-ck-accent font-bold"
-                          : "fill-ck-fg-mute"
-                      }`}
-                    >
-                      {label}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
-
-            {/* GovX Tactical Radar Beam Sweep & Radiating Waves when Change Pulse is active */}
+            {/* Change Pulse Radar Sweep (if active) */}
             {pulseActive && selectedFamilyId && FAMILY_COORD_MAP.has(selectedFamilyId) && (
               <g className="pointer-events-none">
                 {(() => {
                   const fc = FAMILY_COORD_MAP.get(selectedFamilyId)!;
                   return (
                     <g>
-                      {/* Concentric Range Rings with Tactical Distance Markings */}
                       <circle
                         cx={fc.cx}
                         cy={fc.cy}
-                        r={fc.r + 32}
+                        r={fc.r + 35}
                         fill="none"
                         stroke="var(--ck-accent)"
-                        strokeWidth="1.8"
-                        className="animate-ping"
-                      />
-                      <circle
-                        cx={fc.cx}
-                        cy={fc.cy}
-                        r={fc.r + 75}
-                        fill="none"
-                        stroke="var(--ck-accent)"
-                        strokeWidth="1.4"
+                        strokeWidth="1.2"
                         strokeDasharray="4 4"
-                        className="animate-pulse"
+                        opacity={0.7}
                       />
                       <circle
                         cx={fc.cx}
                         cy={fc.cy}
-                        r={fc.r + 140}
+                        r={fc.r + 90}
                         fill="none"
                         stroke="var(--ck-accent)"
-                        strokeWidth="0.9"
-                        strokeDasharray="2 6"
-                        opacity={0.65}
+                        strokeWidth="0.8"
+                        strokeDasharray="2 4"
+                        opacity={0.5}
+                      />
+                      <circle
+                        cx={fc.cx}
+                        cy={fc.cy}
+                        r={fc.r + 160}
+                        fill="none"
+                        stroke="var(--ck-accent)"
+                        strokeWidth="0.5"
+                        strokeDasharray="1 5"
+                        opacity={0.35}
                       />
                       <text
-                        x={fc.cx + fc.r + 36}
+                        x={fc.cx + fc.r + 28}
                         y={fc.cy - 4}
                         className="font-mono text-[7px] fill-ck-accent font-semibold tracking-wider"
                       >
@@ -801,8 +919,6 @@ export function TopologyMap({
                       >
                         R-170km
                       </text>
-
-                      {/* Rotating Tactical Radar Beam Sector */}
                       <g
                         style={{
                           transformOrigin: `${fc.cx}px ${fc.cy}px`,
@@ -829,340 +945,492 @@ export function TopologyMap({
               </g>
             )}
 
-            {/* 20 Family Hexagons */}
-            {FAMILY_COORDS.map((fc) => {
-              const fam = index.familyById.get(fc.id);
-              const baselineCount = fam?.in_baseline ?? 0;
-              const isSelectedFam = selectedFamilyId === fc.id;
-              const isFocused = focusedFam === fc.id;
-              const nodes = familyNodes.get(fc.id) ?? [];
+            {/* LAYER 4: Family Headers & Posture Radial Meters */}
+            <g className="family-headers-layer pointer-events-none">
+              {FAMILY_COORDS.map((fc) => {
+                const fam = index.familyById.get(fc.id);
+                const baselineCount = fam?.in_baseline ?? 0;
+                const isTargetFam = fc.id === activeFamId;
+                const isConnectedFam = connectedFamIds.has(fc.id);
+                const isDimmed = hasActiveSelection && !isTargetFam && !isConnectedFam;
+                const nodes = familyNodes.get(fc.id) ?? [];
 
-              // Calculate family completion percentage
-              let implementedInFam = 0;
-              for (const n of nodes) {
-                const s = implState(n.control.id, byControl);
-                if (s.kind === "declared" && s.status === "implemented") {
-                  implementedInFam++;
+                let implementedInFam = 0;
+                for (const n of nodes) {
+                  const s = implState(n.control.id, byControl);
+                  if (s.kind === "declared" && s.status === "implemented") {
+                    implementedInFam++;
+                  }
                 }
-              }
-              const covPct =
-                nodes.length > 0
-                  ? Math.round((implementedInFam / nodes.length) * 100)
-                  : 0;
+                const covPct = nodes.length > 0 ? Math.round((implementedInFam / nodes.length) * 100) : 0;
 
-              return (
-                <g
-                  key={fc.id}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setFocusedFam((prev) => (prev === fc.id ? null : fc.id));
-                  }}
-                  onDoubleClick={(e) => {
-                    e.stopPropagation();
-                    handleFamilyDoubleClick(fc.id);
-                  }}
-                  className="cursor-pointer"
-                >
-                  <title>{`${fc.id.toUpperCase()}: ${fam?.title ?? fc.short} (${baselineCount} baseline controls) · Double-click to zoom into family`}</title>
-
-                  {/* Hexagon Shape */}
-                  <polygon
-                    points={getHexPolygonPoints(fc.cx, fc.cy, fc.r)}
-                    fill="var(--ck-fg-1)"
-                    fillOpacity={isFocused ? 0.09 : isSelectedFam ? 0.06 : 0.025}
-                    stroke={
-                      isSelectedFam
-                        ? "var(--ck-accent)"
-                        : isFocused
-                          ? "var(--ck-fg-1)"
-                          : "var(--ck-hairline-strong)"
-                    }
-                    strokeWidth={isSelectedFam ? 2 : 1}
-                    className="transition-colors duration-150"
-                  />
-
-                  {/* Family Header */}
-                  <text
-                    x={fc.cx}
-                    y={fc.cy - fc.r + 18}
-                    textAnchor="middle"
-                    className="font-mono text-[11px] font-bold uppercase fill-ck-fg-1 pointer-events-none tracking-wider"
+                return (
+                  <g
+                    key={`fam-head-${fc.id}`}
+                    className="govx-trans-layer"
+                    filter={isDimmed ? "url(#govx-defocus)" : undefined}
+                    opacity={isDimmed ? 0.40 : 1}
                   >
-                    {fc.id.toUpperCase()}
-                  </text>
-                  <text
-                    x={fc.cx}
-                    y={fc.cy - fc.r + 29}
-                    textAnchor="middle"
-                    className="font-mono text-[8.5px] fill-ck-fg-mute pointer-events-none"
-                  >
-                    {fc.short}
-                  </text>
+                    {/* Family ID Header with crisp Halo */}
+                    <text
+                      x={fc.cx}
+                      y={fc.cy - fc.r + 18}
+                      textAnchor="middle"
+                      className={`font-mono text-[11px] font-bold uppercase tracking-wider select-none ${
+                        isTargetFam ? "fill-ck-accent" : "fill-ck-fg-1"
+                      }`}
+                      style={{
+                        paintOrder: "stroke fill",
+                        stroke: "var(--ck-bg-0)",
+                        strokeWidth: "3.5px",
+                        strokeLinejoin: "round",
+                      }}
+                    >
+                      {fc.id.toUpperCase()}
+                    </text>
+                    {/* Family Short Title with Halo */}
+                    <text
+                      x={fc.cx}
+                      y={fc.cy - fc.r + 29}
+                      textAnchor="middle"
+                      className="font-mono text-[8.5px] fill-ck-fg-2 select-none"
+                      style={{
+                        paintOrder: "stroke fill",
+                        stroke: "var(--ck-bg-0)",
+                        strokeWidth: "2.5px",
+                        strokeLinejoin: "round",
+                      }}
+                    >
+                      {fc.short}
+                    </text>
 
-                  {/* Posture Mode Display with Radial Completion Meter */}
-                  {semanticZoom === "posture" && (
-                    <g className="pointer-events-none">
-                      {(() => {
-                        const gaugeR = fc.r - 20;
-                        const circ = 2 * Math.PI * gaugeR;
-                        const offset = circ * (1 - covPct / 100);
-                        return (
-                          <>
-                            <circle
-                              cx={fc.cx}
-                              cy={fc.cy + 6}
-                              r={gaugeR}
-                              fill="none"
-                              stroke="var(--ck-hairline-strong)"
-                              strokeWidth="3.5"
-                              strokeOpacity="0.35"
-                            />
-                            {covPct > 0 && (
+                    {/* Posture Mode Display with Radial Completion Meter */}
+                    {semanticZoom === "posture" && (
+                      <g className="pointer-events-none">
+                        {(() => {
+                          const gaugeR = fc.r - 20;
+                          const circ = 2 * Math.PI * gaugeR;
+                          const offset = circ * (1 - covPct / 100);
+                          return (
+                            <>
                               <circle
                                 cx={fc.cx}
                                 cy={fc.cy + 6}
                                 r={gaugeR}
                                 fill="none"
-                                stroke="var(--ck-pos)"
+                                stroke="var(--ck-hairline-strong)"
                                 strokeWidth="3.5"
-                                strokeDasharray={circ}
-                                strokeDashoffset={offset}
-                                strokeLinecap="round"
-                                transform={`rotate(-90 ${fc.cx} ${fc.cy + 6})`}
+                                strokeOpacity="0.35"
+                              />
+                              {covPct > 0 && (
+                                <circle
+                                  cx={fc.cx}
+                                  cy={fc.cy + 6}
+                                  r={gaugeR}
+                                  fill="none"
+                                  stroke="var(--ck-pos)"
+                                  strokeWidth="3.5"
+                                  strokeDasharray={circ}
+                                  strokeDashoffset={offset}
+                                  strokeLinecap="round"
+                                  transform={`rotate(-90 ${fc.cx} ${fc.cy + 6})`}
+                                />
+                              )}
+                            </>
+                          );
+                        })()}
+                        <text
+                          x={fc.cx}
+                          y={fc.cy + 13}
+                          textAnchor="middle"
+                          className="font-serif text-2xl font-normal fill-ck-fg-1"
+                          style={{
+                            paintOrder: "stroke fill",
+                            stroke: "var(--ck-bg-0)",
+                            strokeWidth: "3px",
+                            strokeLinejoin: "round",
+                          }}
+                        >
+                          {covPct}%
+                        </text>
+                        <text
+                          x={fc.cx}
+                          y={fc.cy + 27}
+                          textAnchor="middle"
+                          className="font-mono text-[9px] fill-ck-fg-mute"
+                          style={{
+                            paintOrder: "stroke fill",
+                            stroke: "var(--ck-bg-0)",
+                            strokeWidth: "2px",
+                            strokeLinejoin: "round",
+                          }}
+                        >
+                          {baselineCount > 0 ? `${baselineCount} controls` : "Governance"}
+                        </text>
+                      </g>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* LAYER 5: Normal (Unselected) Control Nodes */}
+            {semanticZoom === "controls" && (
+              <g className="control-nodes-unselected-layer">
+                {FAMILY_COORDS.map((fc) => {
+                  const isTargetFam = fc.id === activeFamId;
+                  const isConnectedFam = connectedFamIds.has(fc.id);
+                  const isDimmed = hasActiveSelection && !isTargetFam && !isConnectedFam;
+                  const nodes = familyNodes.get(fc.id) ?? [];
+
+                  return (
+                    <g
+                      key={`nodes-fam-${fc.id}`}
+                      className="govx-trans-layer"
+                      filter={isDimmed ? "url(#govx-defocus)" : undefined}
+                      opacity={isDimmed ? 0.28 : isTargetFam && selectedControlNode ? 0.82 : 1}
+                    >
+                      {nodes.map((node) => {
+                        const c = node.control;
+                        // Selected and hovered nodes are rendered in elevated Layer 6
+                        if (c.id === selectedId || c.id === hoverId) return null;
+
+                        const s = implState(c.id, byControl);
+                        const half = node.size / 2;
+                        const matches = !nq || c.id.includes(nq) || c.title.toLowerCase().includes(nq);
+
+                        let fill = "var(--ck-bg-2)";
+                        let fillOpacity = 0.85;
+                        let stroke = "var(--ck-hairline-strong)";
+
+                        if (overlay === "state") {
+                          if (s.kind === "declared") {
+                            if (s.status === "implemented") {
+                              fill = "var(--ck-pos)";
+                              stroke = "var(--ck-pos)";
+                            } else if (s.status === "partial") {
+                              fill = "var(--ck-warn)";
+                              stroke = "var(--ck-warn)";
+                            } else {
+                              fill = "var(--ck-info)";
+                              stroke = "var(--ck-info)";
+                            }
+                          } else if (s.kind === "declared-empty") {
+                            fill = "var(--ck-unk)";
+                            stroke = "var(--ck-unk)";
+                          } else {
+                            fill = "var(--ck-bg-0)";
+                            fillOpacity = 0.4;
+                            stroke = "var(--ck-hairline-strong)";
+                          }
+                        } else if (overlay === "params") {
+                          const paramCount = c.params?.length ?? 0;
+                          if (paramCount > 5) {
+                            fill = "var(--ck-accent)";
+                          } else if (paramCount > 0) {
+                            fill = "var(--ck-info)";
+                          } else {
+                            fill = "var(--ck-bg-2)";
+                          }
+                        }
+
+                        if (!matches) {
+                          fillOpacity = 0.12;
+                        }
+
+                        return (
+                          <g
+                            key={c.id}
+                            data-control-node="true"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectControl(c.id);
+                            }}
+                            onDoubleClick={(e) => {
+                              e.stopPropagation();
+                              onSelectControl(c.id);
+                              setDossierOpen(true);
+                            }}
+                            onMouseEnter={() => onHoverControl(c.id)}
+                            onMouseLeave={() => onHoverControl(null)}
+                            className="cursor-pointer"
+                          >
+                            <title>
+                              {`${displayId(c.id)} · ${c.title} · ${
+                                s.kind === "declared"
+                                  ? s.status
+                                  : s.kind === "declared-empty"
+                                    ? "declared EMPTY"
+                                    : "undeclared in SSP"
+                              } · Double-click to open full dossier`}
+                            </title>
+
+                            <rect
+                              x={node.x - half}
+                              y={node.y - half}
+                              width={node.size}
+                              height={node.size}
+                              rx={1.5}
+                              fill={fill}
+                              fillOpacity={fillOpacity}
+                              stroke={stroke}
+                              strokeWidth={1}
+                            />
+
+                            {/* Level of Detail (LOD): Control ID text when zoomed in */}
+                            {zoom >= 1.35 && (
+                              <text
+                                x={node.x}
+                                y={node.y + half + 7.5}
+                                textAnchor="middle"
+                                className="font-mono text-[7px] fill-ck-fg-1 pointer-events-none select-none"
+                                style={{
+                                  paintOrder: "stroke fill",
+                                  stroke: "var(--ck-bg-0)",
+                                  strokeWidth: "2.5px",
+                                  strokeLinejoin: "round",
+                                }}
+                              >
+                                {c.id.toUpperCase()}
+                              </text>
+                            )}
+                            {zoom >= 2.2 && c.params && c.params.length > 0 && (
+                              <text
+                                x={node.x}
+                                y={node.y + half + 14.5}
+                                textAnchor="middle"
+                                className="font-mono text-[6px] fill-ck-fg-mute pointer-events-none select-none"
+                                style={{
+                                  paintOrder: "stroke fill",
+                                  stroke: "var(--ck-bg-0)",
+                                  strokeWidth: "2px",
+                                  strokeLinejoin: "round",
+                                }}
+                              >
+                                {c.params.length}p
+                              </text>
+                            )}
+
+                            {/* Risk Owner Open Weakness Ring */}
+                            {lens === "risk-owner" && POAM_CONTROLS.has(c.id) && (
+                              <circle
+                                cx={node.x}
+                                cy={node.y}
+                                r={half + 4}
+                                fill="none"
+                                stroke="var(--ck-warn)"
+                                strokeWidth="1.6"
+                                strokeDasharray="2 2"
+                                className="animate-pulse"
                               />
                             )}
-                          </>
+                          </g>
+                        );
+                      })}
+                    </g>
+                  );
+                })}
+              </g>
+            )}
+
+            {/* LAYER 6: Elevated Active / Selected Node (FOREGROUND TOP Z-INDEX) */}
+            {semanticZoom === "controls" && (
+              <g className="control-nodes-elevated-layer">
+                {/* Hovered Node (if distinct from selected) */}
+                {hoveredControlNode && hoveredControlNode.control.id !== selectedId && (() => {
+                  const node = hoveredControlNode;
+                  const c = node.control;
+                  const half = node.size / 2;
+                  return (
+                    <g key={`elevated-hover-${c.id}`} className="pointer-events-none">
+                      {/* Hover Focus Ring */}
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={half + 5}
+                        fill="none"
+                        stroke="var(--ck-fg-1)"
+                        strokeWidth="1.4"
+                        strokeDasharray="3 3"
+                      />
+                      {/* Elevated Hover Node Rect */}
+                      <rect
+                        x={node.x - half}
+                        y={node.y - half}
+                        width={node.size}
+                        height={node.size}
+                        rx={1.5}
+                        fill="var(--ck-fg-1)"
+                        stroke="var(--ck-fg-1)"
+                        strokeWidth={1.5}
+                      />
+                      {/* Hover Micro Callout Pill */}
+                      {(() => {
+                        const hBadgeText = displayId(c.id);
+                        const hBadgeW = Math.max(46, hBadgeText.length * 6.5 + 14);
+                        return (
+                          <g transform={`translate(${node.x}, ${node.y - half - 12})`}>
+                            <rect
+                              x={-hBadgeW / 2}
+                              y={-8}
+                              width={hBadgeW}
+                              height={15}
+                              rx={3}
+                              fill="var(--ck-bg-1)"
+                              stroke="var(--ck-hairline-strong)"
+                              strokeWidth={1}
+                            />
+                            <text
+                              x={0}
+                              y={2.5}
+                              textAnchor="middle"
+                              className="font-mono text-[7.5px] font-bold fill-ck-fg-1"
+                            >
+                              {hBadgeText}
+                            </text>
+                          </g>
                         );
                       })()}
-                      <text
-                        x={fc.cx}
-                        y={fc.cy + 13}
-                        textAnchor="middle"
-                        className="font-serif text-2xl font-normal fill-ck-fg-1"
-                      >
-                        {covPct}%
-                      </text>
-                      <text
-                        x={fc.cx}
-                        y={fc.cy + 27}
-                        textAnchor="middle"
-                        className="font-mono text-[9px] fill-ck-fg-mute"
-                      >
-                        {baselineCount > 0
-                          ? `${baselineCount} controls`
-                          : "Governance"}
-                      </text>
                     </g>
-                  )}
+                  );
+                })()}
 
-                  {/* Controls Mode: Granular Control Honeycomb Nodes */}
-                  {semanticZoom === "controls" &&
-                    nodes.map((node) => {
-                      const c = node.control;
-                      const isSelected = selectedId === c.id;
-                      const isHovered = hoverId === c.id;
-                      const s = implState(c.id, byControl);
-                      const half = node.size / 2;
+                {/* Selected Node (Absolute Topmost Foreground Element) */}
+                {selectedControlNode && (() => {
+                  const node = selectedControlNode;
+                  const c = node.control;
+                  const half = node.size / 2;
+                  const s = implState(c.id, byControl);
+                  const fc = FAMILY_COORD_MAP.get(c.family);
 
-                      // Check query match
-                      const matches =
-                        !nq ||
-                        c.id.includes(nq) ||
-                        c.title.toLowerCase().includes(nq);
+                  let fill = "var(--ck-accent)";
+                  if (s.kind === "declared" && s.status === "implemented") {
+                    fill = "var(--ck-pos)";
+                  } else if (s.kind === "declared" && s.status === "partial") {
+                    fill = "var(--ck-warn)";
+                  }
 
-                      let fill = "var(--ck-bg-2)";
-                      let fillOpacity = 0.85;
-                      let stroke = "var(--ck-hairline-strong)";
+                  return (
+                    <g
+                      key={`elevated-selected-${c.id}`}
+                      data-control-node="true"
+                      className="cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDossierOpen(true);
+                      }}
+                    >
+                      <title>{`SELECTED TARGET // ${displayId(c.id)} · ${c.title} · Click to open Dossier`}</title>
 
-                      if (overlay === "state") {
-                        if (s.kind === "declared") {
-                          if (s.status === "implemented") {
-                            fill = "var(--ck-pos)";
-                            stroke = "var(--ck-pos)";
-                          } else if (s.status === "partial") {
-                            fill = "var(--ck-warn)";
-                            stroke = "var(--ck-warn)";
-                          } else {
-                            fill = "var(--ck-info)";
-                            stroke = "var(--ck-info)";
-                          }
-                        } else if (s.kind === "declared-empty") {
-                          fill = "var(--ck-unk)";
-                          stroke = "var(--ck-unk)";
-                        } else {
-                          // undeclared
-                          fill = "var(--ck-bg-0)";
-                          fillOpacity = 0.4;
-                          stroke = "var(--ck-hairline-strong)";
-                        }
-                      } else if (overlay === "params") {
-                        const paramCount = c.params?.length ?? 0;
-                        if (paramCount > 5) {
-                          fill = "var(--ck-accent)";
-                        } else if (paramCount > 0) {
-                          fill = "var(--ck-info)";
-                        } else {
-                          fill = "var(--ck-bg-2)";
-                        }
-                      }
+                      {/* Tactical Family Center Anchor Line */}
+                      {fc && (
+                        <line
+                          x1={node.x}
+                          y1={node.y}
+                          x2={fc.cx}
+                          y2={fc.cy}
+                          stroke="var(--ck-accent)"
+                          strokeWidth={1}
+                          strokeDasharray="2 3"
+                          strokeOpacity={0.45}
+                        />
+                      )}
 
-                      if (!matches) {
-                        fillOpacity = 0.12;
-                      }
+                      {/* Outer Concentric Animated Pulse Ring */}
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        r={half + 9}
+                        fill="none"
+                        stroke="var(--ck-accent)"
+                        strokeWidth="1.2"
+                        strokeDasharray="3 3"
+                        strokeOpacity={0.8}
+                      />
 
-                      return (
-                        <g
-                          key={c.id}
-                          data-control-node="true"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onSelectControl(c.id);
+                      {/* Active Tactical Targeting Brackets [  ] */}
+                      <g className="pointer-events-none">
+                        <path
+                          d={`
+                            M ${node.x - half - 4} ${node.y - half - 1} L ${node.x - half - 4} ${node.y - half - 4} L ${node.x - half - 1} ${node.y - half - 4}
+                            M ${node.x + half + 1} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 1}
+                            M ${node.x - half - 4} ${node.y + half + 1} L ${node.x - half - 4} ${node.y + half + 4} L ${node.x - half - 1} ${node.y + half + 4}
+                            M ${node.x + half + 1} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 1}
+                          `}
+                          fill="none"
+                          stroke="var(--ck-accent)"
+                          strokeWidth="2"
+                        />
+                        {/* Micro crosshairs */}
+                        <line x1={node.x - half - 7} y1={node.y} x2={node.x - half - 5} y2={node.y} stroke="var(--ck-accent)" strokeWidth="1.4" />
+                        <line x1={node.x + half + 5} y1={node.y} x2={node.x + half + 7} y2={node.y} stroke="var(--ck-accent)" strokeWidth="1.4" />
+                        <line x1={node.x} y1={node.y - half - 7} x2={node.x} y2={node.y - half - 5} stroke="var(--ck-accent)" strokeWidth="1.4" />
+                        <line x1={node.x} y1={node.y + half + 5} x2={node.x} y2={node.y + half + 7} stroke="var(--ck-accent)" strokeWidth="1.4" />
+                      </g>
+
+                      {/* Elevated Node Body with Glow */}
+                      <rect
+                        x={node.x - half}
+                        y={node.y - half}
+                        width={node.size}
+                        height={node.size}
+                        rx={1.5}
+                        fill={fill}
+                        filter="url(#govx-node-glow)"
+                        stroke="var(--ck-accent)"
+                        strokeWidth={2}
+                      />
+
+                      {/* ALWAYS VISIBLE Crisp Tactical Callout Badge */}
+                      {(() => {
+                        const badgeText = `[ ${displayId(c.id)} ]`;
+                        const badgeW = Math.max(58, badgeText.length * 7 + 16);
+                        return (
+                          <g transform={`translate(${node.x}, ${node.y - half - 15})`} className="pointer-events-none select-none">
+                            <rect
+                              x={-badgeW / 2}
+                              y={-9}
+                              width={badgeW}
+                              height={17}
+                              rx={3}
+                              fill="var(--ck-bg-0)"
+                              stroke="var(--ck-accent)"
+                              strokeWidth="1.5"
+                              filter="url(#govx-conduit-glow)"
+                            />
+                            <text
+                              x={0}
+                              y={2.8}
+                              textAnchor="middle"
+                              className="font-mono text-[8px] font-bold fill-ck-accent"
+                            >
+                              {badgeText}
+                            </text>
+                          </g>
+                        );
+                      })()}
+
+                      {/* Parameter Count or Baseline Tag below */}
+                      {c.params && c.params.length > 0 && (
+                        <text
+                          x={node.x}
+                          y={node.y + half + 13}
+                          textAnchor="middle"
+                          className="font-mono text-[7px] font-bold fill-ck-accent pointer-events-none select-none"
+                          style={{
+                            paintOrder: "stroke fill",
+                            stroke: "var(--ck-bg-0)",
+                            strokeWidth: "2px",
                           }}
-                          onDoubleClick={(e) => {
-                            e.stopPropagation();
-                            onSelectControl(c.id);
-                            setDossierOpen(true);
-                          }}
-                          onMouseEnter={() => onHoverControl(c.id)}
-                          onMouseLeave={() => onHoverControl(null)}
-                          className="cursor-pointer"
                         >
-                          <title>
-                            {`${displayId(c.id)} · ${c.title} · ${
-                              s.kind === "declared"
-                                ? s.status
-                                : s.kind === "declared-empty"
-                                  ? "declared EMPTY"
-                                  : "undeclared in SSP"
-                            } · Double-click to open full dossier`}
-                          </title>
-
-                          <rect
-                            x={node.x - half}
-                            y={node.y - half}
-                            width={node.size}
-                            height={node.size}
-                            rx={1.5}
-                            fill={fill}
-                            fillOpacity={fillOpacity}
-                            stroke={
-                              isSelected
-                                ? "var(--ck-accent)"
-                                : isHovered
-                                  ? "var(--ck-fg-1)"
-                                  : stroke
-                            }
-                            strokeWidth={isSelected ? 2 : 1}
-                          />
-
-                          {/* Level of Detail (LOD): Control ID text when zoomed in */}
-                          {zoom >= 1.35 && (
-                            <text
-                              x={node.x}
-                              y={node.y + half + 7.5}
-                              textAnchor="middle"
-                              className={`font-mono text-[7px] pointer-events-none select-none transition-opacity ${
-                                isSelected ? "fill-ck-accent font-bold" : "fill-ck-fg-1"
-                              }`}
-                            >
-                              {c.id.toUpperCase()}
-                            </text>
-                          )}
-                          {zoom >= 2.2 && c.params && c.params.length > 0 && (
-                            <text
-                              x={node.x}
-                              y={node.y + half + 14.5}
-                              textAnchor="middle"
-                              className="font-mono text-[6px] fill-ck-fg-mute pointer-events-none select-none"
-                            >
-                              {c.params.length}p
-                            </text>
-                          )}
-
-                          {/* Active Selection Tactical Targeting Brackets */}
-                          {isSelected && (
-                            <g className="pointer-events-none">
-                              {/* Micro reticle corner brackets */}
-                              <path
-                                d={`
-                                  M ${node.x - half - 4} ${node.y - half - 1} L ${node.x - half - 4} ${node.y - half - 4} L ${node.x - half - 1} ${node.y - half - 4}
-                                  M ${node.x + half + 1} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 1}
-                                  M ${node.x - half - 4} ${node.y + half + 1} L ${node.x - half - 4} ${node.y + half + 4} L ${node.x - half - 1} ${node.y + half + 4}
-                                  M ${node.x + half + 1} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 1}
-                                `}
-                                fill="none"
-                                stroke="var(--ck-accent)"
-                                strokeWidth="1.6"
-                              />
-                              {/* Micro crosshairs extending outward */}
-                              <line
-                                x1={node.x - half - 7}
-                                y1={node.y}
-                                x2={node.x - half - 5}
-                                y2={node.y}
-                                stroke="var(--ck-accent)"
-                                strokeWidth="1.2"
-                              />
-                              <line
-                                x1={node.x + half + 5}
-                                y1={node.y}
-                                x2={node.x + half + 7}
-                                y2={node.y}
-                                stroke="var(--ck-accent)"
-                                strokeWidth="1.2"
-                              />
-                              <line
-                                x1={node.x}
-                                y1={node.y - half - 7}
-                                x2={node.x}
-                                y2={node.y - half - 5}
-                                stroke="var(--ck-accent)"
-                                strokeWidth="1.2"
-                              />
-                              <line
-                                x1={node.x}
-                                y1={node.y + half + 5}
-                                x2={node.x}
-                                y2={node.y + half + 7}
-                                stroke="var(--ck-accent)"
-                                strokeWidth="1.2"
-                              />
-                            </g>
-                          )}
-
-                          {/* Risk Owner Open Weakness Ring */}
-                          {lens === "risk-owner" && POAM_CONTROLS.has(c.id) && (
-                            <circle
-                              cx={node.x}
-                              cy={node.y}
-                              r={half + 4}
-                              fill="none"
-                              stroke="var(--ck-warn)"
-                              strokeWidth="1.6"
-                              strokeDasharray="2 2"
-                              className="animate-pulse"
-                            />
-                          )}
-
-                          {/* Hover Focus Ring */}
-                          {isHovered && !isSelected && (
-                            <circle
-                              cx={node.x}
-                              cy={node.y}
-                              r={half + 3.5}
-                              fill="none"
-                              stroke="var(--ck-fg-1)"
-                              strokeWidth="1.2"
-                              strokeDasharray="2 2"
-                            />
-                          )}
-                        </g>
-                      );
-                    })}
-                </g>
-              );
-            })}
-          </g>
+                          ${c.params.length} PARAMETERS
+                        </text>
+                      )}
+                    </g>
+                  );
+                })()}
+              </g>
+            )}          </g>
         </svg>
 
         {/* Change Pulse Notification Toast */}

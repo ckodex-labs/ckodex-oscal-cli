@@ -405,7 +405,13 @@ export function AtlasSurface({
         )}
       </Panel>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start">
+      <div
+        className={
+          viewType === "topology"
+            ? "space-y-4"
+            : "grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start"
+        }
+      >
         <Panel
           title={
             viewType === "topology"
@@ -592,7 +598,14 @@ export function AtlasSurface({
           </div>
         </Panel>
 
-        <div ref={detailRef} className="min-w-0 scroll-mt-4 lg:sticky lg:top-4">
+        <div
+          ref={detailRef}
+          className={
+            viewType === "topology"
+              ? "min-w-0 scroll-mt-4"
+              : "min-w-0 scroll-mt-4 lg:sticky lg:top-4"
+          }
+        >
           <Panel
             title="Selected control"
             provenance={prov}

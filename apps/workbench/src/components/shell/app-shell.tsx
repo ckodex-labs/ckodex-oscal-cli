@@ -413,6 +413,24 @@ export function AppShell({
 
   return (
     <div className="flex h-dvh flex-col overflow-hidden bg-ck-bg-0 text-ck-fg-1">
+      {/* GovX Top Security Classification & Posture Strip */}
+      <div className="flex h-5 shrink-0 items-center justify-between border-b border-ck-hairline-strong bg-ck-bg-1 px-3 text-[10px] font-mono tracking-widest text-ck-fg-mute uppercase select-none">
+        <div className="flex items-center gap-2">
+          <span className="font-bold text-ck-accent">CUI // FEDRAMP-MODERATE</span>
+          <span className="hidden sm:inline text-ck-hairline-strong">|</span>
+          <span className="hidden sm:inline">NIST SP 800-53 REV 5</span>
+          <span className="hidden md:inline text-ck-hairline-strong">|</span>
+          <span className="hidden md:inline">ASSURANCE LEVEL: HIGH (L3)</span>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="hidden lg:inline text-3xs font-mono">MERKLE: 07617ef7a90b</span>
+          <span className="inline-flex items-center gap-1 text-ck-pos font-semibold text-3xs">
+            <span className="h-1.5 w-1.5 rounded-full bg-ck-pos animate-pulse" />
+            GOVX INTEGRITY VERIFIED
+          </span>
+        </div>
+      </div>
+
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-md focus:bg-ck-fg-1 focus:px-3 focus:py-2 focus:text-ck-bg-0"

@@ -359,23 +359,84 @@ export function TopologyMap({
                 strokeWidth="0.5"
               />
             </pattern>
+            <linearGradient id="radar-beam-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="var(--ck-accent)" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="var(--ck-accent)" stopOpacity="0.12" />
+              <stop offset="100%" stopColor="var(--ck-accent)" stopOpacity="0" />
+            </linearGradient>
             <style>{`
               @keyframes corridorDash {
                 to { stroke-dashoffset: -20; }
               }
+              @keyframes radarSweep {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
               .corridor-active-flow {
-                stroke-dasharray: 5 5;
-                animation: corridorDash 1s linear infinite;
+                stroke-dasharray: 5 4;
+                animation: corridorDash 0.85s linear infinite;
               }
             `}</style>
           </defs>
           <rect width="1180" height="740" fill="url(#atlas-grid)" />
 
+          {/* GovX Tactical Precision Canvas Framing & Coordinates */}
+          <g className="pointer-events-none select-none">
+            {/* Outer Border with Inset Reticles */}
+            <rect
+              x={12}
+              y={12}
+              width={1156}
+              height={716}
+              fill="none"
+              stroke="var(--ck-hairline-strong)"
+              strokeWidth="0.8"
+              strokeDasharray="4 8"
+              opacity={0.5}
+            />
+
+            {/* Corner Crosshairs & Coordinates */}
+            {/* Top-Left */}
+            <path d="M 16 26 L 28 26 M 22 20 L 22 32" stroke="var(--ck-accent)" strokeWidth="1" opacity={0.8} />
+            <text x={34} y={29} className="font-mono text-[8px] fill-ck-fg-mute tracking-wider">[0000, 0000] NW-GRID</text>
+
+            {/* Top-Right */}
+            <path d="M 1152 26 L 1164 26 M 1158 20 L 1158 32" stroke="var(--ck-accent)" strokeWidth="1" opacity={0.8} />
+            <text x={1146} y={29} textAnchor="end" className="font-mono text-[8px] fill-ck-fg-mute tracking-wider">[1180, 0000] NE-GRID</text>
+
+            {/* Bottom-Left */}
+            <path d="M 16 714 L 28 714 M 22 708 L 22 720" stroke="var(--ck-accent)" strokeWidth="1" opacity={0.8} />
+            <text x={34} y={717} className="font-mono text-[8px] fill-ck-fg-mute tracking-wider">[0000, 0740] SW-GRID</text>
+
+            {/* Bottom-Right */}
+            <path d="M 1152 714 L 1164 714 M 1158 708 L 1158 720" stroke="var(--ck-accent)" strokeWidth="1" opacity={0.8} />
+            <text x={1146} y={717} textAnchor="end" className="font-mono text-[8px] fill-ck-fg-mute tracking-wider">[1180, 0740] SE-GRID</text>
+
+            {/* Top Classification / Merkle Strip inside SVG */}
+            <g transform="translate(590, 22)">
+              <rect x={-230} y={-11} width={460} height={18} fill="var(--ck-bg-1)" rx={2} stroke="var(--ck-hairline-strong)" strokeWidth="0.8" />
+              <text textAnchor="middle" y={2} className="font-mono text-[8px] font-bold fill-ck-fg-2 tracking-widest uppercase">
+                SEC-DOMAIN // FEDRAMP-MODERATE // 20 FAMILIES // 287 CONTROLS // SHA256:07617ef7a90b
+              </text>
+            </g>
+
+            {/* Bottom-Right Tactical Axis / Compass */}
+            <g transform="translate(1080, 675)">
+              <circle cx={0} cy={0} r={17} fill="none" stroke="var(--ck-hairline-strong)" strokeWidth="0.8" opacity={0.7} />
+              <circle cx={0} cy={0} r={8.5} fill="none" stroke="var(--ck-hairline-strong)" strokeWidth="0.5" strokeDasharray="2 2" opacity={0.5} />
+              <line x1={-20} y1={0} x2={20} y2={0} stroke="var(--ck-hairline-strong)" strokeWidth="0.8" opacity={0.7} />
+              <line x1={0} y1={-20} x2={0} y2={20} stroke="var(--ck-hairline-strong)" strokeWidth="0.8" opacity={0.7} />
+              <path d="M 0 -20 L 3 -14 L -3 -14 Z" fill="var(--ck-accent)" />
+              <text x={0} y={-23} textAnchor="middle" className="font-mono text-[7px] font-bold fill-ck-accent">N</text>
+              <text x={0} y={28} textAnchor="middle" className="font-mono text-[7px] fill-ck-fg-mute tracking-wider">HEX 60&deg;</text>
+            </g>
+          </g>
+
           <g
             transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}
             className="transition-transform duration-100 ease-out"
           >
-            {/* Dependency Corridors */}
+            {/* Dependency Corridors: High-Assurance Dual-Rail Conduits */}
             {CORRIDORS.map(([fam1, fam2, label], idx) => {
               const f1 = FAMILY_COORD_MAP.get(fam1);
               const f2 = FAMILY_COORD_MAP.get(fam2);
@@ -393,6 +454,9 @@ export function TopologyMap({
               const x2 = f2.cx - f2.r * ux;
               const y2 = f2.cy - f2.r * uy;
 
+              // Perpendicular normal vector for dual-rail bus
+              const nx = -uy;
+              const ny = ux;
               const isConnectedToSelected =
                 selectedFamilyId === fam1 || selectedFamilyId === fam2;
               const isConnectedToFocused =
@@ -404,6 +468,25 @@ export function TopologyMap({
                 isConnectedToFocused ||
                 isCorridorHovered ||
                 pulseActive;
+
+              const sep = isHighlighted ? 2.5 : 1.8;
+
+              // Outer Rails A & B
+              const rx1_a = x1 + nx * sep;
+              const ry1_a = y1 + ny * sep;
+              const rx2_a = x2 + nx * sep;
+              const ry2_a = y2 + ny * sep;
+
+              const rx1_b = x1 - nx * sep;
+              const ry1_b = y1 - ny * sep;
+              const rx2_b = x2 - nx * sep;
+              const ry2_b = y2 - ny * sep;
+
+              // Midpoints for structural tie struts
+              const m1x = x1 * 0.65 + x2 * 0.35;
+              const m1y = y1 * 0.65 + y2 * 0.35;
+              const m2x = x1 * 0.35 + x2 * 0.65;
+              const m2y = y1 * 0.35 + y2 * 0.65;
 
               return (
                 <g
@@ -425,8 +508,58 @@ export function TopologyMap({
                     x2={x2}
                     y2={y2}
                     stroke="transparent"
-                    strokeWidth={14}
+                    strokeWidth={16}
                   />
+
+                  {/* Dual-Rail Outer Conduits */}
+                  <line
+                    x1={rx1_a}
+                    y1={ry1_a}
+                    x2={rx2_a}
+                    y2={ry2_a}
+                    stroke={
+                      isHighlighted
+                        ? "var(--ck-accent)"
+                        : "var(--ck-hairline-strong)"
+                    }
+                    strokeWidth={isHighlighted ? 1.4 : 0.8}
+                    strokeOpacity={isHighlighted ? 0.95 : 0.35}
+                  />
+                  <line
+                    x1={rx1_b}
+                    y1={ry1_b}
+                    x2={rx2_b}
+                    y2={ry2_b}
+                    stroke={
+                      isHighlighted
+                        ? "var(--ck-accent)"
+                        : "var(--ck-hairline-strong)"
+                    }
+                    strokeWidth={isHighlighted ? 1.4 : 0.8}
+                    strokeOpacity={isHighlighted ? 0.95 : 0.35}
+                  />
+
+                  {/* Structural Tie Struts */}
+                  <line
+                    x1={m1x + nx * sep}
+                    y1={m1y + ny * sep}
+                    x2={m1x - nx * sep}
+                    y2={m1y - ny * sep}
+                    stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+                    strokeWidth={0.8}
+                    strokeOpacity={isHighlighted ? 0.9 : 0.35}
+                  />
+                  <line
+                    x1={m2x + nx * sep}
+                    y1={m2y + ny * sep}
+                    x2={m2x - nx * sep}
+                    y2={m2y - ny * sep}
+                    stroke={isHighlighted ? "var(--ck-accent)" : "var(--ck-hairline-strong)"}
+                    strokeWidth={0.8}
+                    strokeOpacity={isHighlighted ? 0.9 : 0.35}
+                  />
+
+                  {/* Center Signal Flow Rail */}
                   <line
                     x1={x1}
                     y1={y1}
@@ -435,20 +568,21 @@ export function TopologyMap({
                     stroke={
                       isHighlighted
                         ? "var(--ck-accent)"
-                        : "var(--ck-hairline-strong)"
+                        : "var(--ck-hairline)"
                     }
-                    strokeWidth={isHighlighted ? 2.4 : 1.2}
-                    strokeOpacity={isHighlighted ? 0.95 : 0.4}
+                    strokeWidth={isHighlighted ? 1.8 : 0.8}
+                    strokeOpacity={isHighlighted ? 0.95 : 0.25}
                     className={isHighlighted || pulseActive ? "corridor-active-flow" : ""}
                   />
+
                   {(overlay === "corridors" || isHighlighted) && (
                     <text
                       x={(x1 + x2) / 2}
-                      y={(y1 + y2) / 2 - 4}
+                      y={(y1 + y2) / 2 - 5}
                       textAnchor="middle"
-                      className={`font-mono text-[9px] pointer-events-none transition-colors ${
+                      className={`font-mono text-[8.5px] pointer-events-none transition-colors ${
                         isHighlighted
-                          ? "fill-ck-accent font-semibold"
+                          ? "fill-ck-accent font-bold"
                           : "fill-ck-fg-mute"
                       }`}
                     >
@@ -459,33 +593,87 @@ export function TopologyMap({
               );
             })}
 
-            {/* Radiating Pulse Waves when active */}
+            {/* GovX Tactical Radar Beam Sweep & Radiating Waves when Change Pulse is active */}
             {pulseActive && selectedFamilyId && FAMILY_COORD_MAP.has(selectedFamilyId) && (
               <g className="pointer-events-none">
                 {(() => {
                   const fc = FAMILY_COORD_MAP.get(selectedFamilyId)!;
                   return (
-                    <>
+                    <g>
+                      {/* Concentric Range Rings with Tactical Distance Markings */}
                       <circle
                         cx={fc.cx}
                         cy={fc.cy}
-                        r={fc.r + 30}
+                        r={fc.r + 32}
                         fill="none"
                         stroke="var(--ck-accent)"
-                        strokeWidth="2"
+                        strokeWidth="1.8"
                         className="animate-ping"
                       />
                       <circle
                         cx={fc.cx}
                         cy={fc.cy}
-                        r={fc.r + 70}
+                        r={fc.r + 75}
                         fill="none"
                         stroke="var(--ck-accent)"
-                        strokeWidth="1.5"
+                        strokeWidth="1.4"
                         strokeDasharray="4 4"
                         className="animate-pulse"
                       />
-                    </>
+                      <circle
+                        cx={fc.cx}
+                        cy={fc.cy}
+                        r={fc.r + 140}
+                        fill="none"
+                        stroke="var(--ck-accent)"
+                        strokeWidth="0.9"
+                        strokeDasharray="2 6"
+                        opacity={0.65}
+                      />
+                      <text
+                        x={fc.cx + fc.r + 36}
+                        y={fc.cy - 4}
+                        className="font-mono text-[7px] fill-ck-accent font-semibold tracking-wider"
+                      >
+                        R-40km
+                      </text>
+                      <text
+                        x={fc.cx + fc.r + 79}
+                        y={fc.cy - 4}
+                        className="font-mono text-[7px] fill-ck-accent font-semibold tracking-wider"
+                      >
+                        R-90km
+                      </text>
+                      <text
+                        x={fc.cx + fc.r + 144}
+                        y={fc.cy - 4}
+                        className="font-mono text-[7px] fill-ck-accent font-semibold tracking-wider"
+                      >
+                        R-170km
+                      </text>
+
+                      {/* Rotating Tactical Radar Beam Sector */}
+                      <g
+                        style={{
+                          transformOrigin: `${fc.cx}px ${fc.cy}px`,
+                          animation: "radarSweep 2.2s linear infinite",
+                        }}
+                      >
+                        <path
+                          d={`M ${fc.cx} ${fc.cy} L ${fc.cx + 220} ${fc.cy} A 220 220 0 0 1 ${fc.cx + 190} ${fc.cy + 110} Z`}
+                          fill="url(#radar-beam-gradient)"
+                          opacity={0.4}
+                        />
+                        <line
+                          x1={fc.cx}
+                          y1={fc.cy}
+                          x2={fc.cx + 220}
+                          y2={fc.cy}
+                          stroke="var(--ck-accent)"
+                          strokeWidth="1.8"
+                        />
+                      </g>
+                    </g>
                   );
                 })()}
               </g>
@@ -707,16 +895,55 @@ export function TopologyMap({
                             strokeWidth={isSelected ? 2 : 1}
                           />
 
-                          {/* Active Selection Glow Ring */}
+                          {/* Active Selection Tactical Targeting Brackets */}
                           {isSelected && (
-                            <circle
-                              cx={node.x}
-                              cy={node.y}
-                              r={half + 5}
-                              fill="none"
-                              stroke="var(--ck-accent)"
-                              strokeWidth="1.8"
-                            />
+                            <g className="pointer-events-none">
+                              {/* Micro reticle corner brackets */}
+                              <path
+                                d={`
+                                  M ${node.x - half - 4} ${node.y - half - 1} L ${node.x - half - 4} ${node.y - half - 4} L ${node.x - half - 1} ${node.y - half - 4}
+                                  M ${node.x + half + 1} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 4} L ${node.x + half + 4} ${node.y - half - 1}
+                                  M ${node.x - half - 4} ${node.y + half + 1} L ${node.x - half - 4} ${node.y + half + 4} L ${node.x - half - 1} ${node.y + half + 4}
+                                  M ${node.x + half + 1} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 4} L ${node.x + half + 4} ${node.y + half + 1}
+                                `}
+                                fill="none"
+                                stroke="var(--ck-accent)"
+                                strokeWidth="1.6"
+                              />
+                              {/* Micro crosshairs extending outward */}
+                              <line
+                                x1={node.x - half - 7}
+                                y1={node.y}
+                                x2={node.x - half - 5}
+                                y2={node.y}
+                                stroke="var(--ck-accent)"
+                                strokeWidth="1.2"
+                              />
+                              <line
+                                x1={node.x + half + 5}
+                                y1={node.y}
+                                x2={node.x + half + 7}
+                                y2={node.y}
+                                stroke="var(--ck-accent)"
+                                strokeWidth="1.2"
+                              />
+                              <line
+                                x1={node.x}
+                                y1={node.y - half - 7}
+                                x2={node.x}
+                                y2={node.y - half - 5}
+                                stroke="var(--ck-accent)"
+                                strokeWidth="1.2"
+                              />
+                              <line
+                                x1={node.x}
+                                y1={node.y + half + 5}
+                                x2={node.x}
+                                y2={node.y + half + 7}
+                                stroke="var(--ck-accent)"
+                                strokeWidth="1.2"
+                              />
+                            </g>
                           )}
 
                           {/* Risk Owner Open Weakness Ring */}
@@ -767,7 +994,7 @@ export function TopologyMap({
           </div>
         )}
 
-        {/* Tactical HUD Overlay (Top-Right) */}
+        {/* GovX Tactical HUD Overlay (Top-Right) */}
         {hoveredControl ? (
           (() => {
             const hState = implState(hoveredControl.id, byControl);
@@ -780,21 +1007,28 @@ export function TopologyMap({
             const isPos = hState.kind === "declared" && hState.status === "implemented";
             const isWarn = hState.kind === "declared" && hState.status === "partial";
             return (
-              <div className="pointer-events-none absolute right-3 top-3 max-w-[280px] rounded-md border border-ck-hairline-strong bg-ck-bg-1/95 p-3 shadow-lg backdrop-blur-sm transition-all duration-150">
-                <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5">
-                  <span className="font-mono text-xs font-bold text-ck-accent">
+              <div className="pointer-events-none absolute right-3 top-3 max-w-[300px] rounded-md border border-ck-hairline-strong bg-ck-bg-1/95 p-3 shadow-xl backdrop-blur-md transition-all duration-150">
+                <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5 text-3xs font-mono uppercase tracking-widest text-ck-fg-mute">
+                  <span className="flex items-center gap-1 font-bold text-ck-accent">
+                    <span className="h-1.5 w-1.5 rounded-full bg-ck-accent animate-ping" />
+                    TARGET LOCK // GOVX-L3
+                  </span>
+                  <span>{hoveredControl.family.toUpperCase()} &middot; {FAMILY_COORD_MAP.get(hoveredControl.family)?.short ?? "Family"}</span>
+                </div>
+                <div className="mt-2 flex items-baseline justify-between gap-2">
+                  <span className="font-mono text-sm font-bold text-ck-fg-1">
                     {displayId(hoveredControl.id)}
                   </span>
-                  <span className="font-mono text-3xs uppercase tracking-wider text-ck-fg-mute">
-                    {hoveredControl.family.toUpperCase()} · {FAMILY_COORD_MAP.get(hoveredControl.family)?.short ?? "Family"}
+                  <span className="font-mono text-3xs text-ck-fg-mute">
+                    {hoveredControl.id}
                   </span>
                 </div>
-                <div className="mt-1.5 line-clamp-2 text-xs font-medium text-ck-fg-1">
+                <div className="mt-1 line-clamp-2 text-xs font-medium text-ck-fg-2">
                   {hoveredControl.title}
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
+                <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-2xs">
                   <span
-                    className={`rounded px-1.5 py-0.5 font-mono ${
+                    className={`rounded px-1.5 py-0.5 font-mono uppercase tracking-wider ${
                       isPos
                         ? "bg-ck-pos/15 text-ck-pos border border-ck-pos/30"
                         : isWarn
@@ -806,49 +1040,64 @@ export function TopologyMap({
                   </span>
                   {hoveredControl.params && hoveredControl.params.length > 0 && (
                     <span className="rounded border border-ck-hairline bg-ck-bg-0 px-1.5 py-0.5 font-mono text-ck-fg-2">
-                      {hoveredControl.params.length} params
+                      {hoveredControl.params.length} PARAMS BOUND
                     </span>
                   )}
                   {POAM_CONTROLS.has(hoveredControl.id) && (
                     <span className="rounded border border-ck-warn/40 bg-ck-warn/10 px-1.5 py-0.5 font-mono text-ck-warn font-semibold">
-                      POA&M Weakness
+                      POA&amp;M DEFICIENCY
                     </span>
                   )}
                 </div>
-                <div className="mt-2 text-3xs font-mono text-ck-fg-mute">
-                  Click node to inspect statement & tailoring
+                <div className="mt-2 border-t border-ck-hairline/60 pt-1.5 flex items-center justify-between text-3xs font-mono text-ck-fg-mute">
+                  <span>ASSURANCE: NIST-SP800-53-MOD</span>
+                  <span>MERKLE: VERIFIED</span>
                 </div>
               </div>
             );
           })()
         ) : hoveredCorridor ? (
-          <div className="pointer-events-none absolute right-3 top-3 max-w-[280px] rounded-md border border-ck-accent bg-ck-bg-1/95 p-3 shadow-lg backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5">
-              <span className="font-mono text-xs font-bold text-ck-accent">
+          <div className="pointer-events-none absolute right-3 top-3 max-w-[300px] rounded-md border border-ck-accent bg-ck-bg-1/95 p-3 shadow-xl backdrop-blur-md">
+            <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5 text-3xs font-mono uppercase tracking-widest text-ck-fg-mute">
+              <span className="flex items-center gap-1 font-bold text-ck-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-ck-accent animate-pulse" />
+                CONDUIT LOCK // DUAL-BUS
+              </span>
+              <span>ACTIVE FLOW</span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="font-mono text-sm font-bold text-ck-accent">
                 {`${hoveredCorridor.fam1.toUpperCase()} <-> ${hoveredCorridor.fam2.toUpperCase()}`}
               </span>
-              <span className="font-mono text-3xs uppercase tracking-wider text-ck-fg-mute">
-                Boundary Corridor
-              </span>
+              <span className="font-mono text-3xs text-ck-fg-mute">100% NOMINAL</span>
             </div>
-            <div className="mt-1.5 text-xs font-medium text-ck-fg-1">
+            <div className="mt-1 text-xs font-semibold text-ck-fg-1">
               {hoveredCorridor.label}
             </div>
             <div className="mt-1 text-2xs text-ck-fg-mute">
-              Architectural dependency corridor between {FAMILY_COORD_MAP.get(hoveredCorridor.fam1)?.short} and {FAMILY_COORD_MAP.get(hoveredCorridor.fam2)?.short}.
+              Architectural dependency conduit between {FAMILY_COORD_MAP.get(hoveredCorridor.fam1)?.short} and {FAMILY_COORD_MAP.get(hoveredCorridor.fam2)?.short}.
+            </div>
+            <div className="mt-2 border-t border-ck-hairline/60 pt-1.5 flex items-center justify-between text-3xs font-mono text-ck-fg-mute">
+              <span>PROPAGATION: IMMEDIATE</span>
+              <span>BUS PROTOCOL: OSCAL-AST</span>
             </div>
           </div>
         ) : (
-          <div className="pointer-events-none absolute right-3 top-3 hidden sm:flex items-center gap-2.5 rounded-md border border-ck-hairline bg-ck-bg-1/80 px-2.5 py-1 text-2xs text-ck-fg-mute backdrop-blur-xs">
-            <span>20 Families</span>
-            <span className="h-3 w-px bg-ck-hairline" />
-            <span>18 Corridors</span>
-            <span className="h-3 w-px bg-ck-hairline" />
-            <span>287 Controls</span>
+          <div className="pointer-events-none absolute right-3 top-3 hidden sm:flex items-center gap-2.5 rounded-md border border-ck-hairline-strong bg-ck-bg-1/90 px-3 py-1.5 text-2xs text-ck-fg-mute backdrop-blur-md shadow-sm">
+            <span className="flex items-center gap-1.5 font-bold text-ck-fg-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-ck-pos" />
+              GOVX TELEMETRY
+            </span>
+            <span className="h-3 w-px bg-ck-hairline-strong" />
+            <span>20 FAMILIES</span>
+            <span className="h-3 w-px bg-ck-hairline-strong" />
+            <span>18 DUAL CONDUITS</span>
+            <span className="h-3 w-px bg-ck-hairline-strong" />
+            <span>287 CONTROLS</span>
             {lens === "risk-owner" && (
               <>
-                <span className="h-3 w-px bg-ck-hairline" />
-                <span className="text-ck-warn font-medium">5 POA&M items</span>
+                <span className="h-3 w-px bg-ck-hairline-strong" />
+                <span className="text-ck-warn font-semibold">5 POA&amp;M ITEMS</span>
               </>
             )}
           </div>

@@ -46,6 +46,7 @@ import {
 import { ControlDetail } from "./atlas/control-detail";
 import { TopologyMap } from "./atlas/topology-map";
 import { MitreAtlasMatrix } from "./atlas/mitre-atlas-matrix";
+import { ThreatPathSimulator } from "./atlas/threat-path-simulator";
 import { FrontierAiComparison } from "./frontier-ai-comparison";
 import { INPUT } from "./atlas/ui";
 
@@ -68,7 +69,7 @@ export function AtlasSurface({
 
   const [mode, setMode] = React.useState<GridMode>("baseline");
   const [viewType, setViewType] = React.useState<
-    "topology" | "grid" | "mitre" | "frontier"
+    "topology" | "grid" | "mitre" | "simulator" | "frontier"
   >(lens === "architect" ? "topology" : "grid");
   const [pulseActive, setPulseActive] = React.useState(false);
   const [query, setQuery] = React.useState("");
@@ -420,20 +421,24 @@ export function AtlasSurface({
               ? "Hexagonal Topology Map"
               : viewType === "mitre"
                 ? "MITRE ATLAS Threat Matrix"
-                : viewType === "frontier"
-                  ? "Frontier AI Provider Comparison"
-                  : mode === "baseline"
-                    ? "Baseline by family"
-                    : "Catalog by family"
+                : viewType === "simulator"
+                  ? "MITRE ATLAS Threat Path Simulator"
+                  : viewType === "frontier"
+                    ? "Frontier AI Provider Comparison"
+                    : mode === "baseline"
+                      ? "Baseline by family"
+                      : "Catalog by family"
           }
           subtitle={
             viewType === "topology"
               ? "Interactive geometric territorial map of 20 NIST families and 18 architectural corridors"
               : viewType === "mitre"
                 ? "Adversarial Threat Landscape for AI Systems crosswalked to NIST SP 800-53 Rev 5"
-                : viewType === "frontier"
-                  ? "Compliance, ASL safety tiers, SAIF pillars, and defense coverage for Anthropic, Google, and Azure OpenAI"
-                  : `${visible.length} of ${modeSet.length} controls shown`
+                : viewType === "simulator"
+                  ? "Multi-stage adversarial kill-chains, State Vector S(e,t) transitions, and Day-2 control loops"
+                  : viewType === "frontier"
+                    ? "Compliance, ASL safety tiers, SAIF pillars, and defense coverage for Anthropic, Google, and Azure OpenAI"
+                    : `${visible.length} of ${modeSet.length} controls shown`
           }
           provenance={prov}
         >
@@ -454,12 +459,13 @@ export function AtlasSurface({
                 label="View mode"
                 value={viewType}
                 onChange={(v) =>
-                  setViewType(v as "topology" | "grid" | "mitre" | "frontier")
+                  setViewType(v as "topology" | "grid" | "mitre" | "simulator" | "frontier")
                 }
                 options={[
                   { value: "topology", label: "Hexagonal Map" },
                   { value: "grid", label: "Family Grid" },
                   { value: "mitre", label: "MITRE ATLAS" },
+                  { value: "simulator", label: "Threat Simulator" },
                   { value: "frontier", label: "Frontier AI" },
                 ]}
               />
@@ -514,6 +520,10 @@ export function AtlasSurface({
             {viewType === "mitre" ? (
               <MitreAtlasMatrix
                 selectedControlId={selectedId}
+                onSelectControl={select}
+              />
+            ) : viewType === "simulator" ? (
+              <ThreatPathSimulator
                 onSelectControl={select}
               />
             ) : viewType === "frontier" ? (

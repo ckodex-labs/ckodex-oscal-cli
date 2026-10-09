@@ -13,6 +13,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { ThreatPathSimulator } from "./threat-path-simulator";
 
 /* ------------------------------------------------------------------ */
 /* Types & Domain Models                                               */
@@ -1454,6 +1455,7 @@ export function MitreAtlasMatrix({
   const [hoveredTechniqueId, setHoveredTechniqueId] = React.useState<
     string | null
   >(null);
+  const [viewMode, setViewMode] = React.useState<"matrix" | "simulator">("matrix");
 
   const [providerFilter, setProviderFilter] = React.useState<
     ProviderId | "all"
@@ -1583,9 +1585,33 @@ export function MitreAtlasMatrix({
           <span className="hidden md:inline">REV: 2.4-GOVX</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="hidden lg:inline text-3xs font-mono">
-            NIST SP 800-53 REV 5 CROSSWALK
-          </span>
+          {/* Tactical View Mode Switcher */}
+          <div className="flex items-center gap-1 rounded border border-ck-hairline-strong bg-ck-bg-0 p-0.5 font-mono text-3xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("matrix")}
+              className={cn(
+                "px-2 py-0.5 rounded font-bold transition-colors",
+                viewMode === "matrix"
+                  ? "bg-ck-accent text-ck-bg-0"
+                  : "text-ck-fg-mute hover:text-ck-fg-1"
+              )}
+            >
+              MATRIX VIEW
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("simulator")}
+              className={cn(
+                "px-2 py-0.5 rounded font-bold transition-colors",
+                viewMode === "simulator"
+                  ? "bg-ck-accent text-ck-bg-0"
+                  : "text-ck-fg-mute hover:text-ck-fg-1"
+              )}
+            >
+              PATH SIMULATOR
+            </button>
+          </div>
           <span className="inline-flex items-center gap-1 text-ck-pos font-semibold text-3xs">
             <span className="h-1.5 w-1.5 rounded-full bg-ck-pos animate-pulse" />
             HUD SCAN ACTIVE
@@ -1593,6 +1619,13 @@ export function MitreAtlasMatrix({
         </div>
       </div>
 
+      {viewMode === "simulator" ? (
+        <ThreatPathSimulator
+          onSelectControl={onSelectControl}
+          className="flex-1 border-0 rounded-none"
+        />
+      ) : (
+        <>
       {/* Control Strip & Interactive Filters */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ck-hairline bg-ck-bg-1/60 p-3 text-xs">
         {/* Left: Search input */}
@@ -1780,6 +1813,8 @@ export function MitreAtlasMatrix({
           </span>
         </div>
       </footer>
+        </>
+      )}
     </div>
   );
 }

@@ -764,7 +764,7 @@ export function FrontierAiComparison({
       </StatGrid>
 
       {/* Navigation & Provider Selection Toolbar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-2.5">
         <Toolbar>
           <Segmented<ComparisonTab>
             label="Inspector tab selection"

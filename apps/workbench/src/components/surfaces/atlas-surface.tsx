@@ -437,7 +437,7 @@ export function AtlasSurface({
                 : viewType === "simulator"
                   ? "Multi-stage adversarial kill-chains, State Vector S(e,t) transitions, and Day-2 control loops"
                   : viewType === "frontier"
-                    ? "Compliance, ASL safety tiers, SAIF pillars, and defense coverage for Anthropic, Google, and Azure OpenAI"
+                    ? "Compliance, ASL safety tiers, SAIF pillars, and defense coverage for Anthropic, Google, Azure OpenAI, and Cohere North"
                     : `${visible.length} of ${modeSet.length} controls shown`
           }
           provenance={prov}

@@ -144,6 +144,7 @@ mod tests {
             total_rules_checked: 85,
             passed_rules: 85,
             failed_rules: 0,
+            findings_count: 0,
             findings: vec![],
         };
 

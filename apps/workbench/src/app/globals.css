@@ -1,30 +1,47 @@
-@import url("https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
+/* Self-hosted fonts (no runtime request to any font CDN; air-gap capable). */
+@import "@fontsource-variable/inter/index.css";
+@import "@fontsource-variable/jetbrains-mono/index.css";
+@import "@fontsource/instrument-serif/400.css";
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Token contract. Every text token below was measured against bg-0, bg-1 and
+ * bg-2 of its theme and is >= 4.5:1 (WCAG AA, normal text).
+ */
 @layer base {
   :root,
   [data-theme="ledger"] {
-    /* CKODEX Core Palette (ledger theme) */
     --ck-bg-0: #f8f6f0;
     --ck-bg-1: #f0ede4;
     --ck-bg-2: #e5e1d5;
     --ck-fg-1: #161514;
     --ck-fg-2: #3a3734;
-    --ck-fg-3: #5c5853;
-    --ck-fg-mute: #78756e;
-    --ck-accent: #c85a17;
+    --ck-fg-3: #4f4b46;
+    --ck-fg-mute: #625e57;
+    --ck-accent: #c85a17; /* fills, borders, focus; not for small text */
+    --ck-accent-text: #a8470b;
     --ck-hairline: rgba(0, 0, 0, 0.08);
     --ck-hairline-strong: rgba(0, 0, 0, 0.16);
 
-    /* shadcn/ui Variable Mapping */
+    --ck-pos: #17663a;
+    --ck-pos-bg: rgba(23, 102, 58, 0.08);
+    --ck-neg: #a8261b;
+    --ck-neg-bg: rgba(168, 38, 27, 0.08);
+    --ck-warn: #7a4f00;
+    --ck-warn-bg: rgba(176, 120, 0, 0.12);
+    --ck-info: #1d55a0;
+    --ck-info-bg: rgba(29, 85, 160, 0.08);
+    --ck-unk: #55595f;
+    --ck-unk-bg: rgba(85, 89, 95, 0.08);
+
     --background: var(--ck-bg-0);
     --foreground: var(--ck-fg-1);
     --card: var(--ck-bg-1);
     --card-foreground: var(--ck-fg-1);
-    --popover: var(--ck-bg-1);
+    --popover: var(--ck-bg-0);
     --popover-foreground: var(--ck-fg-1);
     --primary: var(--ck-fg-1);
     --primary-foreground: var(--ck-bg-0);
@@ -34,28 +51,38 @@
     --muted-foreground: var(--ck-fg-mute);
     --accent: var(--ck-accent);
     --accent-foreground: #ffffff;
-    --destructive: #b91c1c;
+    --destructive: var(--ck-neg);
     --destructive-foreground: #ffffff;
     --border: var(--ck-hairline-strong);
     --input: var(--ck-hairline-strong);
     --ring: var(--ck-accent);
-    --radius: 2px;
+    --radius: 4px;
   }
 
   [data-theme="vault"] {
-    /* CKODEX Core Palette (vault theme) */
     --ck-bg-0: #0c0d0e;
     --ck-bg-1: #151719;
     --ck-bg-2: #212428;
     --ck-fg-1: #ecebe8;
-    --ck-fg-2: #b8b7b2;
-    --ck-fg-3: #8a8984;
-    --ck-fg-mute: #686e77;
+    --ck-fg-2: #c4c3be;
+    --ck-fg-3: #a3a29d;
+    --ck-fg-mute: #8e949c;
     --ck-accent: #ff7033;
+    --ck-accent-text: #ff8a52;
     --ck-hairline: rgba(255, 255, 255, 0.08);
     --ck-hairline-strong: rgba(255, 255, 255, 0.16);
 
-    /* shadcn/ui Variable Mapping */
+    --ck-pos: #4ade80;
+    --ck-pos-bg: rgba(74, 222, 128, 0.1);
+    --ck-neg: #fb8a8a;
+    --ck-neg-bg: rgba(251, 138, 138, 0.1);
+    --ck-warn: #f5c451;
+    --ck-warn-bg: rgba(245, 196, 81, 0.1);
+    --ck-info: #7cb4ff;
+    --ck-info-bg: rgba(124, 180, 255, 0.1);
+    --ck-unk: #a7adb5;
+    --ck-unk-bg: rgba(167, 173, 181, 0.1);
+
     --background: var(--ck-bg-0);
     --foreground: var(--ck-fg-1);
     --card: var(--ck-bg-1);
@@ -70,26 +97,37 @@
     --muted-foreground: var(--ck-fg-mute);
     --accent: var(--ck-accent);
     --accent-foreground: #0c0d0e;
-    --destructive: #ef4444;
-    --destructive-foreground: #ffffff;
+    --destructive: var(--ck-neg);
+    --destructive-foreground: #0c0d0e;
     --border: var(--ck-hairline-strong);
     --input: var(--ck-hairline-strong);
     --ring: var(--ck-accent);
-    --radius: 2px;
+    --radius: 4px;
   }
 
   [data-theme="hc"] {
-    /* CKODEX Core Palette (High Contrast) */
     --ck-bg-0: #000000;
     --ck-bg-1: #101010;
     --ck-bg-2: #202020;
     --ck-fg-1: #ffffff;
     --ck-fg-2: #e0e0e0;
     --ck-fg-3: #cccccc;
-    --ck-fg-mute: #aaaaaa;
+    --ck-fg-mute: #bbbbbb;
     --ck-accent: #ffff00;
+    --ck-accent-text: #ffff00;
     --ck-hairline: rgba(255, 255, 255, 0.4);
     --ck-hairline-strong: #ffffff;
+
+    --ck-pos: #5cff8a;
+    --ck-pos-bg: transparent;
+    --ck-neg: #ff6b6b;
+    --ck-neg-bg: transparent;
+    --ck-warn: #ffd400;
+    --ck-warn-bg: transparent;
+    --ck-info: #7fc4ff;
+    --ck-info-bg: transparent;
+    --ck-unk: #d0d0d0;
+    --ck-unk-bg: transparent;
 
     --background: #000000;
     --foreground: #ffffff;
@@ -102,70 +140,117 @@
     --secondary: #202020;
     --secondary-foreground: #ffffff;
     --muted: #202020;
-    --muted-foreground: #aaaaaa;
+    --muted-foreground: #bbbbbb;
     --accent: #ffff00;
     --accent-foreground: #000000;
-    --destructive: #ff3333;
-    --destructive-foreground: #ffffff;
+    --destructive: #ff6b6b;
+    --destructive-foreground: #000000;
     --border: #ffffff;
     --input: #ffffff;
     --ring: #ffff00;
     --radius: 0px;
   }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: "Inter Variable", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 22px;
+    font-feature-settings: "cv11", "ss01", "tnum" 0;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ck-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--ck-accent);
+    color: var(--ck-bg-0);
+  }
 }
 
-body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-feature-settings:
-    "rlig" 1,
-    "calt" 1;
-}
+@layer components {
+  /* Tabular figures for any numeric column or counter. */
+  .ck-num {
+    font-variant-numeric: tabular-nums;
+  }
 
-/* Precision CKODEX UI Helpers */
-.ck-hash {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: var(--ck-bg-2);
-  border: 1px solid var(--ck-hairline);
-  padding: 1px 6px;
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
-  font-size: 11px;
-  color: var(--ck-fg-2);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color 0.15s ease;
-}
-.ck-hash:hover {
-  border-color: var(--ck-hairline-strong);
-  color: var(--ck-fg-1);
-}
+  /* Eyebrow label: small uppercase section heading. */
+  .ck-eyebrow {
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+    font-size: 11px;
+    line-height: 16px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ck-fg-mute);
+  }
 
-.ck-segment {
-  display: inline-flex;
-  align-items: center;
-  background: var(--ck-bg-1);
-  border: 1px solid var(--ck-hairline-strong);
-  padding: 2px;
-  border-radius: var(--radius);
-}
+  .ck-hash {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: var(--ck-bg-2);
+    border: 1px solid var(--ck-hairline);
+    padding: 1px 6px;
+    font-family: "JetBrains Mono Variable", ui-monospace, monospace;
+    font-size: 11px;
+    color: var(--ck-fg-2);
+    border-radius: var(--radius);
+  }
 
-.ck-segment-btn {
-  padding: 3px 8px;
-  font-family: var(--font-mono, "JetBrains Mono", monospace);
-  font-size: 11px;
-  font-weight: 500;
-  border: none;
-  background: transparent;
-  color: var(--ck-fg-mute);
-  cursor: pointer;
-  border-radius: calc(var(--radius) - 1px);
-  transition: all 0.15s ease;
-}
-.ck-segment-btn[data-active="true"] {
-  background: var(--ck-fg-1);
-  color: var(--ck-bg-0);
+  .ck-segment {
+    display: inline-flex;
+    align-items: center;
+    background: var(--ck-bg-1);
+    border: 1px solid var(--ck-hairline-strong);
+    padding: 2px;
+    border-radius: var(--radius);
+  }
+
+  .ck-segment-btn {
+    padding: 3px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--ck-fg-mute);
+    cursor: pointer;
+    border-radius: calc(var(--radius) - 1px);
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .ck-segment-btn:hover {
+    color: var(--ck-fg-1);
+  }
+  .ck-segment-btn[data-active="true"] {
+    background: var(--ck-fg-1);
+    color: var(--ck-bg-0);
+  }
+
+  /* Diagonal hatch used to mark FIXTURE regions independent of color. */
+  .ck-hatch {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--ck-warn-bg) 0 6px,
+      transparent 6px 12px
+    );
+  }
+
+  .ck-scroll-x {
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
 }
 
 @keyframes corridorDash {
@@ -194,4 +279,14 @@ body {
 
 .animate-pulse-glow {
   animation: pulseGlow 1.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-corridor-flow,
+  .animate-pulse-glow {
+    animation: none;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+  }
 }

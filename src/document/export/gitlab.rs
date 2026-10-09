@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::Path;
 
+use super::findings::{extract_findings, FindingDisposition};
 use crate::{
     document::parser::OscalDocument,
     error::{AppError, Result},
@@ -75,45 +75,44 @@ impl GitLabReportExporter {
         doc: &OscalDocument,
         source_path: &Path,
     ) -> Result<GitLabSecurityReport> {
-        let root = doc
-            .root_object()
-            .ok_or_else(|| AppError::Configuration("Document root is not an object".to_string()))?;
+        if doc.root_object().is_none() {
+            return Err(AppError::Configuration(
+                "Document root is not an object".to_string(),
+            ));
+        }
 
         let mut vulnerabilities = Vec::new();
         let now = chrono::Utc::now().to_rfc3339();
         let file_str = source_path.to_string_lossy().to_string();
 
-        if let Some(controls) = root.get("controls").and_then(Value::as_array) {
-            for (idx, ctrl) in controls.iter().enumerate() {
-                let id = ctrl
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| AppError::Configuration("Control missing 'id'".to_owned()))?;
-                let title = ctrl.get("title").and_then(Value::as_str);
-                let desc = ctrl.get("description").and_then(Value::as_str).or(title);
-
-                vulnerabilities.push(GitLabVulnerability {
-                    id: format!("mizan-vuln-{id}-{idx}"),
-                    category: "compliance".to_string(),
-                    name: title.map(|t| format!("NIST Control {id}: {t}")),
-                    message: Some(format!("Compliance verification item for {id}")),
-                    description: desc.map(String::from),
-                    severity: "Medium".to_string(),
-                    confidence: "Confirmed".to_string(),
-                    location: GitLabLocation {
-                        file: file_str.clone(),
-                        start_line: 1,
-                    },
-                    identifiers: vec![
-                        GitLabIdentifier {
-                            id_type: "oscal_control_id".to_string(),
-                            name: format!("OSCAL Control {id}"),
-                            value: id.to_string(),
-                            url: Some(format!("https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home?element={id}")),
-                        }
-                    ],
-                });
-            }
+        // Only unsatisfied, unwaived findings are vulnerabilities. The GitLab
+        // schema has no suppression field, so waived findings are omitted here
+        // and remain visible in the SARIF report and the assessment results.
+        for (idx, f) in extract_findings(doc)
+            .into_iter()
+            .filter(|f| f.disposition == FindingDisposition::Failed)
+            .enumerate()
+        {
+            let id = f.rule_id;
+            vulnerabilities.push(GitLabVulnerability {
+                id: format!("mizan-finding-{id}-{idx}"),
+                category: "compliance".to_string(),
+                name: Some(f.title.unwrap_or_else(|| format!("Rule {id}"))),
+                message: Some(f.message.clone()),
+                description: Some(f.message),
+                severity: "Unknown".to_string(),
+                confidence: "Confirmed".to_string(),
+                location: GitLabLocation {
+                    file: file_str.clone(),
+                    start_line: 1,
+                },
+                identifiers: vec![GitLabIdentifier {
+                    id_type: "mizan_rule_id".to_string(),
+                    name: format!("Mizan rule {id}"),
+                    value: id,
+                    url: None,
+                }],
+            });
         }
 
         Ok(GitLabSecurityReport {
@@ -177,8 +176,29 @@ mod tests {
             GitLabReportExporter::export_from_oscal(&doc, Path::new("catalog.json")).unwrap();
 
         assert_eq!(report.version, "15.0.0");
-        assert_eq!(report.vulnerabilities.len(), 1);
-        assert_eq!(report.vulnerabilities[0].identifiers[0].value, "ac-1");
+        // Catalog controls are definitions, not vulnerabilities.
+        assert_eq!(report.vulnerabilities.len(), 0);
         assert_eq!(report.scan.scanner.id, "mizan-compliance-scanner");
+    }
+
+    #[test]
+    fn test_gitlab_report_failed_findings_only() {
+        let doc = OscalDocument::from_value(
+            serde_json::json!({
+                "assessment-results": {
+                    "uuid": "ar",
+                    "metadata": { "title": "t" },
+                    "results": [{ "findings": [
+                        { "rule_id": "k8s-no-root", "status": "FAILED", "violation": "runs as root" },
+                        { "rule_id": "k8s-limits", "status": "WAIVED", "violation": "no limits" }
+                    ]}]
+                }
+            }),
+            None,
+        )
+        .unwrap();
+        let report = GitLabReportExporter::export_from_oscal(&doc, Path::new("ar.json")).unwrap();
+        assert_eq!(report.vulnerabilities.len(), 1);
+        assert_eq!(report.vulnerabilities[0].identifiers[0].value, "k8s-no-root");
     }
 }

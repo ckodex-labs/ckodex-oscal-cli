@@ -1,154 +1,82 @@
 "use client";
 
 import * as React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import * as Dialog from "@radix-ui/react-dialog";
+import { ALL_SURFACES } from "@/components/shell/app-shell";
 
 interface ShortcutsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
-  const shortcuts = [
-    { key: "1", label: "The Atlas", desc: "OSCAL spatial graph of record" },
-    {
-      key: "2",
-      label: "The Bridge",
-      desc: "Cross-framework mapping & edge validation",
-    },
-    {
-      key: "3",
-      label: "The Composer",
-      desc: "OSCAL parameter tailoring & profile diff",
-    },
-    {
-      key: "4",
-      label: "The Ledger",
-      desc: "Cryptographic evidence decay & Merkle logs",
-    },
-    {
-      key: "5",
-      label: "The Docket",
-      desc: "POA&M pressure-sorted priority queue",
-    },
-    {
-      key: "6",
-      label: "The Pipeline",
-      desc: "Pre-commit persona & deterministic gates",
-    },
-    {
-      key: "7",
-      label: "Jurisdictions & SLSA",
-      desc: "NIST, CCCS, EUCS & SLSA v1.2 attestations",
-    },
-    {
-      key: "8",
-      label: "Policy Gates & SBOM",
-      desc: "In-process Rego evaluation & CycloneDX",
-    },
-    {
-      key: "9",
-      label: "Root Fabric & Identity",
-      desc: "SPIFFE/SPIRE SVIDs & multi-tenant isolation",
-    },
-    {
-      key: "0",
-      label: "Workspace Inspector",
-      desc: "In-browser OSCAL validation & air-gap capsule export",
-    },
-    {
-      key: "T",
-      label: "Cycle Theme",
-      desc: "Switch between Ledger, Vault, and High-Contrast",
-    },
-    {
-      key: "L",
-      label: "Cycle Lens",
-      desc: "Switch between Author, Architect, Engineer, Assessor, Risk-Owner, CISO",
-    },
-    {
-      key: "⌘K",
-      label: "Toggle Copilot",
-      desc: "Open/close embedded Atlas compliance copilot",
-    },
-    {
-      key: "Esc",
-      label: "Dismiss",
-      desc: "Close open inspector, drawers, or dialogs",
-    },
-  ];
+/**
+ * Lists exactly the shortcuts implemented in app/page.tsx. Surface keys are
+ * read from the shell's surface table so the two cannot drift.
+ */
+const GLOBAL: { keys: string[]; label: string }[] = [
+  { keys: ["?"], label: "Show or hide this list" },
+  { keys: ["T"], label: "Cycle theme: Ledger, Vault, HC" },
+  { keys: ["L"], label: "Cycle lens" },
+  { keys: ["Cmd", "K"], label: "Open or close the Copilot drawer (Ctrl+K on Windows and Linux)" },
+  { keys: ["Esc"], label: "Close this list and the Copilot drawer" },
+];
 
+function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-xl border-ck-hairline-strong bg-ck-bg-1 p-6 font-mono text-xs shadow-2xl">
-        <DialogHeader className="border-b border-ck-hairline pb-2">
-          <div className="flex items-baseline justify-between pr-6">
-            <div className="flex items-center gap-2">
-              <DialogTitle className="font-serif text-2xl font-normal text-ck-fg-1">
-                Keyboard Navigation
-              </DialogTitle>
-              <span className="font-mono text-[11px] text-ck-fg-mute">
-                · Rapid Operator Ergonomics
-              </span>
+    <kbd className="inline-flex h-6 min-w-[24px] items-center justify-center rounded-sm border border-ck-hairline-strong bg-ck-bg-0 px-1.5 font-mono text-xs text-ck-fg-1">
+      {children}
+    </kbd>
+  );
+}
+
+export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
+  const surfaces = [...ALL_SURFACES].sort((a, b) => {
+    const ka = a.key === "0" ? 10 : Number(a.key);
+    const kb = b.key === "0" ? 10 : Number(b.key);
+    return ka - kb;
+  });
+  return (
+    <Dialog.Root open={isOpen} onOpenChange={(o) => !o && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/50" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 flex max-h-[min(640px,90vh)] w-[min(560px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 flex-col rounded-lg border border-ck-hairline-strong bg-ck-bg-1 text-ck-fg-1 shadow-xl">
+          <div className="flex items-start justify-between gap-3 border-b border-ck-hairline px-4 py-3">
+            <div className="min-w-0">
+              <Dialog.Title className="text-base font-semibold">Keyboard shortcuts</Dialog.Title>
+              <Dialog.Description className="text-xs text-ck-fg-3">
+                Single-key shortcuts are ignored while typing in a text field.
+              </Dialog.Description>
             </div>
-            <Badge
-              variant="outline"
-              className="font-mono text-[10px] text-ck-accent"
-            >
-              HOTKEYS
-            </Badge>
+            <Dialog.Close className="shrink-0 rounded-md border border-ck-hairline-strong bg-ck-bg-0 px-2 py-0.5 text-xs text-ck-fg-3 hover:text-ck-fg-1">
+              Close
+            </Dialog.Close>
           </div>
-          <DialogDescription className="font-sans text-xs text-ck-fg-2 mt-1">
-            Mizan is designed for zero-latency keyboard-first governance. Every
-            surface, lens, and ledger verification is directly reachable.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="grid grid-cols-2 gap-2 bg-ck-bg-0 p-3 border border-ck-hairline my-2">
-          {shortcuts.map((s) => (
-            <div
-              key={s.key}
-              className="flex items-center justify-between p-1.5 rounded-xs hover:bg-ck-bg-1 transition-colors"
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <kbd className="px-1.5 py-0.5 border border-ck-hairline-strong bg-ck-bg-2 text-ck-fg-1 font-mono text-[11px] font-semibold rounded-xs shadow-xs">
-                  {s.key}
-                </kbd>
-                <span className="font-medium text-ck-fg-1 truncate">
-                  {s.label}
-                </span>
-              </div>
-              <span className="text-[10px] text-ck-fg-mute text-right truncate ml-2">
-                {s.desc}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <DialogFooter className="flex items-center justify-between sm:justify-between border-t border-ck-hairline pt-3">
-          <span className="text-[11px] text-ck-fg-mute">
-            Press <kbd className="px-1 py-0.2 border border-ck-hairline">?</kbd>{" "}
-            anywhere to toggle this sheet
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={onClose}
-            className="h-8 text-xs font-mono"
-          >
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          <div className="min-h-0 overflow-y-auto px-4 py-3">
+            <h3 className="ck-eyebrow mb-1.5">Surfaces</h3>
+            <ul className="mb-4 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+              {surfaces.map((s) => (
+                <li key={s.id} className="flex min-w-0 items-center gap-2 text-sm text-ck-fg-2">
+                  <Kbd>{s.key}</Kbd>
+                  <span className="min-w-0 truncate">{s.label}</span>
+                </li>
+              ))}
+            </ul>
+            <h3 className="ck-eyebrow mb-1.5">Global</h3>
+            <ul className="space-y-1.5">
+              {GLOBAL.map((g) => (
+                <li key={g.label} className="flex min-w-0 items-start gap-2 text-sm text-ck-fg-2">
+                  <span className="flex shrink-0 items-center gap-1">
+                    {g.keys.map((k) => (
+                      <Kbd key={k}>{k}</Kbd>
+                    ))}
+                  </span>
+                  <span className="min-w-0 pt-0.5">{g.label}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }

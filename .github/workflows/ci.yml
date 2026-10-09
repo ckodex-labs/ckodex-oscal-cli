@@ -43,7 +43,7 @@ jobs:
         with:
           command: check
 
-      - name: Run Tests (188 Invariant & Integration Tests)
+      - name: Run Tests (199 Invariant & Integration Tests)
         run: cargo test --workspace
 
   dagger-pipeline:

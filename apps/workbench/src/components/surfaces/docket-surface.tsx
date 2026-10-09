@@ -1,156 +1,231 @@
 "use client";
 
 import * as React from "react";
-import { PoamItem } from "@/lib/atlas-data";
-import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import { fixtureDateFromOffset, type PoamItem, type PoamStatus } from "@/lib/atlas-data";
+import {
+  DataTable,
+  EmptyState,
+  PageHeader,
+  Panel,
+  ReadOnlyNotice,
+  Segmented,
+  StatTile,
+  StateBadge,
+  Toolbar,
+  type Tone,
+} from "@/components/kit";
+import {
+  ActionButton,
+  DOCKET_PROVENANCE,
+  FIXTURE_DATE_NOTE,
+  FilterField,
+  StatRow,
+} from "./fixture/shared";
 
-interface DocketSurfaceProps {
-  poams: PoamItem[];
-  onSelectPoamControl?: (controlId: string) => void;
+type SortKey = "due" | "age" | "risk" | "id";
+type StatusFilter = "all" | PoamStatus;
+
+const RISK_RANK: Record<PoamItem["risk"], number> = { high: 3, moderate: 2, low: 1 };
+const RISK_TONE: Record<PoamItem["risk"], Tone> = { high: "neg", moderate: "warn", low: "neutral" };
+
+const STATUS_LABEL: Record<PoamStatus, string> = {
+  open: "open",
+  "in-progress": "in progress",
+  "pending-review": "pending review",
+};
+const STATUS_TONE: Record<PoamStatus, Tone> = {
+  open: "neutral",
+  "in-progress": "info",
+  "pending-review": "info",
+};
+
+function dueText(n: number) {
+  if (n < 0) return `Overdue by ${-n} ${-n === 1 ? "day" : "days"}`;
+  if (n === 0) return "Due on reference date";
+  return `Due in ${n} ${n === 1 ? "day" : "days"}`;
+}
+
+function DueCell({ n }: { n: number }) {
+  return (
+    <span className="flex flex-col">
+      <span className={cn("text-sm", n < 0 ? "font-medium text-ck-neg" : n <= 14 ? "text-ck-warn" : "text-ck-fg-2")}>
+        {dueText(n)}
+      </span>
+      <span className="font-mono text-2xs text-ck-fg-mute ck-num">{fixtureDateFromOffset(n)}</span>
+    </span>
+  );
 }
 
 export function DocketSurface({
   poams,
   onSelectPoamControl,
-}: DocketSurfaceProps) {
-  const [sortBy, setSortBy] = React.useState<"pressure" | "deadline">(
-    "pressure",
+}: {
+  poams: PoamItem[];
+  onSelectPoamControl: (id: string) => void;
+}) {
+  const [sort, setSort] = React.useState<SortKey>("due");
+  const [desc, setDesc] = React.useState(false);
+  const [status, setStatus] = React.useState<StatusFilter>("all");
+
+  const rows = React.useMemo(() => {
+    const val = (p: PoamItem): number | string =>
+      sort === "due" ? p.dueN : sort === "age" ? p.age : sort === "risk" ? RISK_RANK[p.risk] : p.id;
+    const list = poams.filter((p) => status === "all" || p.status === status);
+    return [...list].sort((a, b) => {
+      const va = val(a);
+      const vb = val(b);
+      const c = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return desc ? -c : c;
+    });
+  }, [poams, sort, desc, status]);
+
+  const stats = React.useMemo(() => {
+    const controls = new Set(poams.flatMap((p) => p.ids));
+    return {
+      total: poams.length,
+      overdue: poams.filter((p) => p.dueN < 0).length,
+      due30: poams.filter((p) => p.dueN >= 0 && p.dueN <= 30).length,
+      controls: controls.size,
+    };
+  }, [poams]);
+
+  const controlButtons = (ids: string[]) => (
+    <span className="inline-flex flex-wrap gap-1">
+      {ids.map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onSelectPoamControl(id)}
+          title={`Open ${id} in the Atlas`}
+          className="rounded-sm border border-ck-hairline-strong bg-ck-bg-0 px-1.5 py-px font-mono text-2xs font-medium text-ck-accent-text hover:bg-ck-bg-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-ck-accent"
+        >
+          {id}
+        </button>
+      ))}
+    </span>
   );
 
-  const sortedPoams = [...poams].sort((a, b) => {
-    if (sortBy === "pressure") {
-      return (b.pressure || 0) - (a.pressure || 0);
-    }
-    return a.dueN - b.dueN;
-  });
+  const sortLabel: Record<SortKey, string> = { due: "Due date", age: "Age open", risk: "Risk", id: "ID" };
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between border-b border-ck-hairline pb-2 gap-2">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="font-serif text-2xl font-normal tracking-tight text-ck-fg-1 whitespace-nowrap shrink-0">
-            The Docket
-          </h1>
-          <span className="text-xs text-ck-fg-mute font-mono hidden md:inline">
-            The one honest queue. Sorted by pressure, deadline, and graph blast
-            radius.
-          </span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] uppercase text-accent font-semibold whitespace-nowrap shrink-0"
-          >
-            {poams.filter((p) => p.dueN < 0).length} Overdue Past SLA
-          </Badge>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Docket · plan of action and milestones"
+        title="The Docket"
+        description="Illustrative data only. This surface shows how open weaknesses will be tracked against controls, owners and due dates. The items below are hand-written samples; control ids are real NIST SP 800-53 ids and open in the Atlas."
+      />
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border border-ck-hairline bg-ck-bg-1 p-2 shadow-sm font-mono text-xs">
-        <span className="text-ck-fg-2 text-xs">
-          {poams.length} open items · 2 owners past SLA
-        </span>
+      <ReadOnlyNotice />
 
-        <div className="flex items-center border border-ck-hairline bg-ck-bg-0 p-0.5">
-          <button
-            onClick={() => setSortBy("pressure")}
-            className={`px-2 py-1 text-[11px] font-mono transition-colors ${
-              sortBy === "pressure"
-                ? "bg-ck-fg-1 text-ck-bg-0"
-                : "text-ck-fg-mute"
-            }`}
-          >
-            pressure
-          </button>
-          <button
-            onClick={() => setSortBy("deadline")}
-            className={`px-2 py-1 text-[11px] font-mono transition-colors ${
-              sortBy === "deadline"
-                ? "bg-ck-fg-1 text-ck-bg-0"
-                : "text-ck-fg-mute"
-            }`}
-          >
-            deadline
-          </button>
-        </div>
-      </div>
+      <Panel title="Summary" subtitle={FIXTURE_DATE_NOTE} provenance={DOCKET_PROVENANCE}>
+        <StatRow>
+          <StatTile label="Open items" value={stats.total} />
+          <StatTile label="Overdue" value={stats.overdue} tone={stats.overdue ? "neg" : "neutral"} />
+          <StatTile label="Due within 30 days" value={stats.due30} tone={stats.due30 ? "warn" : "neutral"} />
+          <StatTile label="Controls affected" value={stats.controls} />
+        </StatRow>
+      </Panel>
 
-      {/* POA&M Table */}
-      <div className="border border-ck-hairline-strong bg-ck-bg-1 overflow-x-auto shadow-sm font-mono text-xs">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-ck-bg-2 border-b border-ck-hairline text-ck-fg-mute uppercase text-[10px]">
-            <tr>
-              <th className="p-2.5">Item</th>
-              <th className="p-2.5">Finding Description</th>
-              <th className="p-2.5">Owner</th>
-              <th className="p-2.5">Deadline</th>
-              <th className="p-2.5">Age</th>
-              <th className="p-2.5">Blast Radius</th>
-              <th className="p-2.5 text-right">Pressure</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedPoams.map((p) => {
-              const isOverdue = p.dueN < 0;
-              const pressurePct = Math.round((p.pressure || 0) * 100);
+      <Panel
+        title="POA&M items"
+        subtitle={`${rows.length} of ${poams.length} items, sorted by ${sortLabel[sort].toLowerCase()} (${desc ? "descending" : "ascending"})`}
+        provenance={DOCKET_PROVENANCE}
+      >
+        <div className="space-y-4">
+          <Toolbar className="gap-x-4 gap-y-2">
+            <FilterField label="Sort">
+              <Segmented<SortKey>
+                label="Sort by"
+                value={sort}
+                onChange={setSort}
+                options={(Object.keys(sortLabel) as SortKey[]).map((k) => ({ value: k, label: sortLabel[k] }))}
+              />
+              <ActionButton
+                variant="ghost"
+                className="h-7 px-2 text-xs"
+                onClick={() => setDesc((d) => !d)}
+                aria-label={desc ? "Sort ascending" : "Sort descending"}
+              >
+                {desc ? "Descending" : "Ascending"}
+              </ActionButton>
+            </FilterField>
+            <FilterField label="Status">
+              <Segmented<StatusFilter>
+                label="Status filter"
+                value={status}
+                onChange={setStatus}
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "open", label: "Open" },
+                  { value: "in-progress", label: "In progress" },
+                  { value: "pending-review", label: "Pending review" },
+                ]}
+              />
+            </FilterField>
+          </Toolbar>
 
-              return (
-                <tr
-                  key={p.id}
-                  onClick={() => {
-                    if (onSelectPoamControl && p.ids[0]) {
-                      onSelectPoamControl(p.ids[0]);
-                    }
-                  }}
-                  className="border-b border-ck-hairline cursor-pointer hover:bg-ck-bg-2 transition-colors"
-                  title="Click to inspect primary affected control on The Atlas"
-                >
-                  <td className="p-2.5 font-bold text-ck-fg-1">{p.id}</td>
-                  <td className="p-2.5 font-sans text-sm text-ck-fg-1">
-                    {p.t}
-                    <span className="font-mono text-[10px] text-ck-fg-mute block">
-                      Controls: {p.ids.join(", ")}
-                    </span>
-                  </td>
-                  <td className="p-2.5 text-ck-fg-2">{p.own}</td>
-                  <td className="p-2.5">
-                    {isOverdue ? (
-                      <span className="bg-ck-fg-1 text-ck-bg-0 px-1.5 py-0.5 font-bold text-[10px]">
-                        {p.due}
+          {rows.length === 0 ? (
+            <EmptyState kind="empty" title="No items with this status" />
+          ) : (
+            <>
+              <div className="hidden md:block">
+                <DataTable
+                  caption="POA&M items (fixture)"
+                  columns={[
+                    { key: "id", label: "ID", className: "whitespace-nowrap" },
+                    { key: "t", label: "Weakness", className: "min-w-[13rem]" },
+                    { key: "ids", label: "Controls" },
+                    { key: "own", label: "Owner role" },
+                    { key: "due", label: "Due", className: "whitespace-nowrap" },
+                    { key: "st", label: "Status" },
+                  ]}
+                  rows={rows.map((p) => ({
+                    id: <span className="font-mono text-xs text-ck-fg-1">{p.id}</span>,
+                    t: (
+                      <span className="flex flex-col">
+                        <span className="text-sm font-medium text-ck-fg-1">{p.t}</span>
+                        <span className="text-xs text-ck-fg-mute">
+                          open {p.age} days · milestones{" "}
+                          <span className="font-mono ck-num">
+                            {p.milestones.done}/{p.milestones.total}
+                          </span>
+                        </span>
                       </span>
-                    ) : (
-                      <span className="text-ck-fg-2">{p.due}</span>
-                    )}
-                  </td>
-                  <td className="p-2.5 text-ck-fg-mute">{p.age} d</td>
-                  <td className="p-2.5 text-ck-fg-1 font-semibold">
-                    {p.blast} impls
-                  </td>
-                  <td className="p-2.5 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="w-16 h-2 bg-ck-bg-0 border border-ck-hairline overflow-hidden">
-                        <div
-                          className={`h-full ${isOverdue ? "bg-accent" : "bg-ck-fg-1"}`}
-                          style={{ width: `${pressurePct}%` }}
-                        />
-                      </div>
-                      <span className="font-bold text-xs">{pressurePct}%</span>
+                    ),
+                    ids: controlButtons(p.ids),
+                    own: <span className="text-xs">{p.own}</span>,
+                    due: <DueCell n={p.dueN} />,
+                    st: (
+                      <span className="flex flex-col items-start gap-1">
+                        <StateBadge tone={STATUS_TONE[p.status]}>{STATUS_LABEL[p.status]}</StateBadge>
+                        <StateBadge tone={RISK_TONE[p.risk]}>{p.risk} risk</StateBadge>
+                      </span>
+                    ),
+                  }))}
+                />
+              </div>
+              <ul className="space-y-2 md:hidden">
+                {rows.map((p) => (
+                  <li key={p.id} className="rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-mono text-xs text-ck-fg-mute">{p.id}</span>
+                      <StateBadge tone={RISK_TONE[p.risk]}>{p.risk} risk</StateBadge>
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="font-mono text-[11px] text-ck-fg-mute">
-        Blast radius = dependent implementations of every control the gap
-        undermines, computed from the OSCAL graph. Click any row to focus it on
-        The Atlas.
-      </p>
+                    <p className="mt-1 text-sm font-medium text-ck-fg-1">{p.t}</p>
+                    <p className="mt-0.5 text-xs text-ck-fg-3">{p.own}</p>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                      <DueCell n={p.dueN} />
+                      <StateBadge tone={STATUS_TONE[p.status]}>{STATUS_LABEL[p.status]}</StateBadge>
+                    </div>
+                    <div className="mt-2">{controlButtons(p.ids)}</div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      </Panel>
     </div>
   );
 }

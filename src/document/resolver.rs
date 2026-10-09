@@ -74,7 +74,7 @@ pub fn resolve_profile(
             .and_then(Value::as_str)
             .ok_or_else(|| AppError::Configuration("Import missing 'href'".to_owned()))?;
 
-        let import_path = resolve_href(base_dir, href);
+        let import_path = resolve_import_href(profile_obj, base_dir, href)?;
         let imported_doc = OscalDocument::from_file(&import_path)?;
 
         if imported_doc.kind != DocumentKind::Catalog {
@@ -90,32 +90,25 @@ pub fn resolve_profile(
         })?;
 
         // Extract selection rules
-        let (include_all, included_ids, excluded_ids) = parse_import_selection(import);
+        let selection = Selection::from_import(import);
 
         // Process top-level controls
         if let Some(controls) = imported_cat.get("controls").and_then(Value::as_array) {
-            for ctrl in controls {
-                if is_control_selected(ctrl, include_all, &included_ids, &excluded_ids) {
-                    let mut resolved_ctrl = ctrl.clone();
-                    apply_control_modifications(&mut resolved_ctrl, &param_overrides, &alters_map)?;
-                    resolved_controls.push(resolved_ctrl);
-                }
-            }
+            resolved_controls.extend(select_controls(
+                controls,
+                &selection,
+                Inherit::default(),
+                &param_overrides,
+                &alters_map,
+            )?);
         }
 
         // Process groups
         if let Some(groups) = imported_cat.get("groups").and_then(Value::as_array) {
             for grp in groups {
-                let mut resolved_grp = grp.clone();
-                filter_and_modify_group(
-                    &mut resolved_grp,
-                    include_all,
-                    &included_ids,
-                    &excluded_ids,
-                    &param_overrides,
-                    &alters_map,
-                )?;
-                if group_has_controls(&resolved_grp) {
+                if let Some(resolved_grp) =
+                    select_group(grp, &selection, &param_overrides, &alters_map)?
+                {
                     resolved_groups.push(resolved_grp);
                 }
             }
@@ -167,82 +160,307 @@ pub fn resolve_profile(
     OscalDocument::from_str(&resolved_str, output_path.map(Path::to_path_buf))
 }
 
-fn resolve_href(base: &Path, href: &str) -> PathBuf {
-    if href.starts_with("http://") || href.starts_with("https://") {
-        PathBuf::from(href)
+/// Resolve a profile import href to a filesystem path.
+///
+/// OSCAL permits two forms:
+/// - a direct URI reference (relative path), resolved against the profile's directory;
+/// - a fragment `#<uuid>` that points at a back-matter resource, whose `rlinks`
+///   carry the actual location. A JSON rlink is preferred; otherwise the first
+///   rlink is used.
+///
+/// Remote (http/https) locations are rejected explicitly: the resolver is offline
+/// by design and does not fetch.
+fn resolve_import_href(
+    profile_obj: &Map<String, Value>,
+    base: &Path,
+    href: &str,
+) -> Result<PathBuf> {
+    let location = if let Some(uuid) = href.strip_prefix('#') {
+        let resource = profile_obj
+            .get("back-matter")
+            .and_then(|bm| bm.get("resources"))
+            .and_then(Value::as_array)
+            .and_then(|rs| {
+                rs.iter()
+                    .find(|r| r.get("uuid").and_then(Value::as_str) == Some(uuid))
+            })
+            .ok_or_else(|| {
+                AppError::Configuration(format!(
+                    "Import href '{href}' does not match any back-matter resource in the profile"
+                ))
+            })?;
+        let rlinks = resource
+            .get("rlinks")
+            .and_then(Value::as_array)
+            .filter(|r| !r.is_empty())
+            .ok_or_else(|| {
+                AppError::Configuration(format!(
+                    "Back-matter resource '{uuid}' referenced by import has no rlinks"
+                ))
+            })?;
+        let is_json = |r: &&Value| {
+            r.get("media-type")
+                .and_then(Value::as_str)
+                .is_some_and(|m| m.ends_with("json"))
+                || r.get("href")
+                    .and_then(Value::as_str)
+                    .is_some_and(|h| h.ends_with(".json"))
+        };
+        rlinks
+            .iter()
+            .find(is_json)
+            .or_else(|| rlinks.first())
+            .and_then(|r| r.get("href"))
+            .and_then(Value::as_str)
+            .ok_or_else(|| {
+                AppError::Configuration(format!(
+                    "Back-matter resource '{uuid}' has no usable rlink href"
+                ))
+            })?
+            .to_string()
     } else {
-        base.join(href)
-    }
-}
+        href.to_string()
+    };
 
-fn parse_import_selection(import: &Value) -> (bool, HashSet<String>, HashSet<String>) {
-    let mut include_all = false;
-    let mut included_ids = HashSet::new();
-    let mut excluded_ids = HashSet::new();
-
-    if let Some(inc) = import.get("include-all")
-        && (inc.is_object() || inc.as_bool().unwrap_or(false))
-    {
-        include_all = true;
+    if location.starts_with("http://") || location.starts_with("https://") {
+        return Err(AppError::Configuration(format!(
+            "Import location '{location}' is remote; the resolver is offline and does not fetch. Download the catalog and reference it by relative path"
+        )));
     }
 
-    if let Some(inc_ctrls) = import.get("include-controls").and_then(Value::as_array) {
-        for item in inc_ctrls {
-            if let Some(with_child) = item.get("with-child-controls").and_then(Value::as_str)
-                && with_child == "yes"
-            {
-                include_all = true;
-            }
-            if let Some(call) = item.get("with-ids").and_then(Value::as_array) {
-                for id in call {
-                    if let Some(id_str) = id.as_str() {
-                        included_ids.insert(id_str.to_string());
-                    }
-                }
-            }
-            if let Some(call) = item.get("matching").and_then(Value::as_array) {
-                for m in call {
-                    if let Some(pat) = m.get("pattern").and_then(Value::as_str) {
-                        included_ids.insert(pat.to_string());
-                    }
-                }
-            }
-        }
-    } else if !include_all && import.get("include-all").is_none() {
-        include_all = true;
+    let direct = base.join(&location);
+    if direct.exists() {
+        return Ok(direct);
     }
-
-    if let Some(exc_ctrls) = import.get("exclude-controls").and_then(Value::as_array) {
-        for item in exc_ctrls {
-            if let Some(call) = item.get("with-ids").and_then(Value::as_array) {
-                for id in call {
-                    if let Some(id_str) = id.as_str() {
-                        excluded_ids.insert(id_str.to_string());
-                    }
-                }
-            }
+    // Official NIST profiles reference the catalog by its repository-relative path
+    // (e.g. ../../../../nist.gov/.../catalog.json). When that tree is not present,
+    // fall back to a sibling file with the same name in the profile's directory.
+    if let Some(name) = Path::new(&location).file_name() {
+        let sibling = base.join(name);
+        if sibling.exists() {
+            return Ok(sibling);
         }
     }
-
-    (include_all, included_ids, excluded_ids)
+    Ok(direct)
 }
 
-fn is_control_selected(
-    ctrl: &Value,
+/// Import selection per the OSCAL profile model.
+struct Selection {
     include_all: bool,
-    included: &HashSet<String>,
-    excluded: &HashSet<String>,
-) -> bool {
-    let cid = ctrl.get("id").and_then(Value::as_str).unwrap_or("");
-    if excluded.contains(cid) {
-        return false;
-    }
-    if include_all {
-        return true;
-    }
-    included.contains(cid)
+    ids: HashSet<String>,
+    ids_with_children: HashSet<String>,
+    patterns: Vec<(String, bool)>,
+    excluded: HashSet<String>,
+    excluded_with_children: HashSet<String>,
+    excluded_patterns: Vec<(String, bool)>,
 }
 
+#[derive(Clone, Copy, Default)]
+struct Inherit {
+    included: bool,
+    excluded: bool,
+}
+
+impl Selection {
+    fn from_import(import: &Value) -> Self {
+        let mut s = Selection {
+            include_all: import.get("include-all").is_some(),
+            ids: HashSet::new(),
+            ids_with_children: HashSet::new(),
+            patterns: Vec::new(),
+            excluded: HashSet::new(),
+            excluded_with_children: HashSet::new(),
+            excluded_patterns: Vec::new(),
+        };
+
+        let inc = import.get("include-controls").and_then(Value::as_array);
+        if let Some(items) = inc {
+            for item in items {
+                Self::read_call(item, &mut s.ids, &mut s.ids_with_children, &mut s.patterns);
+            }
+        } else if !s.include_all {
+            // Neither include-all nor include-controls: treat as include-all,
+            // matching the previous behaviour of this resolver.
+            s.include_all = true;
+        }
+
+        if let Some(items) = import.get("exclude-controls").and_then(Value::as_array) {
+            for item in items {
+                Self::read_call(
+                    item,
+                    &mut s.excluded,
+                    &mut s.excluded_with_children,
+                    &mut s.excluded_patterns,
+                );
+            }
+        }
+        s
+    }
+
+    fn read_call(
+        item: &Value,
+        ids: &mut HashSet<String>,
+        with_children: &mut HashSet<String>,
+        patterns: &mut Vec<(String, bool)>,
+    ) {
+        let children = item
+            .get("with-child-controls")
+            .and_then(Value::as_str)
+            .is_some_and(|v| v == "yes");
+        if let Some(list) = item.get("with-ids").and_then(Value::as_array) {
+            for id in list.iter().filter_map(Value::as_str) {
+                ids.insert(id.to_string());
+                if children {
+                    with_children.insert(id.to_string());
+                }
+            }
+        }
+        if let Some(list) = item.get("matching").and_then(Value::as_array) {
+            for pat in list
+                .iter()
+                .filter_map(|m| m.get("pattern").and_then(Value::as_str))
+            {
+                patterns.push((pat.to_string(), children));
+            }
+        }
+    }
+
+    /// Returns (selected, inheritance passed to children).
+    fn evaluate(&self, id: &str, parent: Inherit) -> (bool, Inherit) {
+        let pat_hit = |pats: &[(String, bool)]| {
+            pats.iter()
+                .filter(|(p, _)| glob_match(p, id))
+                .fold((false, false), |(_, ch), (_, c)| (true, ch || *c))
+        };
+
+        let (inc_pat, inc_pat_children) = pat_hit(&self.patterns);
+        let (exc_pat, exc_pat_children) = pat_hit(&self.excluded_patterns);
+
+        let excluded = parent.excluded || self.excluded.contains(id) || exc_pat;
+        let included = self.include_all || parent.included || self.ids.contains(id) || inc_pat;
+
+        let child = Inherit {
+            included: self.include_all
+                || parent.included
+                || self.ids_with_children.contains(id)
+                || inc_pat_children,
+            excluded: parent.excluded
+                || self.excluded_with_children.contains(id)
+                || exc_pat_children,
+        };
+        (included && !excluded, child)
+    }
+}
+
+/// Minimal glob matcher supporting `*` and `?`, as used by OSCAL `matching/@pattern`.
+fn glob_match(pattern: &str, text: &str) -> bool {
+    let p: Vec<char> = pattern.chars().collect();
+    let t: Vec<char> = text.chars().collect();
+    let (mut pi, mut ti) = (0usize, 0usize);
+    let (mut star, mut mark) = (None::<usize>, 0usize);
+    while ti < t.len() {
+        if pi < p.len() && (p[pi] == '?' || p[pi] == t[ti]) {
+            pi += 1;
+            ti += 1;
+        } else if pi < p.len() && p[pi] == '*' {
+            star = Some(pi);
+            mark = ti;
+            pi += 1;
+        } else if let Some(s) = star {
+            pi = s + 1;
+            mark += 1;
+            ti = mark;
+        } else {
+            return false;
+        }
+    }
+    while pi < p.len() && p[pi] == '*' {
+        pi += 1;
+    }
+    pi == p.len()
+}
+
+/// Select controls (recursively) from a list. A selected control keeps only its
+/// selected descendants. Selected descendants of an unselected control are
+/// promoted to the current level so they are not silently lost.
+fn select_controls(
+    controls: &[Value],
+    sel: &Selection,
+    parent: Inherit,
+    param_overrides: &HashMap<String, Value>,
+    alters: &HashMap<String, Vec<Value>>,
+) -> Result<Vec<Value>> {
+    let mut out = Vec::new();
+    for ctrl in controls {
+        let id = ctrl.get("id").and_then(Value::as_str).unwrap_or("");
+        let (selected, child_inherit) = sel.evaluate(id, parent);
+
+        let children = match ctrl.get("controls").and_then(Value::as_array) {
+            Some(sub) => select_controls(sub, sel, child_inherit, param_overrides, alters)?,
+            None => Vec::new(),
+        };
+
+        if selected {
+            let mut resolved = ctrl.clone();
+            if let Some(obj) = resolved.as_object_mut() {
+                if children.is_empty() {
+                    obj.remove("controls");
+                } else {
+                    obj.insert("controls".to_owned(), Value::Array(children));
+                }
+            }
+            apply_control_modifications(&mut resolved, param_overrides, alters)?;
+            out.push(resolved);
+        } else {
+            out.extend(children);
+        }
+    }
+    Ok(out)
+}
+
+fn select_group(
+    grp: &Value,
+    sel: &Selection,
+    param_overrides: &HashMap<String, Value>,
+    alters: &HashMap<String, Vec<Value>>,
+) -> Result<Option<Value>> {
+    let mut resolved = grp.clone();
+    let Some(obj) = resolved.as_object_mut() else {
+        return Ok(None);
+    };
+
+    let controls = match grp.get("controls").and_then(Value::as_array) {
+        Some(c) => select_controls(c, sel, Inherit::default(), param_overrides, alters)?,
+        None => Vec::new(),
+    };
+    let mut sub_groups = Vec::new();
+    if let Some(gs) = grp.get("groups").and_then(Value::as_array) {
+        for g in gs {
+            if let Some(r) = select_group(g, sel, param_overrides, alters)? {
+                sub_groups.push(r);
+            }
+        }
+    }
+
+    if controls.is_empty() && sub_groups.is_empty() {
+        return Ok(None);
+    }
+    if controls.is_empty() {
+        obj.remove("controls");
+    } else {
+        obj.insert("controls".to_owned(), Value::Array(controls));
+    }
+    if sub_groups.is_empty() {
+        obj.remove("groups");
+    } else {
+        obj.insert("groups".to_owned(), Value::Array(sub_groups));
+    }
+    Ok(Some(resolved))
+}
+
+/// Apply parameter overrides and alterations to a single control.
+/// Children are handled by `select_controls`, so this does not recurse
+/// (recursing here applied alters twice to nested controls).
 fn apply_control_modifications(
     ctrl: &mut Value,
     param_overrides: &HashMap<String, Value>,
@@ -254,29 +472,24 @@ fn apply_control_modifications(
         .unwrap_or("")
         .to_string();
 
-    // Override params
     if let Some(params) = ctrl.get_mut("params").and_then(Value::as_array_mut) {
         for param in params {
             if let Some(pid) = param.get("id").and_then(Value::as_str)
                 && let Some(override_val) = param_overrides.get(pid)
             {
+                let param_obj = param.as_object_mut().ok_or_else(|| {
+                    AppError::Configuration("Control param is not an object".to_owned())
+                })?;
                 if let Some(vals) = override_val.get("values") {
-                    let param_obj = param.as_object_mut().ok_or_else(|| {
-                        AppError::Configuration("Control param is not an object".to_owned())
-                    })?;
                     param_obj.insert("values".to_owned(), vals.clone());
                 }
                 if let Some(label) = override_val.get("label") {
-                    let param_obj = param.as_object_mut().ok_or_else(|| {
-                        AppError::Configuration("Control param is not an object".to_owned())
-                    })?;
                     param_obj.insert("label".to_owned(), label.clone());
                 }
             }
         }
     }
 
-    // Apply alters
     if let Some(alter_list) = alters.get(&cid) {
         for alter in alter_list {
             if let Some(adds) = alter.get("adds").and_then(Value::as_array) {
@@ -289,9 +502,7 @@ fn apply_control_modifications(
                             .entry("props".to_owned())
                             .or_insert_with(|| Value::Array(Vec::new()));
                         if let Some(arr) = ctrl_props.as_array_mut() {
-                            for p in props {
-                                arr.push(p.clone());
-                            }
+                            arr.extend(props.iter().cloned());
                         }
                     }
                 }
@@ -299,58 +510,124 @@ fn apply_control_modifications(
         }
     }
 
-    // Recurse into sub-controls
-    if let Some(sub_ctrls) = ctrl.get_mut("controls").and_then(Value::as_array_mut) {
-        for sub in sub_ctrls {
-            apply_control_modifications(sub, param_overrides, alters)?;
-        }
-    }
-
     Ok(())
 }
 
-fn filter_and_modify_group(
-    grp: &mut Value,
-    include_all: bool,
-    included: &HashSet<String>,
-    excluded: &HashSet<String>,
-    param_overrides: &HashMap<String, Value>,
-    alters: &HashMap<String, Vec<Value>>,
-) -> Result<()> {
-    if let Some(ctrls) = grp.get_mut("controls").and_then(Value::as_array_mut) {
-        ctrls.retain(|c| is_control_selected(c, include_all, included, excluded));
-        for c in ctrls.iter_mut() {
-            apply_control_modifications(c, param_overrides, alters)?;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ctrl(id: &str, children: Vec<Value>) -> Value {
+        if children.is_empty() {
+            json!({"id": id, "title": id})
+        } else {
+            json!({"id": id, "title": id, "controls": children})
         }
     }
 
-    if let Some(sub_grps) = grp.get_mut("groups").and_then(Value::as_array_mut) {
-        for sub in sub_grps.iter_mut() {
-            filter_and_modify_group(
-                sub,
-                include_all,
-                included,
-                excluded,
-                param_overrides,
-                alters,
-            )?;
+    fn ids(controls: &[Value]) -> Vec<String> {
+        let mut out = Vec::new();
+        for c in controls {
+            out.push(c["id"].as_str().unwrap_or_default().to_string());
+            if let Some(sub) = c.get("controls").and_then(Value::as_array) {
+                out.extend(ids(sub));
+            }
         }
-        sub_grps.retain(group_has_controls);
+        out
     }
 
-    Ok(())
-}
+    fn run(import: Value, controls: Vec<Value>) -> Vec<String> {
+        let sel = Selection::from_import(&import);
+        let r = select_controls(
+            &controls,
+            &sel,
+            Inherit::default(),
+            &HashMap::new(),
+            &HashMap::new(),
+        )
+        .expect("selection");
+        ids(&r)
+    }
 
-fn group_has_controls(grp: &Value) -> bool {
-    let has_direct = grp
-        .get("controls")
-        .and_then(Value::as_array)
-        .map(|a| !a.is_empty())
-        .unwrap_or(false);
-    let has_sub = grp
-        .get("groups")
-        .and_then(Value::as_array)
-        .map(|a| !a.is_empty())
-        .unwrap_or(false);
-    has_direct || has_sub
+    fn tree() -> Vec<Value> {
+        vec![
+            ctrl("ac-1", vec![]),
+            ctrl("ac-2", vec![ctrl("ac-2.1", vec![]), ctrl("ac-2.2", vec![])]),
+        ]
+    }
+
+    #[test]
+    fn with_ids_does_not_pull_unlisted_enhancements() {
+        let got = run(
+            json!({"include-controls": [{"with-ids": ["ac-2", "ac-2.1"]}]}),
+            tree(),
+        );
+        assert_eq!(got, vec!["ac-2", "ac-2.1"]);
+    }
+
+    #[test]
+    fn with_child_controls_includes_descendants_only_of_listed() {
+        let got = run(
+            json!({"include-controls": [{"with-ids": ["ac-2"], "with-child-controls": "yes"}]}),
+            tree(),
+        );
+        assert_eq!(got, vec!["ac-2", "ac-2.1", "ac-2.2"]);
+    }
+
+    #[test]
+    fn exclude_overrides_include_all() {
+        let got = run(
+            json!({"include-all": {}, "exclude-controls": [{"with-ids": ["ac-2.2"]}]}),
+            tree(),
+        );
+        assert_eq!(got, vec!["ac-1", "ac-2", "ac-2.1"]);
+    }
+
+    #[test]
+    fn matching_pattern_is_a_glob() {
+        let got = run(
+            json!({"include-controls": [{"matching": [{"pattern": "ac-2*"}]}]}),
+            tree(),
+        );
+        assert_eq!(got, vec!["ac-2", "ac-2.1", "ac-2.2"]);
+        assert!(glob_match("ac-?", "ac-1"));
+        assert!(!glob_match("ac-?", "ac-10"));
+    }
+
+    #[test]
+    fn selected_child_of_unselected_parent_is_promoted() {
+        let got = run(
+            json!({"include-controls": [{"with-ids": ["ac-2.2"]}]}),
+            tree(),
+        );
+        assert_eq!(got, vec!["ac-2.2"]);
+    }
+
+    #[test]
+    fn back_matter_fragment_import_resolves_json_rlink() {
+        let dir = std::env::temp_dir().join(format!("mizan-resolver-{}", Uuid::new_v4()));
+        fs::create_dir_all(&dir).expect("tmp dir");
+        fs::write(dir.join("cat.json"), "{}").expect("write");
+        let profile = json!({
+            "back-matter": {"resources": [{
+                "uuid": "r1",
+                "rlinks": [
+                    {"href": "../../x/cat.xml", "media-type": "application/oscal.catalog+xml"},
+                    {"href": "../../x/cat.json", "media-type": "application/oscal.catalog+json"}
+                ]
+            }]}
+        });
+        let obj = profile.as_object().expect("object");
+        let p = resolve_import_href(obj, &dir, "#r1").expect("resolve");
+        assert_eq!(p, dir.join("cat.json"));
+        assert!(resolve_import_href(obj, &dir, "#missing").is_err());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn remote_import_is_rejected_offline() {
+        let obj = Map::new();
+        let err = resolve_import_href(&obj, Path::new("."), "https://example.org/cat.json");
+        assert!(err.is_err());
+    }
 }

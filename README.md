@@ -6,8 +6,8 @@
   <img src="https://shieldcn.dev/badge/oscal-v1.2.3%20metaschema-blue.svg?variant=secondary&wcag=3" alt="OSCAL v1.2.3 Metaschema" />
   <img src="https://shieldcn.dev/badge/next.js-v16.3.6%20turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16 Turbopack" />
   <img src="https://shieldcn.dev/badge/provenance-slsa%20v1.2%20%26%20v1.0-emerald.svg?variant=secondary&wcag=3" alt="SLSA v1.2 & v1.0 Provenance Generator" />
-  <img src="https://shieldcn.dev/badge/baselines-fedramp%20%C2%B7%20itsg--33%20%C2%B7%20iso27001-green.svg?variant=secondary&wcag=3&logo=shield" alt="FedRAMP, ITSG-33, ISO 27001 Baselines" />
-  <img src="https://shieldcn.dev/badge/tests-188%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 188 passed" />
+  <img src="https://shieldcn.dev/badge/catalog-NIST%20SP%20800--53%20r5%20official-green.svg?variant=secondary&wcag=3&logo=shield" alt="Official NIST SP 800-53 r5 catalog" />
+  <img src="https://shieldcn.dev/badge/tests-199%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 199 passed" />
   <img src="https://shieldcn.dev/badge/license-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="License: Apache-2.0" />
 </p>
 
@@ -24,7 +24,7 @@
 
 It provides complete drop-in parity with NIST `oscal-cli`, augmented with:
 - **3-Way GitOps AST Synchronization**: Bidirectional conflict-free merges across distributed control baselines.
-- **Tri-Jurisdiction Harmonization**: Continuous alignment across **US FedRAMP Rev 5 (NIST SP 800-53)**, **Canada CCCS ITSG-33 (PBMM)**, and **EU EUCS / ISO/IEC 27001:2022**.
+- **Tri-Jurisdiction Excerpts**: Embedded excerpt catalogs for **US FedRAMP Rev 5 (NIST SP 800-53)**, **Canada CCCS ITSG-33 (PBMM)**, and **EU EUCS / ISO/IEC 27001:2022**.
 - **Cryptographic Evidence Capsules**: Air-gap verifiable standalone HTML audit packages with in-browser WebCrypto Merkle proofs.
 - **Continuous Assurance Gates**: Pre-commit policy validation (Rego/Kyverno), in-toto SLSA provenance generation, and blast-radius impact analysis.
 - **Prominent-Language Dagger Pipeline**: Containerized CI/CD orchestrated natively with the official **Dagger Rust SDK** (`dagger-sdk = "0.21.9"`).
@@ -194,7 +194,7 @@ cargo run -p mizan-dagger-ci -- all
 
 # Run individual pipeline stages:
 cargo run -p mizan-dagger-ci -- lint       # Clippy (-D warnings) & Rustfmt checks
-cargo run -p mizan-dagger-ci -- test       # 188 workspace invariant tests
+cargo run -p mizan-dagger-ci -- test       # 199 workspace invariant tests
 cargo run -p mizan-dagger-ci -- build      # Fat-LTO release binaries
 cargo run -p mizan-dagger-ci -- workbench  # Next.js 16 Turbopack production build
 cargo run -p mizan-dagger-ci -- badge      # APCA WCAG 3.0 shieldcn-zig badge production
@@ -205,25 +205,31 @@ dagger run cargo run -p mizan-dagger-ci -- all
 
 ---
 
-## Tri-Jurisdiction Baseline Alignment
+## Catalogs: What Is Embedded and What Is Vendored
 
-Mizan embeds baseline catalogs and mapping logic across three primary jurisdictions:
+**Embedded excerpts.** The binary ships small excerpt catalogs per jurisdiction for demos and tests (`mizan catalog list`, `mizan catalog export -j <code>`). They are not complete baselines.
 
-| Jurisdiction | Authority & Standard | Base Controls | Overlay Scope |
-| :--- | :--- | :--- | :--- |
-| **United States** | NIST SP 800-53 Rev 5 / FedRAMP High & Moderate | AC-2, AC-3, AC-6, AU-2, AU-6, AU-12, SC-7, SC-12, SC-13, SC-28, SR-3, SR-5, SA-12 | FedRAMP PMO parameters & continuous monitoring |
-| **Canada** | CCCS ITSG-33 Protected B / Medium / Medium (PBMM) | AC-2, AC-3, AU-6, SC-7 | Canadian federal cloud boundary & data residency |
-| **European Union** | EUCS & ISO/IEC 27001:2022 Controls Alignment | A.5.15, A.8.2, A.8.16, A.8.24 | Sovereign cloud boundary, EU key custody, Annex A controls |
-| **Enterprise** | Custom Inherited Overlays (`mizan catalog extend`) | User-defined | Custom corporate controls inheriting from base baselines |
+| Code | Standard | Controls embedded |
+| :--- | :--- | :--- |
+| `us` | NIST SP 800-53 Rev 5 / FedRAMP Rev 5 core (excerpt) | 9: ac-1, ac-2, ac-6, au-2, cm-2, cm-7, ia-2, sc-7, si-4 |
+| `ca` | CCCS ITSG-33 / PBMM (excerpt) | 4: itsg-ac-1, itsg-au-1, itsg-sc-1, itsg-si-1 |
+| `eu` | EUCS / ISO/IEC 27001:2022 (excerpt) | 4: iso-a.5.15, iso-a.8.9, eucs-sec-01, iso-a.8.28 |
+| `enterprise` | Custom overlay template (`mizan catalog extend`) | 1 |
+
+**Vendored official catalog.** `examples/nist-800-53-r5/` contains the official NIST SP 800-53 Rev 5.2.0 OSCAL catalog (1,196 controls including enhancements and 182 withdrawn, 20 families) and the NIST Moderate baseline profile, byte-identical to `usnistgov/oscal-content` at a pinned commit. Provenance, digests and license (US public domain plus CC0) are in [`SOURCE.md`](examples/nist-800-53-r5/SOURCE.md). The engine resolves the Moderate profile to exactly 287 controls:
+
+```bash
+mizan resolve examples/nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json -o moderate.json
+```
 
 ---
 
 ## Verification & Test Evidence
 
-- **Rust Workspace**: `188 passed; 0 failed` across 152 unit tests and 36 integration tests (`cargo test --workspace`).
+- **Rust Workspace**: `199 passed; 0 failed` across 163 unit tests and 36 integration tests (`cargo test --workspace`).
 - **Linter & Style**: `cargo clippy --workspace --all-targets -- -D warnings` -> **0 warnings, 0 errors**.
-- **Next.js 16 Workbench**: Turbopack compiled in **1.7s** (`apps/workbench`).
-- **GitHub Pages Portal**: Automated build and deployment in `.github/workflows/pages.yml` hosting interactive Workbench, evidence capsules, and API references.
+- **Workbench**: Next.js 16 static export. Every panel states its data source: SNAPSHOT (real `mizan` output captured at build time by `apps/workbench/scripts/gen-snapshot.mjs`, with command and stdout digest), LIVE (local engine under `next dev`), FIXTURE (illustrative), or LOCAL (this browser session, unsigned).
+- **GitHub Pages Portal**: Automated build and deployment in `.github/workflows/pages.yml` hosting the Workbench, evidence capsule, and API references.
 
 ---
 

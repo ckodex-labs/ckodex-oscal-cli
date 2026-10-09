@@ -41,7 +41,10 @@ pub struct FedrampValidationReport {
     pub is_compliant: bool,
     pub total_rules_checked: usize,
     pub passed_rules: usize,
+    /// Distinct rule ids with at least one finding (always <= total_rules_checked).
     pub failed_rules: usize,
+    /// Total number of findings (a single rule may produce several).
+    pub findings_count: usize,
     pub findings: Vec<FedrampRuleFinding>,
 }
 
@@ -167,9 +170,16 @@ pub fn validate_fedramp(
         }
     }
 
-    let failed_rules = findings.len();
+    // A rule can emit several findings (e.g. one per missing role); count
+    // distinct failed rules so that passed + failed == total.
+    let failed_rules = findings
+        .iter()
+        .map(|f| f.rule_id.as_str())
+        .collect::<HashSet<_>>()
+        .len();
     let passed_rules = total_rules.saturating_sub(failed_rules);
     let is_compliant = findings.is_empty();
+    let findings_count = findings.len();
 
     Ok(FedrampValidationReport {
         file: doc
@@ -183,6 +193,7 @@ pub fn validate_fedramp(
         total_rules_checked: total_rules,
         passed_rules,
         failed_rules,
+        findings_count,
         findings,
     })
 }

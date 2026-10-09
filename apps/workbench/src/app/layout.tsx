@@ -4,7 +4,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Mizan · OSCAL Compliance Workbench",
   description:
-    "High-Assurance OSCAL Graph of Record, Multi-Lens Explorer & AI Copilot",
+    "OSCAL compliance workbench for the Mizan engine. Every panel states where its data came from.",
 };
 
 export default function RootLayout({
@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased font-mono">{children}</body>
+    <html lang="en" data-theme="ledger">
+      <body className="antialiased">{children}</body>
     </html>
   );
 }

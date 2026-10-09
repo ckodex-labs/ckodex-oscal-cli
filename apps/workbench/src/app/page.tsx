@@ -2,22 +2,15 @@
 
 import * as React from "react";
 import { LensMode, ThemeMode } from "@/lib/oscal-types";
-import { Masthead } from "@/components/shell/masthead";
+import { EngineProvider } from "@/lib/engine";
+import { sha256Hex } from "@/lib/provenance";
+import { createAtlasInitialData, BridgeEdge } from "@/lib/atlas-data";
 import {
-  createAtlasInitialData,
-  RegionFamily,
-  AtlasControl,
-  BridgeEdge,
-  EvidenceItem,
-  PoamItem,
-  MappingRow,
-} from "@/lib/atlas-data";
-
-import { AtlasNav, SurfaceId } from "@/components/shell/atlas-nav";
-import {
-  AtlasEvidenceMargin,
-  ReceiptEntry,
-} from "@/components/shell/atlas-evidence-margin";
+  AppShell,
+  ALL_SURFACES,
+  type SessionReceipt,
+  type SurfaceId,
+} from "@/components/shell/app-shell";
 import { AtlasSurface } from "@/components/surfaces/atlas-surface";
 import { BridgeSurface } from "@/components/surfaces/bridge-surface";
 import { ComposerSurface } from "@/components/surfaces/composer-surface";
@@ -29,388 +22,165 @@ import { CicdSbomPanel } from "@/components/generative-ui/cicd-sbom-panel";
 import { FabricSurface } from "@/components/surfaces/fabric-surface";
 import { InspectorSurface } from "@/components/surfaces/inspector-surface";
 import { ChatPanel } from "@/components/chat/chat-panel";
-import { PromotionModal } from "@/components/modals/promotion-modal";
 import { ShortcutsModal } from "@/components/modals/shortcuts-modal";
 
+const LENSES: LensMode[] = [
+  "author",
+  "architect",
+  "engineer",
+  "assessor",
+  "risk-owner",
+  "ciso",
+];
+
 export default function WorkbenchPage() {
+  return (
+    <EngineProvider>
+      <Workbench />
+    </EngineProvider>
+  );
+}
+
+function Workbench() {
   const [theme, setTheme] = React.useState<ThemeMode>("ledger");
   const [lens, setLens] = React.useState<LensMode>("architect");
   const [surface, setSurface] = React.useState<SurfaceId>("atlas");
-
-  // Initial domain data from Atlas.dc.html
-  const initialData = React.useMemo(() => createAtlasInitialData(), []);
-  const [fams] = React.useState<RegionFamily[]>(initialData.fams);
-  const [ctrls, setCtrls] = React.useState<AtlasControl[]>(initialData.ctrls);
-  const [selectedControlId, setSelectedControlId] =
-    React.useState<string>("AC-2");
-
-  const [mer] = React.useState<MappingRow[]>(initialData.mer);
-  const [iso] = React.useState<MappingRow[]>(initialData.iso);
-  const [csf] = React.useState<MappingRow[]>(initialData.csf);
-  const [edgesIso, setEdgesIso] = React.useState<BridgeEdge[]>(
-    initialData.edgesIso,
-  );
-  const [edgesCsf] = React.useState<BridgeEdge[]>(initialData.edgesCsf);
-  const [evidence] = React.useState<EvidenceItem[]>(initialData.evidence);
-  const [poams] = React.useState<PoamItem[]>(initialData.poams);
-
-  // Atlas Surface state
-  const [overlay, setOverlay] = React.useState<
-    "state" | "freshness" | "drift" | "poam"
-  >("state");
-  const [semanticZoom, setSemanticZoom] = React.useState<
-    "posture" | "controls"
-  >("controls");
-  const [isOutline, setIsOutline] = React.useState(false);
-  const [pulseActive, setPulseActive] = React.useState(false);
-
-  // Shell state
-  const [isMarginOpen, setIsMarginOpen] = React.useState(true);
-  const [isPromotionModalOpen, setIsPromotionModalOpen] = React.useState(false);
+  const [selectedControlId, setSelectedControlId] = React.useState("ac-2");
+  const [receipts, setReceipts] = React.useState<SessionReceipt[]>([]);
   const [isShortcutsOpen, setIsShortcutsOpen] = React.useState(false);
   const [isCopilotOpen, setIsCopilotOpen] = React.useState(false);
-
   const mainRef = React.useRef<HTMLElement>(null);
 
-  // Scroll to top immediately on surface change
+  // FIXTURE data for surfaces the engine cannot back yet (Bridge, Ledger, Docket).
+  const fixture = React.useMemo(() => createAtlasInitialData(), []);
+  const [edgesIso, setEdgesIso] = React.useState<BridgeEdge[]>(fixture.edgesIso);
+
+  React.useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
   React.useEffect(() => {
     mainRef.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [surface]);
 
-  async function computeFactSha256(fact: string): Promise<string> {
-    const enc = new TextEncoder();
-    const buffer = await crypto.subtle.digest("SHA-256", enc.encode(fact));
-    const hashArr = Array.from(new Uint8Array(buffer));
-    return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
-  }
+  /** Record a LOCAL session receipt: SHA-256 of event text + time. Unsigned. */
+  const recordLocal = React.useCallback(async (event: string) => {
+    const at = new Date().toISOString();
+    const digest = await sha256Hex(`${at} ${event}`);
+    setReceipts((prev) => [...prev, { event, at, digest }]);
+  }, []);
 
-  // Evidence Receipts
-  const [receipts, setReceipts] = React.useState<ReceiptEntry[]>([
-    {
-      ev: "oscal 1.2.3 metaschema verified",
-      d: "09:12:40Z",
-      hash: "sha256:b5d0faf5101547fc",
-      type: "signed",
-    },
-    {
-      ev: "profile MER-MOD resolved",
-      d: "09:12:41Z",
-      hash: "sha256:3d6578a5cdc53ae1",
-      type: "observed",
-    },
-    {
-      ev: "Regorus rulepack CIS-K8s passed",
-      d: "09:12:42Z",
-      hash: "sha256:70d563fb63c75d6a",
-      type: "signed",
-    },
-    {
-      ev: "SLSA v1.2 In-Toto statement signed",
-      d: "09:12:43Z",
-      hash: "sha256:27c2651ad4abf489",
-      type: "signed",
-    },
-    {
-      ev: "responsible-role assigned to AC-2",
-      d: "09:12:45Z",
-      hash: "sha256:25f9a1a8635e8233",
-      type: "observed",
-    },
-  ]);
-
-  // Keyboard Shortcuts (1-9 to switch surfaces, ? for cheatsheet, T for theme, L for lens, ⌘K for copilot, Esc to close modals)
   React.useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsCopilotOpen((o) => !o);
         return;
       }
+      const t = e.target;
       if (
-        e.target instanceof HTMLInputElement ||
-        e.target instanceof HTMLTextAreaElement
+        t instanceof HTMLInputElement ||
+        t instanceof HTMLTextAreaElement ||
+        t instanceof HTMLSelectElement ||
+        (t instanceof HTMLElement && t.isContentEditable)
       ) {
         return;
       }
-      if (e.key === "1") setSurface("atlas");
-      if (e.key === "2") setSurface("bridge");
-      if (e.key === "3") setSurface("composer");
-      if (e.key === "4") setSurface("ledger");
-      if (e.key === "5") setSurface("docket");
-      if (e.key === "6") setSurface("pipeline");
-      if (e.key === "7") setSurface("jurisdiction");
-      if (e.key === "8") setSurface("cicd");
-      if (e.key === "9") setSurface("fabric");
-      if (e.key === "0") setSurface("inspector");
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const match = ALL_SURFACES.find((s) => s.key === e.key);
+      if (match) setSurface(match.id);
       if (e.key === "?") setIsShortcutsOpen((o) => !o);
       if (e.key === "t" || e.key === "T") {
-        setTheme((prev) =>
-          prev === "ledger" ? "vault" : prev === "vault" ? "hc" : "ledger",
-        );
+        setTheme((p) => (p === "ledger" ? "vault" : p === "vault" ? "hc" : "ledger"));
       }
       if (e.key === "l" || e.key === "L") {
-        const lenses: LensMode[] = [
-          "author",
-          "architect",
-          "engineer",
-          "assessor",
-          "risk-owner",
-          "ciso",
-        ];
-        setLens((prev) => {
-          const nextIdx = (lenses.indexOf(prev) + 1) % lenses.length;
-          return lenses[nextIdx];
-        });
+        setLens((p) => LENSES[(LENSES.indexOf(p) + 1) % LENSES.length]);
       }
       if (e.key === "Escape") {
-        setIsPromotionModalOpen(false);
         setIsShortcutsOpen(false);
         setIsCopilotOpen(false);
       }
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const handleReplayPulse = () => {
-    setPulseActive(true);
-    setTimeout(() => setPulseActive(false), 2400);
-  };
-
-  const handleEdgeConfirmHuman = async (edgeId: string) => {
-    setEdgesIso((prev) =>
-      prev.map((e) =>
-        e.id === edgeId
-          ? {
-              ...e,
-              m: "human",
-              st: "complete",
-              by: "Human Architect (Verified)",
-            }
-          : e,
-      ),
-    );
-    const fact = `Mapping edge ${edgeId} confirmed by human architect at ${new Date().toISOString()}`;
-    const digest = await computeFactSha256(fact);
-    setReceipts((prev) => [
-      ...prev,
-      {
-        ev: `Mapping edge ${edgeId} confirmed by human architect`,
-        d: new Date().toISOString().slice(11, 19) + "Z",
-        hash: `sha256:${digest.slice(0, 16)}`,
-        type: "observed",
-      },
-    ]);
-  };
-
-  const handlePublishControl = async (id: string) => {
-    setCtrls((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, st: "implemented", att: true } : c,
-      ),
-    );
-    const fact = `Control ${id} published into MER-MOD baseline at ${new Date().toISOString()}`;
-    const digest = await computeFactSha256(fact);
-    setReceipts((prev) => [
-      ...prev,
-      {
-        ev: `Control ${id} published into MER-MOD baseline`,
-        d: new Date().toISOString().slice(11, 19) + "Z",
-        hash: `sha256:${digest.slice(0, 16)}`,
-        type: "signed",
-      },
-    ]);
-  };
-
-  const counts: Record<string, string | number> = {
-    atlas: ctrls.length,
-    bridge: edgesIso.length,
-    composer: "⊭ 1",
-    ledger: evidence.length,
-    docket: poams.length,
-    pipeline: "#1424",
-    jurisdiction: "4",
-    cicd: "12",
-    fabric: "3",
+  const openInComposer = (id: string) => {
+    setSelectedControlId(id);
+    setSurface("composer");
   };
 
   return (
-    <div
-      data-theme={theme}
-      className="flex h-screen flex-col overflow-hidden bg-ck-bg-0 text-ck-fg-1 transition-colors duration-200"
-    >
-      {/* Top Masthead */}
-      <Masthead
+    <>
+      <AppShell
         theme={theme}
         onThemeChange={setTheme}
         lens={lens}
         onLensChange={setLens}
-        onOpenPromotion={() => setIsPromotionModalOpen(true)}
+        surface={surface}
+        onSurfaceChange={setSurface}
+        receipts={receipts}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         isCopilotOpen={isCopilotOpen}
         onToggleCopilot={() => setIsCopilotOpen((o) => !o)}
-      />
-
-      {/* Main 3-Column Shell (Nav Rail | Main Active Surface | Evidence Margin) */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left Nav Rail */}
-        <AtlasNav
-          activeSurface={surface}
-          onSelectSurface={setSurface}
-          counts={counts}
-        />
-
-        {/* Center Main Work Surface */}
-        <main
-          ref={mainRef}
-          className="flex-1 overflow-y-auto p-6 lg:p-8 bg-ck-bg-0"
-        >
-          <div className="max-w-7xl mx-auto space-y-6">
-            {surface === "atlas" && (
-              <AtlasSurface
-                fams={fams}
-                ctrls={ctrls}
-                selectedId={selectedControlId}
-                onSelectControl={(id) => setSelectedControlId(id)}
-                overlay={overlay}
-                onOverlayChange={setOverlay}
-                semanticZoom={semanticZoom}
-                onSemanticZoomChange={setSemanticZoom}
-                isOutline={isOutline}
-                onToggleOutline={() => setIsOutline((o) => !o)}
-                onReplayPulse={handleReplayPulse}
-                pulseActive={pulseActive}
-                onOpenInComposer={(id) => {
-                  setSelectedControlId(id);
-                  setSurface("composer");
-                }}
-              />
-            )}
-
-            {surface === "bridge" && (
-              <BridgeSurface
-                mer={mer}
-                iso={iso}
-                csf={csf}
-                edgesIso={edgesIso}
-                edgesCsf={edgesCsf}
-                onEdgeConfirmHuman={handleEdgeConfirmHuman}
-              />
-            )}
-
-            {surface === "composer" && (
-              <ComposerSurface
-                selectedControlId={selectedControlId}
-                onSelectControl={setSelectedControlId}
-                onPublishControl={handlePublishControl}
-              />
-            )}
-
-            {surface === "ledger" && <LedgerSurface evidence={evidence} />}
-
-            {surface === "docket" && (
-              <DocketSurface
-                poams={poams}
-                onSelectPoamControl={(ctrlId) => {
-                  setSelectedControlId(ctrlId);
-                  setSurface("atlas");
-                }}
-              />
-            )}
-
-            {surface === "pipeline" && (
-              <PipelineSurface
-                onTriggerPipelineRun={async () => {
-                  const fact = `Pipeline #1425 executed · SARIF & GitLab emitted at ${new Date().toISOString()}`;
-                  const digest = await computeFactSha256(fact);
-                  setReceipts((prev) => [
-                    ...prev,
-                    {
-                      ev: "Pipeline #1425 executed · SARIF & GitLab emitted",
-                      d: new Date().toISOString().slice(11, 19) + "Z",
-                      hash: `sha256:${digest.slice(0, 16)}`,
-                      type: "signed",
-                    },
-                  ]);
-                }}
-              />
-            )}
-
-            {surface === "jurisdiction" && <JurisdictionSlsaPanel />}
-
-            {surface === "cicd" && <CicdSbomPanel />}
-
-            {surface === "fabric" && <FabricSurface />}
-
-            {surface === "inspector" && (
-              <InspectorSurface
-                onAddReceipt={(receipt) => {
-                  setReceipts((prev) => [
-                    ...prev,
-                    {
-                      ev: receipt.ev,
-                      d: receipt.d,
-                      hash: receipt.hash,
-                      type: receipt.type,
-                    },
-                  ]);
-                }}
-              />
-            )}
-          </div>
-        </main>
-
-        {/* Right Collapsible Evidence Margin */}
-        <AtlasEvidenceMargin
-          isOpen={isMarginOpen}
-          onToggle={() => setIsMarginOpen((m) => !m)}
-          receipts={receipts}
-        />
-      </div>
-
-      {/* Collapsible AI Copilot Drawer (Toggle with ⌘K or Masthead button) */}
-      {isCopilotOpen && (
-        <div className="border-t-2 border-ck-accent bg-ck-bg-1 h-64 overflow-hidden relative shadow-lg z-30 animate-in slide-in-from-bottom duration-200">
-          <button
-            type="button"
-            onClick={() => setIsCopilotOpen(false)}
-            title="Close Copilot (Esc)"
-            className="absolute top-2.5 right-4 z-40 text-ck-fg-mute hover:text-ck-fg-1 font-mono text-xs px-2 py-0.5 border border-ck-hairline-strong bg-ck-bg-0"
-          >
-            [X] Close Copilot
-          </button>
+        mainRef={mainRef}
+        copilot={
           <ChatPanel
             selectedControl={selectedControlId}
             lens={lens}
             onNavigateControl={setSelectedControlId}
           />
-        </div>
-      )}
+        }
+      >
+        {surface === "atlas" && (
+          <AtlasSurface
+            selectedId={selectedControlId}
+            onSelectControl={setSelectedControlId}
+            onOpenInComposer={openInComposer}
+          />
+        )}
+        {surface === "bridge" && (
+          <BridgeSurface
+            mer={fixture.mer}
+            iso={fixture.iso}
+            csf={fixture.csf}
+            edgesIso={edgesIso}
+            edgesCsf={fixture.edgesCsf}
+            onEdgeConfirmHuman={(edgeId) => {
+              setEdgesIso((prev) =>
+                prev.map((e) =>
+                  e.id === edgeId ? { ...e, m: "human", st: "complete", by: "You (this session)" } : e,
+                ),
+              );
+              void recordLocal(`Mapping edge ${edgeId} confirmed (fixture data)`);
+            }}
+          />
+        )}
+        {surface === "composer" && (
+          <ComposerSurface
+            selectedControlId={selectedControlId}
+            onSelectControl={setSelectedControlId}
+            onRecordLocal={recordLocal}
+          />
+        )}
+        {surface === "ledger" && <LedgerSurface evidence={fixture.evidence} />}
+        {surface === "docket" && (
+          <DocketSurface
+            poams={fixture.poams}
+            onSelectPoamControl={(id: string) => {
+              setSelectedControlId(id.toLowerCase());
+              setSurface("atlas");
+            }}
+          />
+        )}
+        {surface === "pipeline" && <PipelineSurface onRecordLocal={recordLocal} />}
+        {surface === "jurisdiction" && <JurisdictionSlsaPanel />}
+        {surface === "cicd" && <CicdSbomPanel />}
+        {surface === "fabric" && <FabricSurface />}
+        {surface === "inspector" && <InspectorSurface onRecordLocal={recordLocal} />}
+      </AppShell>
 
-      {/* Governed Promotion Modal */}
-      <PromotionModal
-        isOpen={isPromotionModalOpen}
-        onClose={() => setIsPromotionModalOpen(false)}
-        onConfirmPromote={async () => {
-          const fact = `Promoted to production release tag v1.4.3 at ${new Date().toISOString()}`;
-          const digest = await computeFactSha256(fact);
-          setReceipts((prev) => [
-            ...prev,
-            {
-              ev: "Promoted to production release tag v1.4.3",
-              d: new Date().toISOString().slice(11, 19) + "Z",
-              hash: `sha256:${digest.slice(0, 16)}`,
-              type: "signed",
-            },
-          ]);
-        }}
-      />
-
-      {/* Keyboard Shortcuts Navigation Modal */}
-      <ShortcutsModal
-        isOpen={isShortcutsOpen}
-        onClose={() => setIsShortcutsOpen(false)}
-      />
-    </div>
+      <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
+    </>
   );
 }

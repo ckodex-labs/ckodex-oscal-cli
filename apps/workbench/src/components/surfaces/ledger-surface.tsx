@@ -1,174 +1,267 @@
 "use client";
 
 import * as React from "react";
-import { EvidenceItem } from "@/lib/atlas-data";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import type { EvidenceItem } from "@/lib/atlas-data";
+import {
+  DataTable,
+  EmptyState,
+  PageHeader,
+  Panel,
+  ReadOnlyNotice,
+  Segmented,
+  StatTile,
+  StateBadge,
+  Toolbar,
+  type Tone,
+} from "@/components/kit";
+import {
+  DetailList,
+  FIXTURE_DATE_NOTE,
+  FilterField,
+  LEDGER_PROVENANCE,
+  SearchInput,
+  StatRow,
+  useRevealOnChange,
+} from "./fixture/shared";
 
-interface LedgerSurfaceProps {
-  evidence: EvidenceItem[];
+type Freshness = "current" | "aging" | "stale";
+type MethodFilter = "all" | EvidenceItem["m"];
+type FreshFilter = "all" | Freshness;
+
+function freshness(days: number): Freshness {
+  if (days <= 30) return "current";
+  if (days <= 180) return "aging";
+  return "stale";
 }
 
-export function LedgerSurface({ evidence }: LedgerSurfaceProps) {
-  const [filterType, setFilterType] = React.useState<
-    "all" | "signed" | "automation" | "human"
-  >("all");
-  const [sampledIndex, setSampledIndex] = React.useState<number | null>(null);
+const FRESH_TONE: Record<Freshness, Tone> = {
+  current: "neutral",
+  aging: "warn",
+  stale: "neg",
+};
 
-  const filtered = evidence.filter((e) => {
-    if (filterType === "signed") return e.signed;
-    if (filterType === "automation") return e.m === "automation";
-    if (filterType === "human") return e.m === "human";
-    return true;
-  });
+const FRESH_HINT: Record<Freshness, string> = {
+  current: "collected within 30 days",
+  aging: "31 to 180 days old",
+  stale: "older than 180 days",
+};
 
-  const handleSample = () => {
-    if (filtered.length > 0) {
-      const arr = new Uint32Array(1);
-      crypto.getRandomValues(arr);
-      const rand = arr[0] % filtered.length;
-      setSampledIndex(rand);
-    }
-  };
+function FreshBadge({ days }: { days: number }) {
+  const f = freshness(days);
+  return <StateBadge tone={FRESH_TONE[f]}>{f}</StateBadge>;
+}
+
+export function LedgerSurface({ evidence }: { evidence: EvidenceItem[] }) {
+  const [method, setMethod] = React.useState<MethodFilter>("all");
+  const [fresh, setFresh] = React.useState<FreshFilter>("all");
+  const [query, setQuery] = React.useState("");
+  const [selectedId, setSelectedId] = React.useState<string | null>(evidence[0]?.id ?? null);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return evidence.filter(
+      (e) =>
+        (method === "all" || e.m === method) &&
+        (fresh === "all" || freshness(e.days) === fresh) &&
+        (!q ||
+          e.t.toLowerCase().includes(q) ||
+          e.by.toLowerCase().includes(q) ||
+          e.ids.some((id) => id.toLowerCase().includes(q))),
+    );
+  }, [evidence, method, fresh, query]);
+
+  const counts = React.useMemo(() => {
+    const c = { current: 0, aging: 0, stale: 0 };
+    evidence.forEach((e) => c[freshness(e.days)]++);
+    return c;
+  }, [evidence]);
+
+  const selected = evidence.find((e) => e.id === selectedId) ?? null;
+  const detailRef = useRevealOnChange<HTMLDivElement>(selectedId);
+
+  const titleButton = (e: EvidenceItem) => (
+    <button
+      type="button"
+      onClick={() => setSelectedId(e.id)}
+      aria-pressed={e.id === selectedId}
+      className={cn(
+        "text-left text-sm underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ck-accent",
+        e.id === selectedId ? "font-semibold text-ck-accent-text" : "font-medium text-ck-fg-1",
+      )}
+    >
+      {e.t}
+    </button>
+  );
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between border-b border-ck-hairline pb-2 gap-2">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="font-serif text-2xl font-normal tracking-tight text-ck-fg-1 whitespace-nowrap shrink-0">
-            The Ledger
-          </h1>
-          <span className="text-xs text-ck-fg-mute font-mono hidden md:inline">
-            Evidence ordered by freshness and strength. Evidence decays; the
-            ledger preserves truth.
-          </span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] uppercase text-green-700 dark:text-green-400 whitespace-nowrap shrink-0"
-          >
-            {evidence.filter((e) => e.signed).length} Cryptographically Signed
-            Receipts
-          </Badge>
-        </div>
-      </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Ledger · evidence"
+        title="The Ledger"
+        description="Illustrative data only. This surface shows how collected evidence will be browsed by control, collector and age. The items below are hand-written samples with no stored object behind them."
+      />
 
-      {/* Toolbar */}
-      <div className="flex items-center justify-between border border-ck-hairline bg-ck-bg-1 p-2 shadow-sm font-mono text-xs">
-        <div className="flex items-center gap-1.5">
-          <Button
-            size="sm"
-            variant={filterType === "all" ? "default" : "outline"}
-            onClick={() => setFilterType("all")}
-            className="h-7 text-xs font-mono"
-          >
-            All Evidence ({evidence.length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === "signed" ? "default" : "outline"}
-            onClick={() => setFilterType("signed")}
-            className="h-7 text-xs font-mono"
-          >
-            Signed Only ({evidence.filter((e) => e.signed).length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === "automation" ? "default" : "outline"}
-            onClick={() => setFilterType("automation")}
-            className="h-7 text-xs font-mono"
-          >
-            CI/CD Telemetry (
-            {evidence.filter((e) => e.m === "automation").length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === "human" ? "default" : "outline"}
-            onClick={() => setFilterType("human")}
-            className="h-7 text-xs font-mono"
-          >
-            Human Audits ({evidence.filter((e) => e.m === "human").length})
-          </Button>
-        </div>
+      <ReadOnlyNotice />
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={handleSample}
-          className="h-7 text-xs font-mono"
+      <Panel title="Summary" subtitle={FIXTURE_DATE_NOTE} provenance={LEDGER_PROVENANCE}>
+        <StatRow>
+          <StatTile label="Evidence items" value={evidence.length} />
+          <StatTile label="Current" value={counts.current} hint={FRESH_HINT.current} />
+          <StatTile label="Aging" value={counts.aging} tone={counts.aging ? "warn" : "neutral"} hint={FRESH_HINT.aging} />
+          <StatTile label="Stale" value={counts.stale} tone={counts.stale ? "neg" : "neutral"} hint={FRESH_HINT.stale} />
+        </StatRow>
+      </Panel>
+
+      <div className="grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Panel
+          title="Evidence"
+          subtitle={`${filtered.length} of ${evidence.length} items`}
+          provenance={LEDGER_PROVENANCE}
         >
-          Spot Audit Sample
-        </Button>
-      </div>
+          <div className="space-y-4">
+            <Toolbar className="gap-x-4 gap-y-2">
+              <SearchInput
+                label="Filter evidence"
+                placeholder="Filter by title, collector or control"
+                value={query}
+                onChange={setQuery}
+              />
+              <FilterField label="Method">
+                <Segmented<MethodFilter>
+                  label="Collection method"
+                  value={method}
+                  onChange={setMethod}
+                  options={[
+                    { value: "all", label: "All" },
+                    { value: "automation", label: "Automated" },
+                    { value: "hybrid", label: "Hybrid" },
+                    { value: "human", label: "Manual" },
+                  ]}
+                />
+              </FilterField>
+              <FilterField label="Age">
+                <Segmented<FreshFilter>
+                  label="Evidence age"
+                  value={fresh}
+                  onChange={setFresh}
+                  options={[
+                    { value: "all", label: "All" },
+                    { value: "current", label: "Current" },
+                    { value: "aging", label: "Aging" },
+                    { value: "stale", label: "Stale" },
+                  ]}
+                />
+              </FilterField>
+            </Toolbar>
 
-      {/* Evidence Stream */}
-      <div className="border border-ck-hairline-strong bg-ck-bg-0 divide-y divide-ck-hairline shadow-sm font-mono text-xs">
-        {filtered.map((item, idx) => {
-          const isSampled = sampledIndex === idx;
-          const weight = Math.max(0.05, 1 - item.days / 365);
-
-          return (
-            <div
-              key={idx}
-              className={`p-3 flex items-center justify-between gap-4 transition-colors ${
-                isSampled
-                  ? "bg-ck-bg-2 border-l-4 border-ck-accent"
-                  : "hover:bg-ck-bg-1"
-              }`}
-            >
-              {/* Trust Mark & Description */}
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="font-bold text-sm text-ck-fg-1">
-                  {item.signed ? "◆" : item.m === "automation" ? "⊢" : "○"}
-                </span>
-                <div>
-                  <span className="font-sans font-medium text-sm text-ck-fg-1 block truncate">
-                    {item.t}
-                  </span>
-                  <span className="text-[11px] text-ck-fg-mute">
-                    by {item.by} · attests {item.ids.join(", ")} · {item.m}
-                  </span>
-                </div>
-              </div>
-
-              {/* Age & Decay Bar */}
-              <div className="flex items-center gap-4 flex-shrink-0">
-                <span className="text-xs text-ck-fg-2 w-16 text-right">
-                  {item.age}
-                </span>
-
-                <div
-                  className="w-24 h-2 bg-ck-bg-2 border border-ck-hairline-strong overflow-hidden"
-                  title="Evidentiary Weight"
-                >
-                  <div
-                    className="h-full bg-ck-fg-1"
-                    style={{ width: `${Math.round(weight * 100)}%` }}
+            {filtered.length === 0 ? (
+              <EmptyState kind="empty" title="No evidence matches these filters">
+                Clear the filter text or choose a different method or age.
+              </EmptyState>
+            ) : (
+              <>
+                <div className="hidden md:block">
+                  <DataTable
+                    caption="Evidence items (fixture)"
+                    columns={[
+                      { key: "t", label: "Evidence", className: "min-w-[14rem]" },
+                      { key: "ids", label: "Controls" },
+                      { key: "m", label: "Method" },
+                      { key: "age", label: "Age", className: "whitespace-nowrap" },
+                    ]}
+                    rows={filtered.map((e) => ({
+                      t: (
+                        <span className="flex flex-col gap-0.5">
+                          {titleButton(e)}
+                          <span className="text-xs text-ck-fg-mute">{e.by}</span>
+                        </span>
+                      ),
+                      ids: <ControlIds ids={e.ids} />,
+                      m: <span className="text-xs">{e.m === "human" ? "manual" : e.m}</span>,
+                      age: (
+                        <span className="flex flex-col items-start gap-1">
+                          <span className="text-xs">{e.age}</span>
+                          <FreshBadge days={e.days} />
+                        </span>
+                      ),
+                    }))}
                   />
                 </div>
-
-                {/* Hash */}
-                <span className="w-36 shrink-0 text-right font-mono text-[11px]">
-                  {item.signed ? (
-                    <Badge
-                      variant="outline"
-                      className="font-mono text-[10px] text-green-700 dark:text-green-400 whitespace-nowrap tabular-nums"
+                <ul className="space-y-2 md:hidden">
+                  {filtered.map((e) => (
+                    <li
+                      key={e.id}
+                      className={cn(
+                        "rounded-md border px-3 py-2.5",
+                        e.id === selectedId ? "border-ck-accent bg-ck-bg-2" : "border-ck-hairline bg-ck-bg-0",
+                      )}
                     >
-                      {item.hash}
-                    </Badge>
-                  ) : (
-                    <span className="text-ck-fg-mute text-[10px] whitespace-nowrap">
-                      ○ unsigned
-                    </span>
-                  )}
-                </span>
-              </div>
+                      {titleButton(e)}
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-ck-fg-3">
+                        <span>{e.age}</span>
+                        <FreshBadge days={e.days} />
+                        <ControlIds ids={e.ids} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        </Panel>
+
+        <div ref={detailRef} className="min-w-0 scroll-mt-4 2xl:sticky 2xl:top-4 2xl:self-start">
+        <Panel
+          title="Evidence detail"
+          subtitle={selected ? selected.id : undefined}
+          provenance={LEDGER_PROVENANCE}
+        >
+          {selected ? (
+            <div className="space-y-4">
+              <p className="text-sm font-medium text-ck-fg-1">{selected.t}</p>
+              <DetailList
+                items={[
+                  { label: "Kind", value: selected.kind },
+                  { label: "Collected by", value: selected.by },
+                  { label: "Method", value: selected.m === "human" ? "manual" : selected.m },
+                  { label: "Age", value: selected.age },
+                  { label: "Freshness", value: <FreshBadge days={selected.days} /> },
+                  { label: "Controls", value: <ControlIds ids={selected.ids} /> },
+                  {
+                    label: "Content address",
+                    value: <StateBadge tone="unk">empty</StateBadge>,
+                  },
+                  {
+                    label: "Integrity",
+                    value: <StateBadge tone="unk">unknown</StateBadge>,
+                  },
+                ]}
+              />
+              <p className="text-xs text-ck-fg-mute">
+                This sample has no stored object, so there is nothing to hash or check. Real evidence
+                would get a content address from <code className="font-mono">mizan cas put</code> and
+                could then be checked with <code className="font-mono">mizan evidence verify</code>.
+              </p>
             </div>
-          );
-        })}
+          ) : (
+            <p className="text-sm text-ck-fg-3">Select an evidence item to see its details.</p>
+          )}
+        </Panel>
+        </div>
       </div>
     </div>
+  );
+}
+
+function ControlIds({ ids }: { ids: string[] }) {
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {ids.map((id) => (
+        <span key={id} className="ck-hash">
+          {id}
+        </span>
+      ))}
+    </span>
   );
 }

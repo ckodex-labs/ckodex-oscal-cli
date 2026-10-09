@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::Path;
 
+use super::findings::{collect_catalog_controls, extract_findings, FindingDisposition};
 use crate::{
     document::parser::OscalDocument,
     error::{AppError, Result},
@@ -62,9 +62,28 @@ pub struct SarifMessage {
 pub struct SarifResult {
     #[serde(rename = "ruleId")]
     pub rule_id: String,
+    /// SARIF 2.1.0 `kind`: `fail`, `pass`, or `review`.
+    #[serde(default = "default_kind")]
+    pub kind: String,
     pub level: String,
     pub message: SarifMessage,
     pub locations: Vec<SarifLocation>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub suppressions: Vec<SarifSuppression>,
+}
+
+fn default_kind() -> String {
+    "fail".to_string()
+}
+
+/// A SARIF suppression. Used for waived findings: the result stays a failure,
+/// the accepted derogation is recorded alongside it.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SarifSuppression {
+    pub kind: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub justification: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -97,59 +116,81 @@ pub struct SarifExporter;
 
 impl SarifExporter {
     pub fn export_from_oscal(doc: &OscalDocument, source_path: &Path) -> Result<SarifReport> {
-        let root = doc
-            .root_object()
-            .ok_or_else(|| AppError::Configuration("Document root is not an object".to_string()))?;
-
-        let mut rules = Vec::new();
-        let mut results = Vec::new();
+        if doc.root_object().is_none() {
+            return Err(AppError::Configuration(
+                "Document root is not an object".to_string(),
+            ));
+        }
 
         let doc_uri = source_path.to_string_lossy().to_string();
+        let rule_key = |id: &str| format!("OSCAL-{}", id.to_uppercase());
 
-        if let Some(controls) = root.get("controls").and_then(Value::as_array) {
-            for ctrl in controls {
-                let id = ctrl
-                    .get("id")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| AppError::Configuration("Control missing 'id'".to_owned()))?;
-                let title = ctrl.get("title").and_then(Value::as_str);
-                let desc = ctrl.get("description").and_then(Value::as_str).or(title);
-
+        // Rule definitions: catalog controls (if any), then any rule id that a
+        // finding references but no control defines.
+        let mut rules: Vec<SarifRule> = Vec::new();
+        let mut seen = std::collections::BTreeSet::new();
+        for (id, title) in collect_catalog_controls(doc) {
+            if seen.insert(rule_key(&id)) {
                 rules.push(SarifRule {
-                    id: format!("OSCAL-{}", id.to_uppercase()),
-                    name: id.to_string(),
-                    short_description: SarifMessage {
-                        text: title.map(String::from),
-                    },
-                    full_description: desc.map(|d| SarifMessage {
-                        text: Some(d.to_string()),
-                    }),
+                    id: rule_key(&id),
+                    name: id.clone(),
+                    short_description: SarifMessage { text: title },
+                    full_description: None,
                     default_configuration: SarifConfiguration {
                         level: "warning".to_string(),
                     },
                 });
+            }
+        }
 
-                results.push(SarifResult {
-                    rule_id: format!("OSCAL-{}", id.to_uppercase()),
-                    level: "note".to_string(),
-                    message: SarifMessage {
-                        text: title.map(|t| {
-                            format!("Control {id} ({t}) evaluated across compliance baseline.")
-                        }),
+        let findings = extract_findings(doc);
+        let mut results = Vec::with_capacity(findings.len());
+        for f in findings {
+            let key = rule_key(&f.rule_id);
+            if seen.insert(key.clone()) {
+                rules.push(SarifRule {
+                    id: key.clone(),
+                    name: f.rule_id.clone(),
+                    short_description: SarifMessage {
+                        text: Some(f.title.clone().unwrap_or_else(|| f.rule_id.clone())),
                     },
-                    locations: vec![SarifLocation {
-                        physical_location: SarifPhysicalLocation {
-                            artifact_location: SarifArtifactLocation {
-                                uri: doc_uri.clone(),
-                            },
-                            region: Some(SarifRegion {
-                                start_line: 1,
-                                start_column: 1,
-                            }),
-                        },
-                    }],
+                    full_description: None,
+                    default_configuration: SarifConfiguration {
+                        level: "error".to_string(),
+                    },
                 });
             }
+            let (kind, level, suppressions) = match f.disposition {
+                FindingDisposition::Failed => ("fail", "error", Vec::new()),
+                FindingDisposition::Waived { justification } => (
+                    "fail",
+                    "error",
+                    vec![SarifSuppression {
+                        kind: "external".to_string(),
+                        status: "accepted".to_string(),
+                        justification,
+                    }],
+                ),
+                FindingDisposition::Satisfied => ("pass", "none", Vec::new()),
+                FindingDisposition::Unknown => ("review", "none", Vec::new()),
+            };
+            results.push(SarifResult {
+                rule_id: key,
+                kind: kind.to_string(),
+                level: level.to_string(),
+                message: SarifMessage {
+                    text: Some(f.message),
+                },
+                locations: vec![SarifLocation {
+                    physical_location: SarifPhysicalLocation {
+                        artifact_location: SarifArtifactLocation {
+                            uri: doc_uri.clone(),
+                        },
+                        region: None,
+                    },
+                }],
+                suppressions,
+            });
         }
 
         Ok(SarifReport {
@@ -212,6 +253,38 @@ mod tests {
         assert_eq!(report.runs.len(), 1);
         assert_eq!(report.runs[0].tool.driver.rules.len(), 1);
         assert_eq!(report.runs[0].tool.driver.rules[0].id, "OSCAL-AC-1");
-        assert_eq!(report.runs[0].results.len(), 1);
+        // A catalog defines controls; it contains no findings.
+        assert_eq!(report.runs[0].results.len(), 0);
+    }
+
+    #[test]
+    fn test_sarif_export_assessment_findings() {
+        let doc = OscalDocument::from_value(
+            serde_json::json!({
+                "assessment-results": {
+                    "uuid": "ar",
+                    "metadata": { "title": "t" },
+                    "results": [{ "findings": [
+                        { "rule_id": "k8s-no-root", "status": "FAILED", "violation": "runs as root" },
+                        { "rule_id": "k8s-limits", "status": "WAIVED", "violation": "no limits", "reason": "ticket-1" }
+                    ]}]
+                }
+            }),
+            None,
+        )
+        .unwrap();
+        let report = SarifExporter::export_from_oscal(&doc, Path::new("ar.json")).unwrap();
+        let run = &report.runs[0];
+        assert_eq!(run.results.len(), 2);
+        assert_eq!(run.tool.driver.rules.len(), 2);
+        assert_eq!(run.results[0].kind, "fail");
+        assert_eq!(run.results[0].level, "error");
+        assert!(run.results[0].suppressions.is_empty());
+        assert_eq!(run.results[1].kind, "fail");
+        assert_eq!(run.results[1].suppressions.len(), 1);
+        assert_eq!(
+            run.results[1].suppressions[0].justification.as_deref(),
+            Some("ticket-1")
+        );
     }
 }

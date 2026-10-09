@@ -1,565 +1,324 @@
 "use client";
 
+/**
+ * Pipeline surface.
+ *
+ * Renders the real `mizan pipeline run` output captured in the build-time
+ * snapshot, plus the SARIF export of its assessment results. Nothing here is
+ * re-executed: `pipeline run` writes files and is not on the read-only
+ * /api/cli allowlist. When the local engine is LIVE, a separate panel offers
+ * allowlisted read-only re-checks.
+ */
+
 import * as React from "react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-
-interface PipelineSurfaceProps {
-  onTriggerPipelineRun?: () => void;
-}
-
-interface RunLog {
-  no: number;
-  verdict:
-    | "PASS · 0 FAULTS"
-    | "⊭ 1 FAULT (BLOCKED)"
-    | "WAIVED · DEROGATION RECORDED"
-    | string;
-  duration: string;
-  time: string;
-}
+import { useEngine } from "@/lib/engine";
+import type { Provenance } from "@/lib/provenance";
+import type {
+  PipelineRunOutput,
+  Rulepack,
+  SarifExportOutput,
+} from "@/lib/snapshot-types-b";
+import {
+  DataTable,
+  PageHeader,
+  Panel,
+  ReadOnlyNotice,
+  StatGrid,
+  StatTile,
+  StateBadge,
+  Terminal,
+} from "@/components/kit";
+import {
+  Code,
+  Fields,
+  Note,
+  SnapFallback,
+  bool,
+  num,
+  pretty,
+  useSnap,
+  type SnapResult,
+} from "@/components/generative-ui/b/shared";
+import { LiveChecks } from "@/components/surfaces/pipeline/live-checks";
 
 export function PipelineSurface({
-  onTriggerPipelineRun,
-}: PipelineSurfaceProps) {
-  const [hasConstraintFault, setHasConstraintFault] = React.useState(true);
-  const [isWaived, setIsWaived] = React.useState(false);
-  const [isRunning, setIsRunning] = React.useState(false);
-  const [executingStep, setExecutingStep] = React.useState<number | null>(null);
-  const [runHistory, setRunHistory] = React.useState<RunLog[]>([
-    {
-      no: 1424,
-      verdict: "⊭ 1 FAULT (BLOCKED)",
-      duration: "182ms",
-      time: "10 mins ago",
-    },
-    {
-      no: 1423,
-      verdict: "PASS · 0 FAULTS",
-      duration: "145ms",
-      time: "2 hours ago",
-    },
-  ]);
+  onRecordLocal,
+}: {
+  onRecordLocal: (event: string) => Promise<void>;
+}) {
+  const { status } = useEngine();
+  const run = useSnap<PipelineRunOutput>("pipeline-run");
+  const sarif = useSnap<SarifExportOutput>("pipeline-export-sarif", 2);
+  const rules = useSnap<Rulepack[]>("policy-rulepack-list", 3);
 
-  const [cliOutput, setCliOutput] = React.useState<any>(null);
-
-  const handleRunVerification = async () => {
-    setIsRunning(true);
-    setExecutingStep(1);
-
-    try {
-      setExecutingStep(2);
-      let executedViaDaemon = false;
-      try {
-        const res = await fetch("/api/cli", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ command: "pipeline", args: ["run"] }),
-        });
-        if (
-          res.ok &&
-          res.headers.get("content-type")?.includes("application/json")
-        ) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            executedViaDaemon = true;
-            setCliOutput(json.data);
-            const hasViolations = json.data.violations_count > 0;
-            setHasConstraintFault(hasViolations);
-            const nextNo = runHistory[0].no + 1;
-            setRunHistory((prev) => [
-              {
-                no: nextNo,
-                verdict: hasViolations
-                  ? "⊭ 1 FAULT (BLOCKED)"
-                  : "PASS · 0 FAULTS",
-                duration: "24ms",
-                time: "just now",
-              },
-              ...prev,
-            ]);
-          }
-        }
-      } catch {
-        // Fallback to client-side pipeline evaluation
-      }
-
-      setExecutingStep(3);
-      if (!executedViaDaemon) {
-        // Client-side execution
-        const hasViolations = hasConstraintFault && !isWaived;
-        const nextNo = runHistory[0].no + 1;
-        setRunHistory((prev) => [
-          {
-            no: nextNo,
-            verdict: hasViolations
-              ? "⊭ 1 FAULT (BLOCKED · AC-6 Privileged Container)"
-              : isWaived
-                ? "PASS · DEROGATION LEASE ACTIVE"
-                : "PASS · 0 FAULTS (Client Engine Verified)",
-            duration: "14ms",
-            time: "just now",
-          },
-          ...prev,
-        ]);
-        setCliOutput({
-          violations_count: hasViolations ? 1 : 0,
-          rules_checked: 4,
-          slsa_verified: true,
-          mode: "client-runtime",
-        });
-      }
-      setExecutingStep(4);
-    } catch (err) {
-      console.error("Pipeline execution failed:", err);
-    } finally {
-      setIsRunning(false);
-      setExecutingStep(null);
-      if (onTriggerPipelineRun) onTriggerPipelineRun();
-    }
-  };
-
-  const handleQuickFixOwner = async () => {
-    try {
-      await fetch("/api/cli", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          command: "fix",
-          args: ["--rule", "cis-k8s-5.2.1", "-f", "workload.yaml", "--dry-run"],
-        }),
-      }).catch(() => {});
-      setHasConstraintFault(false);
-      setIsWaived(false);
-      const nextNo = runHistory[0].no + 1;
-      setRunHistory((prev) => [
-        {
-          no: nextNo,
-          verdict: "PASS · REMEDIATED (privileged: false applied)",
-          duration: "18ms",
-          time: "just now",
-        },
-        ...prev,
-      ]);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleWaiveFault = async () => {
-    try {
-      await fetch("/api/cli", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          command: "waive",
-          args: [
-            "--rule",
-            "cis-k8s-5.2.1",
-            "--reason",
-            "Temporary derogation approved via Workbench",
-            "--ttl",
-            "7d",
-          ],
-        }),
-      }).catch(() => {});
-      setIsWaived(true);
-      const nextNo = runHistory[0].no + 1;
-      setRunHistory((prev) => [
-        {
-          no: nextNo,
-          verdict: "PASS · DEROGATION LEASE (7-day TTL approved)",
-          duration: "12ms",
-          time: "just now",
-        },
-        ...prev,
-      ]);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const isPassing = !hasConstraintFault || isWaived;
+  const d = run.data;
 
   return (
-    <div className="space-y-4 font-mono">
-      {/* Header */}
-      <div className="flex flex-wrap items-baseline justify-between border-b border-ck-hairline pb-2 gap-2">
-        <div className="flex items-baseline gap-3 min-w-0">
-          <h1 className="font-serif text-2xl font-normal tracking-tight text-ck-fg-1 whitespace-nowrap shrink-0">
-            The Pipeline
-          </h1>
-          <span className="text-xs text-ck-fg-mute font-mono hidden md:inline">
-            The pipeline is a persona. Its output is designed, and its failures
-            teach.
-          </span>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge
-            variant="outline"
-            className="font-mono text-[10px] uppercase text-green-700 dark:text-green-400 whitespace-nowrap shrink-0"
-          >
-            SLSA v1.2 In-Toto Verified · Pipeline #{runHistory[0]?.no || 1424}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-[1.1fr_1.3fr] gap-4 items-start text-xs min-w-0">
-        {/* Left: PR Bot Comment Preview */}
-        <div className="border border-ck-hairline-strong bg-ck-bg-1 shadow-xs min-w-0">
-          <div className="flex items-center gap-3 border-b border-ck-hairline p-3 bg-ck-bg-2">
-            <span className="w-6 h-6 bg-ck-fg-1 text-ck-bg-0 flex items-center justify-center font-bold text-xs shrink-0">
-              A
-            </span>
-            <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="font-sans font-semibold text-sm text-ck-fg-1 whitespace-nowrap">
-                atlas-bot
-              </span>
-              <Badge
-                variant="outline"
-                className="text-[9px] font-mono uppercase bg-ck-bg-0 shrink-0"
-              >
-                BOT APP
-              </Badge>
-              <span className="text-ck-fg-mute text-[11px] truncate">
-                commented on PR #212 · run #{runHistory[0]?.no || 1424} ·
-                41c9e2b
-              </span>
-            </div>
-          </div>
-
-          <div className="p-5 space-y-4">
-            <div className="flex flex-wrap items-baseline justify-between border-b border-ck-hairline pb-2 gap-2">
-              <h3 className="font-serif text-xl font-normal text-ck-fg-1 whitespace-nowrap shrink-0">
-                Compliance Diff — Profile MER-MOD
-              </h3>
-              <Badge
-                variant="outline"
-                className={`text-[10px] uppercase font-mono whitespace-nowrap shrink-0 ${
-                  isPassing
-                    ? "text-green-700 dark:text-green-400 border-green-700/40"
-                    : "text-red-700 dark:text-red-400 border-red-700/40"
-                }`}
-              >
-                {isPassing ? "ALL GATES SATISFIED" : "GATES BLOCKED"}
-              </Badge>
-            </div>
-
-            <div className="space-y-2 font-sans text-xs">
-              <div className="grid grid-cols-[140px_1fr] gap-2 border-b border-ck-hairline pb-1.5">
-                <span className="text-ck-fg-mute font-mono">
-                  Baseline Controls:
-                </span>
-                <span className="font-mono text-ck-fg-1">
-                  −1 · AC-2(9) removed from baseline
-                </span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] gap-2 border-b border-ck-hairline pb-1.5">
-                <span className="text-ck-fg-mute font-mono">
-                  Parameters Changed:
-                </span>
-                <span className="font-mono text-ck-fg-1">
-                  ac-2_prm_3 · &quot;90 days&quot; → &quot;30 days&quot;
-                </span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] gap-2 border-b border-ck-hairline pb-1.5">
-                <span className="text-ck-fg-mute font-mono">
-                  Implementations Affected:
-                </span>
-                <span className="font-mono text-ck-fg-1">
-                  3 — iam-reconciler, idp-core, shared-cred
-                </span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] gap-2 border-b border-ck-hairline pb-1.5">
-                <span className="text-ck-fg-mute font-mono">
-                  Mappings Invalidated:
-                </span>
-                <span className="font-mono text-ck-fg-1">
-                  1 · MER-AC-01 → A.5.15 (confidence floor)
-                </span>
-              </div>
-              <div className="grid grid-cols-[140px_1fr] gap-2 pt-1">
-                <span className="text-ck-fg-mute font-mono">
-                  Coverage Delta:
-                </span>
-                <div className="font-mono text-[11px]">
-                  <span className="text-green-700 dark:text-green-400 font-bold whitespace-nowrap">
-                    71.4% → 68.1% (Δ −3.3)
-                  </span>
-                  <span className="text-ck-fg-mute ml-2 text-[10px]">
-                    computed
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Gates */}
-            <div className="border-t border-ck-hairline pt-3 space-y-2">
-              <span className="text-[10px] uppercase font-bold text-ck-fg-mute block font-mono">
-                Continuous Assurance Gates
-              </span>
-              <div className="flex items-center justify-between text-[11px] border-b border-ck-hairline pb-1.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-ck-fg-1 whitespace-nowrap">
-                    oscal-schema
-                  </span>
-                  <span className="text-ck-fg-mute font-mono text-[10px] px-1 bg-ck-bg-2 border border-ck-hairline shrink-0">
-                    schema
-                  </span>
-                </div>
-                <span className="text-green-700 dark:text-green-400 font-bold font-mono whitespace-nowrap shrink-0 text-right">
-                  PASS · 4 DOCS
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] border-b border-ck-hairline pb-1.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-ck-fg-1 whitespace-nowrap">
-                    slsa-provenance
-                  </span>
-                  <span className="text-ck-fg-mute font-mono text-[10px] px-1 bg-ck-bg-2 border border-ck-hairline shrink-0">
-                    supply-chain
-                  </span>
-                </div>
-                <span className="text-green-700 dark:text-green-400 font-bold font-mono whitespace-nowrap shrink-0 text-right">
-                  PASS · SHA256
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] border-b border-ck-hairline pb-1.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-ck-fg-1 whitespace-nowrap">
-                    responsible-role
-                  </span>
-                  <span className="text-ck-fg-mute font-mono text-[10px] px-1 bg-ck-bg-2 border border-ck-hairline shrink-0">
-                    constraint
-                  </span>
-                </div>
-                <span
-                  className={`font-mono font-bold whitespace-nowrap shrink-0 text-right ${
-                    isPassing
-                      ? "text-green-700 dark:text-green-400"
-                      : "text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  {isPassing
-                    ? isWaived
-                      ? "WAIVED · RISK ACCEPTED"
-                      : "PASS · 0 FAULTS"
-                    : "⊭ 1 FAULT (BLOCKING)"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-[11px] pb-0.5 gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="font-mono text-ck-fg-1 whitespace-nowrap">
-                    blast-radius
-                  </span>
-                  <span className="text-ck-fg-mute font-mono text-[10px] px-1 bg-ck-bg-2 border border-ck-hairline shrink-0">
-                    topology
-                  </span>
-                </div>
-                <span className="text-green-700 dark:text-green-400 font-bold font-mono whitespace-nowrap shrink-0 text-right">
-                  PASS · BOUNDED
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-ck-hairline">
-              <Button
-                size="sm"
-                variant="default"
-                disabled={isRunning}
-                onClick={handleRunVerification}
-                className="h-7 text-xs font-mono bg-ck-fg-1 text-ck-bg-0 hover:bg-ck-fg-2"
-              >
-                {isRunning
-                  ? "Evaluating Pre-Commit Gates…"
-                  : "Re-evaluate Pipeline Gates"}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setHasConstraintFault((f) => !f);
-                  setIsWaived(false);
-                }}
-                className="h-7 text-xs font-mono"
-              >
-                Toggle Fault Scenario (
-                {hasConstraintFault && !isWaived
-                  ? "Fault Active"
-                  : "Clean State"}
-                )
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: GitOps Pre-Commit Terminal Simulation */}
-        <div className="space-y-4 min-w-0">
-          <div className="border border-ck-hairline-strong bg-ck-bg-0 shadow-sm min-w-0 overflow-hidden">
-            <div className="flex items-center justify-between border-b border-ck-hairline px-3 py-2 bg-ck-bg-1 gap-2">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500/70 shrink-0" />
-                <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/70 shrink-0" />
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500/70 shrink-0" />
-                <span className="text-[11px] font-mono font-semibold text-ck-fg-1 ml-2 whitespace-nowrap">
-                  zsh · mizan pre-commit (v1.2.3)
-                </span>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={isRunning}
-                onClick={handleRunVerification}
-                className="h-6 text-[10px] font-mono shrink-0 whitespace-nowrap px-2.5"
-              >
-                {isRunning ? "Executing…" : "Run Verification"}
-              </Button>
-            </div>
-
-            {/* Stepper Progress Bar when Running */}
-            {isRunning && (
-              <div className="p-3 border-b border-ck-hairline bg-ck-bg-2 flex items-center gap-2 text-[11px]">
-                <span className="w-2 h-2 rounded-full bg-ck-accent animate-ping" />
-                <span className="text-ck-accent font-semibold">
-                  Step {executingStep || 1}/4:
-                </span>
-                <span className="text-ck-fg-1">
-                  {executingStep === 1 &&
-                    "OSCAL schema validity check against pinned NIST schemas…"}
-                  {executingStep === 2 &&
-                    "SLSA v1.2 Merkle tree verification against in-toto attestation…"}
-                  {executingStep === 3 &&
-                    "Evaluating Regorus/OPA policy constraints and invariants…"}
-                  {executingStep === 4 &&
-                    "Computing blast radius and dependency ripple effects…"}
-                  {executingStep === 5 && "Finalizing commit gate outcome…"}
-                </span>
-              </div>
-            )}
-
-            <pre className="font-mono text-xs leading-relaxed text-ck-fg-1 overflow-x-auto p-4 bg-ck-bg-0 min-h-[220px]">
-              {`$ mizan pipeline run --jurisdiction us
-mizan compliance-pipeline · schema pinned oscal 1.2.3
-
-  catalog-uuid: ${cliOutput?.oscal_catalog_uuid || "8b788647-767a-4ecb-ba3a-f2b7f719602a"}
-  merkle-root:  ${cliOutput?.merkle_root || "sha256:c9840a3707ca3f023cee70e8dd90e359514c52aef0a8f79ae6228726d9395f5d"}
-  rules:        ${cliOutput?.evaluated_rules_count || 4} evaluated (${cliOutput?.passed_rules_count || 3} passed, ${cliOutput?.violations_count || 1} violations)
-`}
-              {!isPassing ? (
-                <>
-                  <span className="text-red-700 dark:text-red-400 font-bold">
-                    {`  constraints   ⊭ 1 fault
-    rule:       cis-k8s-5.2.1 (Disallow Privileged Containers)
-    → violation: container 'production-api' specifies privileged: true
-    → remedy:   set securityContext.privileged: false or record derogation
-`}
-                  </span>
-                  <span className="text-red-700 dark:text-red-400 font-bold">
-                    {`pipeline blocked · artifacts preserved in mizan-pipeline-output/`}
-                  </span>
-                </>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="CI gate"
+        title="Pipeline"
+        description="Result of one real pipeline run captured when this site was built: built-in policy rules evaluated against the example SBOM, waivers applied, and artifacts written."
+        meta={
+          d ? (
+            <>
+              {typeof d.all_passed === "boolean" ? (
+                <StateBadge tone={d.all_passed ? "pos" : "neg"}>
+                  all_passed {String(d.all_passed)}
+                </StateBadge>
               ) : (
-                <>
-                  <span className="text-green-700 dark:text-green-400 font-bold">
-                    {isWaived
-                      ? `  constraints  pass (derogation active) · waiver w-0199 recorded
-    waiver: accepted-risk · expiry 2026-10-01 · authority: CISO
-`
-                      : `  constraints  pass · 0 faults · mandatory invariants hold
-`}
-                  </span>
-                  {`  touches      AC-2 · profile MER-MOD
-               → 3 implementations · 2 mappings · 1 assessment
-
-`}
-                  <span className="text-green-700 dark:text-green-400 font-bold">
-                    {`commit ok · receipt written · resolved · profile MER-MOD v1.4.3`}
-                  </span>
-                </>
+                <StateBadge tone="unk">all_passed unknown</StateBadge>
               )}
-            </pre>
+              {run.exitCode !== null && (
+                <StateBadge tone={run.exitCode === 0 ? "neutral" : "neg"} glyph={false}>
+                  exit {run.exitCode}
+                </StateBadge>
+              )}
+              {d.jurisdiction && (
+                <span className="text-xs text-ck-fg-3">{d.jurisdiction}</span>
+              )}
+            </>
+          ) : undefined
+        }
+      />
+      <ReadOnlyNotice />
 
-            {/* Quick Action Bar under Terminal */}
-            <div className="flex flex-wrap items-center justify-between p-2.5 border-t border-ck-hairline bg-ck-bg-1 text-[11px] gap-2.5">
-              <div className="flex flex-wrap items-center gap-2">
-                {!isPassing ? (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={handleQuickFixOwner}
-                      className="h-6 text-[10px] font-mono bg-green-700 hover:bg-green-800 text-white shrink-0"
-                    >
-                      Quick-Fix: Assign Owner (T. Mori)
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleWaiveFault}
-                      className="h-6 text-[10px] font-mono shrink-0"
-                    >
-                      Waive Fault (`mizan waive`)
-                    </Button>
-                  </>
-                ) : (
-                  <span className="text-green-700 dark:text-green-400 font-semibold">
-                    [OK] Pre-commit verification clean. Ready to push to origin.
-                  </span>
-                )}
-              </div>
-              <span className="text-ck-fg-mute text-[10px] whitespace-nowrap shrink-0 font-mono ml-auto">
-                exit-code: {!isPassing ? "1" : "0"}
-              </span>
+      {!d || !run.provenance ? (
+        <SnapFallback title="pipeline run output" state={run} />
+      ) : (
+        <>
+          <Panel
+            title="Run summary"
+            subtitle={d.timestamp ? `Engine timestamp ${d.timestamp}` : undefined}
+            provenance={run.provenance}
+          >
+            <div className="space-y-4">
+              <StatGrid>
+                <StatTile label="Rules evaluated" value={num(d.evaluated_rules_count)} />
+                <StatTile label="Passed" value={num(d.passed_rules_count)} tone="pos" />
+                <StatTile label="Waived" value={num(d.waived_rules_count)} tone="warn" />
+                <StatTile
+                  label="Violations"
+                  value={num(d.violations_count)}
+                  tone={d.violations_count ? "neg" : "neutral"}
+                />
+                <StatTile label="SBOM components" value={num(d.sbom_components_count)} />
+                <StatTile label="CAS objects written" value={num(d.cas_objects_written)} />
+              </StatGrid>
+              <Fields
+                items={[
+                  { label: "Jurisdiction", value: d.jurisdiction ?? "UNKNOWN" },
+                  { label: "OSCAL catalog UUID", value: d.oscal_catalog_uuid ?? "UNKNOWN", mono: true },
+                  { label: "Merkle root", value: d.merkle_root ?? "UNKNOWN", mono: true },
+                  { label: "all_passed", value: bool(d.all_passed), mono: true },
+                ]}
+              />
             </div>
+          </Panel>
+
+          <div className="grid gap-4 2xl:grid-cols-2">
+            <GatesPanel run={d} runProv={run.provenance} rules={rules.data} />
+            <WaiversPanel run={d} runProv={run.provenance} />
           </div>
 
-          {/* Run History */}
-          <div className="border border-ck-hairline-strong bg-ck-bg-1 p-3 space-y-2">
-            <span className="text-[10px] uppercase font-bold text-ck-fg-mute block font-mono">
-              Pipeline Execution History
-            </span>
-            <div className="space-y-1.5">
-              {runHistory.map((rn) => (
-                <div
-                  key={rn.no}
-                  className="flex items-center justify-between text-[11px] border-b border-ck-hairline pb-1"
-                >
-                  <span className="font-bold text-ck-fg-1">#{rn.no}</span>
-                  <span
-                    className={
-                      rn.verdict.includes("PASS")
-                        ? "text-green-700 dark:text-green-400 font-semibold"
-                        : rn.verdict.includes("WAIVED")
-                          ? "text-yellow-600 dark:text-yellow-400 font-semibold"
-                          : "text-red-700 dark:text-red-400 font-semibold"
-                    }
-                  >
-                    {rn.verdict}
-                  </span>
-                  <span className="text-ck-fg-mute">{rn.duration}</span>
-                  <span className="text-ck-fg-mute">{rn.time}</span>
-                </div>
-              ))}
-            </div>
+          <div className="grid gap-4 2xl:grid-cols-2">
+            <Panel
+              title="Artifacts produced"
+              subtitle="Paths the run reported writing. The files themselves are not part of this snapshot."
+              provenance={run.provenance}
+            >
+              <Fields
+                items={[
+                  { label: "SLSA provenance", value: d.slsa_provenance_path ?? "UNKNOWN", mono: true },
+                  { label: "SARIF report", value: d.sarif_report_path ?? "UNKNOWN", mono: true },
+                  { label: "GitLab security report", value: d.gitlab_report_path ?? "UNKNOWN", mono: true },
+                  { label: "OSCAL assessment results", value: d.oscal_assessment_path ?? "UNKNOWN", mono: true },
+                ]}
+              />
+            </Panel>
+            <SarifPanel
+              sarif={sarif}
+              violations={d.violations_count}
+              waivedIds={(d.active_waivers ?? []).map((w) => w.rule_id)}
+            />
           </div>
 
-          {/* Continuous Governance Contract Info */}
-          <div className="border border-ck-hairline bg-ck-bg-1 p-3 space-y-1.5">
-            <span className="text-[10px] uppercase font-bold text-ck-fg-mute block">
-              Same Verbs Everywhere
-            </span>
-            <p className="font-mono text-xs text-ck-fg-2">
-              mizan validate · mizan resolve · mizan map diff · mizan impact
-              AC-2
-            </p>
-            <p className="font-sans text-[11px] text-ck-fg-mute">
-              If an action can be performed in this UI, it is backed by an
-              equivalent atomic CLI verb. The repository is the single source of
-              truth.
-            </p>
-          </div>
-        </div>
-      </div>
+          <Panel
+            title="Command and raw output"
+            subtitle="Exactly what the engine printed, pretty-printed."
+            provenance={run.provenance}
+          >
+            <Terminal
+              command={run.command}
+              output={pretty(d)}
+              exitCode={run.exitCode}
+              maxHeight={4000}
+            />
+          </Panel>
+        </>
+      )}
+
+      {status.kind === "live" && <LiveChecks onRecordLocal={onRecordLocal} />}
     </div>
+  );
+}
+
+function GatesPanel({
+  run,
+  runProv,
+  rules,
+}: {
+  run: PipelineRunOutput;
+  runProv: Provenance;
+  rules: Rulepack[] | null;
+}) {
+  const waived = new Set((run.active_waivers ?? []).map((w) => w.rule_id));
+  const evaluated = run.evaluated_rules_count;
+  const passed = run.passed_rules_count;
+  const violations = run.violations_count;
+  // Per-rule outcomes are only inferable when the counts reconcile exactly
+  // with the built-in rulepack list and every violation count is zero.
+  const canInfer =
+    !!rules &&
+    typeof evaluated === "number" &&
+    typeof passed === "number" &&
+    violations === 0 &&
+    rules.length === evaluated &&
+    rules.filter((r) => waived.has(r.id)).length + passed === evaluated;
+
+  const rows = (rules ?? []).map((r) => ({
+    rule: <Code nowrap>{r.id}</Code>,
+    name: <span className="text-ck-fg-1">{r.name ?? "UNKNOWN"}</span>,
+    severity: (
+      <StateBadge tone="neutral" glyph={false}>
+        {r.severity ?? "unknown"}
+      </StateBadge>
+    ),
+    controls: (
+      <span className="font-mono text-xs">{(r.target_controls ?? []).join(", ") || "none"}</span>
+    ),
+    result: waived.has(r.id) ? (
+      <StateBadge tone="warn">waived</StateBadge>
+    ) : canInfer ? (
+      <StateBadge tone="pos">pass (inferred)</StateBadge>
+    ) : (
+      <StateBadge tone="unk">not itemized</StateBadge>
+    ),
+  }));
+
+  return (
+    <Panel
+      title="Gates"
+      subtitle="Built-in rulepack rules (policy rulepack list) with the outcome reported by the run."
+      provenance={runProv}
+    >
+      <div className="space-y-3">
+        <DataTable
+          caption="Policy gates"
+          columns={[
+            { key: "rule", label: "Rule" },
+            { key: "name", label: "Name" },
+            { key: "severity", label: "Severity" },
+            { key: "controls", label: "Controls" },
+            { key: "result", label: "Result" },
+          ]}
+          rows={rows}
+        />
+        <Note title="How the result column is derived">
+          The run output reports counts and active waivers, not per-rule results. Waived comes
+          directly from <Code>active_waivers</Code>.{" "}
+          {canInfer
+            ? `Pass is inferred: ${num(evaluated)} rules evaluated, ${num(passed)} passed, ${num(violations)} violations, and the rulepack list contains exactly ${rules?.length} rules.`
+            : "The counts do not reconcile with the rulepack list, so per-rule outcomes are not shown."}
+        </Note>
+      </div>
+    </Panel>
+  );
+}
+
+function WaiversPanel({
+  run,
+  runProv,
+}: {
+  run: PipelineRunOutput;
+  runProv: Provenance;
+}) {
+  const waivers = run.active_waivers ?? [];
+  return (
+    <Panel title="Active waivers" subtitle="Waivers the run applied." provenance={runProv}>
+      {waivers.length === 0 ? (
+        <p className="text-sm text-ck-fg-3">The run reported no active waivers.</p>
+      ) : (
+        <div className="space-y-4">
+          {waivers.map((w) => (
+            <div key={w.id} className="space-y-2 rounded-md border border-ck-hairline bg-ck-bg-0 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Code>{w.id}</Code>
+                <StateBadge tone="warn">{w.status ?? "unknown"}</StateBadge>
+              </div>
+              <Fields
+                items={[
+                  { label: "Rule", value: w.rule_id, mono: true },
+                  { label: "Reason", value: w.reason ?? "UNKNOWN" },
+                  { label: "Scope", value: w.scope ?? "UNKNOWN", mono: true },
+                  { label: "Author", value: w.author ?? "UNKNOWN" },
+                  { label: "Created", value: w.created_at ?? "UNKNOWN", mono: true },
+                  { label: "Expires", value: w.expires_at ?? "UNKNOWN", mono: true },
+                  { label: "Fingerprint", value: w.fingerprint ?? "UNKNOWN", mono: true },
+                ]}
+              />
+            </div>
+          ))}
+          <p className="text-xs text-ck-fg-mute">
+            The fingerprint is a digest reported by the engine. It is not a signature.
+          </p>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function SarifPanel({
+  sarif,
+  violations,
+  waivedIds,
+}: {
+  sarif: SnapResult<SarifExportOutput>;
+  violations: number | undefined;
+  waivedIds: string[];
+}) {
+  if (!sarif.data || !sarif.provenance) {
+    return <SnapFallback title="SARIF export" state={sarif} />;
+  }
+  const s = sarif.data;
+  return (
+    <Panel
+      title="SARIF export"
+      subtitle="export sarif run over the pipeline's OSCAL assessment results."
+      provenance={sarif.provenance}
+    >
+      <div className="space-y-3">
+        <StatGrid>
+          <StatTile label="Results" value={num(s.results_count)} />
+          <StatTile label="Rules" value={num(s.rules_count)} />
+          <StatTile label="Format" value={<span className="text-sm">{s.format ?? "UNKNOWN"}</span>} />
+        </StatGrid>
+        <Note title="What this export contains">
+          The export reports counts only; the SARIF file is not part of this snapshot, so
+          individual results are not shown here. SARIF results are generated from assessment
+          findings. This run reported {num(violations)} violations and{" "}
+          {waivedIds.length} waived rule{waivedIds.length === 1 ? "" : "s"}
+          {waivedIds.length > 0 && (
+            <>
+              {" "}(<Code>{waivedIds.join(", ")}</Code>)
+            </>
+          )}
+          {s.results_count === waivedIds.length && (violations ?? 0) === 0
+            ? ", so the result count matches the waived finding (inferred: the result is the waived rule, exported as suppressed)."
+            : "."}
+        </Note>
+        <Terminal command={sarif.command} output={pretty(s)} exitCode={sarif.exitCode} />
+      </div>
+    </Panel>
   );
 }

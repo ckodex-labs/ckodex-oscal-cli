@@ -162,56 +162,82 @@ fn validate_constraints(
             }
         }
 
-        // 4. Back-matter resource reference integrity
-        let mut declared_resource_uuids = std::collections::HashSet::new();
-        if let Some(back_matter) = root_obj.get("back-matter").and_then(Value::as_object)
-            && let Some(resources) = back_matter.get("resources").and_then(Value::as_array)
-        {
-            for res in resources {
-                if let Some(uuid_str) = res.get("uuid").and_then(Value::as_str) {
-                    declared_resource_uuids.insert(uuid_str.to_string());
+        // 4. Fragment reference integrity.
+        // An OSCAL fragment href ('#x') may target a back-matter resource UUID or
+        // any other identifier in the document (control, group, part, param ids).
+        // The check only runs when the document declares back-matter resources,
+        // preserving the previous scope of this rule.
+        let has_resources = root_obj
+            .get("back-matter")
+            .and_then(Value::as_object)
+            .and_then(|bm| bm.get("resources"))
+            .and_then(Value::as_array)
+            .is_some_and(|r| !r.is_empty());
+
+        if has_resources {
+            let mut declared_targets = std::collections::HashSet::new();
+            collect_identifiers(&doc.value, &mut declared_targets);
+            check_back_matter_links(
+                &doc.value,
+                &declared_targets,
+                doc.kind.root_key(),
+                diagnostics,
+            );
+        }
+    }
+}
+
+fn collect_identifiers(value: &Value, out: &mut std::collections::HashSet<String>) {
+    match value {
+        Value::Object(map) => {
+            for key in ["id", "uuid"] {
+                if let Some(s) = map.get(key).and_then(Value::as_str) {
+                    out.insert(s.to_string());
                 }
             }
+            for v in map.values() {
+                collect_identifiers(v, out);
+            }
         }
-
-        check_back_matter_links(
-            &doc.value,
-            &declared_resource_uuids,
-            doc.kind.root_key(),
-            diagnostics,
-        );
+        Value::Array(arr) => {
+            for v in arr {
+                collect_identifiers(v, out);
+            }
+        }
+        _ => {}
     }
 }
 
 fn check_back_matter_links(
     value: &Value,
-    declared_resources: &std::collections::HashSet<String>,
+    declared_targets: &std::collections::HashSet<String>,
     current_path: &str,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match value {
         Value::Object(map) => {
             if let Some(href) = map.get("href").and_then(Value::as_str)
-                && let Some(uuid_target) = href.strip_prefix('#')
-                && !declared_resources.contains(uuid_target)
-                && !declared_resources.is_empty()
+                && let Some(target) = href.strip_prefix('#')
+                && !declared_targets.contains(target)
             {
                 diagnostics.push(Diagnostic {
-                            level: DiagnosticLevel::Warning,
-                            code: "oscal-resource-link-unresolved".to_owned(),
-                            path: format!("{current_path}/href"),
-                            message: format!("Link href '{href}' does not match any declared resource UUID in back-matter"),
-                        });
+                    level: DiagnosticLevel::Warning,
+                    code: "oscal-resource-link-unresolved".to_owned(),
+                    path: format!("{current_path}/href"),
+                    message: format!(
+                        "Link href '{href}' does not match any back-matter resource UUID or document identifier"
+                    ),
+                });
             }
             for (k, v) in map {
                 let next_path = format!("{current_path}/{k}");
-                check_back_matter_links(v, declared_resources, &next_path, diagnostics);
+                check_back_matter_links(v, declared_targets, &next_path, diagnostics);
             }
         }
         Value::Array(arr) => {
             for (idx, item) in arr.iter().enumerate() {
                 let next_path = format!("{current_path}[{idx}]");
-                check_back_matter_links(item, declared_resources, &next_path, diagnostics);
+                check_back_matter_links(item, declared_targets, &next_path, diagnostics);
             }
         }
         _ => {}

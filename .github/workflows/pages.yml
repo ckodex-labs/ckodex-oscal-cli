@@ -43,6 +43,11 @@ jobs:
       - name: Build Mizan Core CLI
         run: cargo build --release --bin mizan
 
+      - name: Generate Workbench Engine Snapshot
+        env:
+          MIZAN_BIN: target/release/mizan
+        run: node apps/workbench/scripts/gen-snapshot.mjs
+
       - name: Generate Rustdoc API Documentation
         run: |
           cargo doc --workspace --no-deps

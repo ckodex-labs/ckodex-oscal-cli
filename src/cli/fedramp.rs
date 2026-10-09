@@ -38,13 +38,14 @@ pub(super) fn run_fedramp(args: &FedrampCliArgs, format: OutputFormat) -> Result
             println!("  Rules Checked:   {}", report.total_rules_checked);
             println!("  Passed Rules:    {}", report.passed_rules);
             println!("  Failed Rules:    {}", report.failed_rules);
+            println!("  Findings:        {}", report.findings_count);
             println!("────────────────────────────────────────────────────────────────────────");
 
             if !report.findings.is_empty() {
                 println!("\nPMO Rule Violations:");
                 for f in &report.findings {
                     println!(
-                        "  \u{26a0} [{}] {} (Severity: {})",
+                        "  - [{}] {} (Severity: {})",
                         f.rule_id, f.title, f.severity
                     );
                     println!("     Detail: {}", f.detail);

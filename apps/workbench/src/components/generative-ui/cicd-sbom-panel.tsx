@@ -1,597 +1,315 @@
 "use client";
 
+/**
+ * Policy Gates & SBOM.
+ *
+ * - Built-in policy rulepacks (`policy rulepack list`) with their Rego source.
+ * - CycloneDX import into an OSCAL component definition (`sbom import`).
+ * - Interactive Rego evaluation through /api/eval, only when the local engine
+ *   is LIVE. Without it, the panel says so; there is no client-side imitation.
+ */
+
 import * as React from "react";
+import { useEngine, BASE_PATH } from "@/lib/engine";
+import type { Provenance } from "@/lib/provenance";
+import type { Rulepack, RulepackEvalOutput, SbomImportOutput } from "@/lib/snapshot-types-b";
 import {
-  ShieldCheck,
+  DesktopOnly,
+  EmptyState,
+  PageHeader,
+  Panel,
+  ReadOnlyNotice,
+  StatGrid,
+  StatTile,
+  StateBadge,
   Terminal,
-  FileCode,
-  CheckCircle2,
-  AlertTriangle,
-  Play,
-  PackageCheck,
-  Download,
-} from "lucide-react";
+} from "@/components/kit";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+  Code,
+  Fields,
+  Note,
+  SnapFallback,
+  btnPrimaryClass,
+  num,
+  pretty,
+  useSnap,
+  type SnapResult,
+} from "@/components/generative-ui/b/shared";
 
 export function CicdSbomPanel() {
-  const [activeSubTab, setActiveSubTab] = React.useState<
-    "rulepacks" | "cicd" | "sbom"
-  >("rulepacks");
-  const [selectedRule, setSelectedRule] =
-    React.useState<string>("cis-k8s-5.2.1");
-  const [evaluating, setEvaluating] = React.useState(false);
-  const [evalResult, setEvalResult] = React.useState<{
-    passed: boolean;
-    message: string;
-    findings: string[];
-  }>({
-    passed: false,
-    message:
-      "Container 'production-api' specifies privileged: true in securityContext",
-    findings: ["Container production-api has privileged: true"],
-  });
+  const { status } = useEngine();
+  const rules = useSnap<Rulepack[]>("policy-rulepack-list", 3);
+  const sbom = useSnap<SbomImportOutput>("sbom-import");
 
-  const rules = [
-    {
-      id: "cis-k8s-5.2.1",
-      name: "Disallow Privileged Containers",
-      framework: "CIS K8s 1.8 / FedRAMP AC-6",
-      severity: "High",
-      desc: "Privileged containers share host capabilities and must be blocked.",
-      samplePayload: JSON.stringify(
-        {
-          apiVersion: "v1",
-          kind: "Pod",
-          spec: {
-            containers: [
-              {
-                name: "production-api",
-                securityContext: {
-                  privileged: true,
-                  runAsNonRoot: false,
-                },
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    },
-    {
-      id: "cis-k8s-5.2.6",
-      name: "Require Read-Only Root Filesystem",
-      framework: "CIS K8s 1.8 / FedRAMP SI-4",
-      severity: "Medium",
-      desc: "Containers must run with read-only root filesystems to prevent binary modification.",
-      samplePayload: JSON.stringify(
-        {
-          apiVersion: "v1",
-          kind: "Pod",
-          spec: {
-            containers: [
-              {
-                name: "worker-proc",
-                securityContext: {
-                  readOnlyRootFilesystem: false,
-                },
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    },
-    {
-      id: "fedramp-ac-2",
-      name: "Enforce Non-Root Execution",
-      framework: "FedRAMP High / NIST AC-2",
-      severity: "High",
-      desc: "Containers must enforce runAsNonRoot: true for non-privileged execution context.",
-      samplePayload: JSON.stringify(
-        {
-          apiVersion: "v1",
-          kind: "Pod",
-          spec: {
-            containers: [
-              {
-                name: "database-proxy",
-                securityContext: {
-                  runAsNonRoot: true,
-                  readOnlyRootFilesystem: true,
-                },
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    },
-    {
-      id: "itsg33-boundary-isolation",
-      name: "CCCS Sovereign Boundary Isolation",
-      framework: "CCCS ITSG-33 / PBMM SC-7",
-      severity: "High",
-      desc: "Enforce ingress and egress network isolation rules for Protected B workloads.",
-      samplePayload: JSON.stringify(
-        {
-          apiVersion: "networking.k8s.io/v1",
-          kind: "NetworkPolicy",
-          spec: {
-            ingress: [
-              {
-                from: [{ podSelector: { matchLabels: { role: "frontend" } } }],
-              },
-            ],
-          },
-        },
-        null,
-        2,
-      ),
-    },
-  ];
+  return (
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Policy"
+        title="Policy Gates & SBOM"
+        description="The Rego rules the engine ships for CI gating, and the OSCAL component definition produced from the example CycloneDX SBOM."
+      />
+      <ReadOnlyNotice />
 
-  const currentRuleObj = rules.find((r) => r.id === selectedRule) || rules[0];
+      <RulepacksPanel rules={rules} />
 
-  const handleRunEval = async (isGood: boolean) => {
-    setEvaluating(true);
-    let payload = currentRuleObj.samplePayload;
+      <div className="grid gap-4 2xl:grid-cols-2">
+        <SbomPanel sbom={sbom} />
+        {status.kind === "live" ? (
+          <EvalPanel rules={rules.data ?? []} />
+        ) : (
+          <EvalUnavailable probing={status.kind === "probing"} />
+        )}
+      </div>
+    </div>
+  );
+}
 
-    if (isGood) {
-      if (selectedRule === "cis-k8s-5.2.1") {
-        payload = JSON.stringify(
-          {
-            apiVersion: "v1",
-            kind: "Pod",
-            spec: {
-              containers: [
+function RulepacksPanel({ rules }: { rules: SnapResult<Rulepack[]> }) {
+  if (!rules.data || !rules.provenance) {
+    return <SnapFallback title="policy rulepacks" state={rules} />;
+  }
+  return (
+    <Panel
+      title="Built-in policy rulepacks"
+      subtitle={`${rules.data.length} rules returned by policy rulepack list`}
+      provenance={rules.provenance}
+    >
+      <ul className="grid gap-3 lg:grid-cols-2">
+        {rules.data.map((r) => (
+          <li key={r.id} className="min-w-0 space-y-2 rounded-md border border-ck-hairline bg-ck-bg-0 p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <Code>{r.id}</Code>
+              <StateBadge tone="neutral" glyph={false}>
+                {r.severity ?? "unknown"}
+              </StateBadge>
+            </div>
+            <p className="text-sm font-medium text-ck-fg-1">{r.name ?? "UNKNOWN"}</p>
+            {r.description && <p className="text-sm text-ck-fg-3">{r.description}</p>}
+            <Fields
+              items={[
+                { label: "Benchmark", value: r.benchmark ?? "UNKNOWN" },
                 {
-                  name: "production-api",
-                  securityContext: {
-                    privileged: false,
-                    runAsNonRoot: true,
-                  },
+                  label: "Target controls",
+                  value: (r.target_controls ?? []).join(", ") || "none",
+                  mono: true,
                 },
-              ],
-            },
-          },
-          null,
-          2,
-        );
-      } else if (selectedRule === "cis-k8s-5.2.6") {
-        payload = JSON.stringify(
-          {
-            apiVersion: "v1",
-            kind: "Pod",
-            spec: {
-              containers: [
-                {
-                  name: "worker-proc",
-                  securityContext: {
-                    readOnlyRootFilesystem: true,
-                  },
-                },
-              ],
-            },
-          },
-          null,
-          2,
-        );
-      } else if (selectedRule === "fedramp-ac-2") {
-        payload = JSON.stringify(
-          {
-            apiVersion: "v1",
-            kind: "Pod",
-            spec: {
-              containers: [
-                {
-                  name: "core-service",
-                  securityContext: {
-                    runAsNonRoot: true,
-                  },
-                },
-              ],
-            },
-          },
-          null,
-          2,
-        );
-      } else {
-        payload = JSON.stringify(
-          {
-            apiVersion: "networking.k8s.io/v1",
-            kind: "NetworkPolicy",
-            spec: {
-              ingress: [
-                {
-                  from: [
-                    { podSelector: { matchLabels: { role: "frontend" } } },
-                  ],
-                },
-              ],
-            },
-          },
-          null,
-          2,
-        );
-      }
-    }
+              ]}
+            />
+            {r.rego_source && (
+              <details className="text-sm">
+                <summary className="cursor-pointer text-ck-fg-3 hover:text-ck-fg-1">Rego source</summary>
+                <pre className="mt-2 overflow-auto whitespace-pre-wrap break-words rounded-md border border-ck-hairline-strong bg-[#111214] p-3 font-mono text-xs leading-5 text-[#e6e4df]">
+                  {r.rego_source.trim()}
+                </pre>
+              </details>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+}
 
+function SbomPanel({ sbom }: { sbom: SnapResult<SbomImportOutput> }) {
+  if (!sbom.data || !sbom.provenance) {
+    return <SnapFallback title="SBOM import" state={sbom} />;
+  }
+  const s = sbom.data;
+  return (
+    <Panel
+      title="SBOM import"
+      subtitle="examples/inventory-sbom.json to an OSCAL component definition"
+      provenance={sbom.provenance}
+    >
+      <div className="space-y-3">
+        <StatGrid>
+          <StatTile label="Components" value={num(s.component_count)} />
+          <StatTile label="Direct dependencies" value={num(s.direct_dependencies)} />
+          <StatTile
+            label="Input format"
+            value={<span className="text-sm">{`${s.format ?? "UNKNOWN"} ${s.spec_version ?? ""}`.trim()}</span>}
+          />
+        </StatGrid>
+        <Fields
+          items={[
+            { label: "Component definition UUID", value: s.oscal_component_uuid ?? "UNKNOWN", mono: true },
+          ]}
+        />
+        <p className="text-xs text-ck-fg-mute">
+          The component definition file was written to the build work directory and is not part
+          of this snapshot. The engine reported no vulnerability data for this import.
+        </p>
+        <Terminal command={sbom.command} output={pretty(s)} exitCode={sbom.exitCode} />
+      </div>
+    </Panel>
+  );
+}
+
+function EvalUnavailable({ probing }: { probing: boolean }) {
+  return (
+    <Panel
+      title="Evaluate a rule"
+      subtitle="policy rulepack eval through the local engine"
+      provenance={{
+        kind: "local",
+        label: "no engine",
+        detail: "Rule evaluation requires the local mizan binary behind next dev.",
+      }}
+    >
+      <EmptyState kind="unknown" title={probing ? "Checking for the local engine" : "Evaluation needs the local engine"}>
+        Running a Rego rule against your own input requires <Code>mizan</Code> behind the
+        Workbench dev server (<Code>npm run dev</Code> in apps/workbench). This build has only
+        the captured snapshot, so no evaluation is performed and no result is shown.
+      </EmptyState>
+    </Panel>
+  );
+}
+
+const DEFAULT_INPUT = JSON.stringify(
+  {
+    apiVersion: "v1",
+    kind: "Pod",
+    spec: {
+      containers: [{ name: "app", securityContext: { runAsNonRoot: true } }],
+    },
+  },
+  null,
+  2,
+);
+
+type EvalState =
+  | { kind: "idle" }
+  | { kind: "running" }
+  | { kind: "done"; rule: string; data: RulepackEvalOutput; provenance: Provenance }
+  | { kind: "error"; message: string };
+
+function EvalPanel({ rules }: { rules: Rulepack[] }) {
+  const [rule, setRule] = React.useState<string>("");
+  const [input, setInput] = React.useState(DEFAULT_INPUT);
+  const [state, setState] = React.useState<EvalState>({ kind: "idle" });
+  const selected = rule || rules[0]?.id || "";
+
+  let parseError: string | null = null;
+  try {
+    JSON.parse(input);
+  } catch (e) {
+    parseError = e instanceof Error ? e.message : String(e);
+  }
+
+  const evaluate = async () => {
+    if (!selected || parseError) return;
+    setState({ kind: "running" });
     try {
-      let evalData: {
-        passed: boolean;
-        findings: string[];
-        engine: string;
-      } | null = null;
-      try {
-        const res = await fetch("/api/eval", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rule: selectedRule, payload }),
-        });
-        if (
-          res.ok &&
-          res.headers.get("content-type")?.includes("application/json")
-        ) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            evalData = {
-              passed: Boolean(json.data.passed),
-              findings: json.data.findings || [],
-              engine: "Native Regorus Engine",
-            };
-          }
-        }
-      } catch {
-        // Fallback to client-side AST inspection when offline or static
-      }
-
-      if (!evalData) {
-        let passed = true;
-        const findings: string[] = [];
-        try {
-          const doc = JSON.parse(payload);
-          const containers = doc?.spec?.containers || [];
-          if (selectedRule === "cis-k8s-5.2.1") {
-            for (const c of containers) {
-              if (c?.securityContext?.privileged === true) {
-                passed = false;
-                findings.push(
-                  `Container '${c.name || "container"}' specifies privileged: true in securityContext (violates AC-6)`,
-                );
-              }
-            }
-          } else if (selectedRule === "cis-k8s-5.2.6") {
-            for (const c of containers) {
-              if (c?.securityContext?.readOnlyRootFilesystem !== true) {
-                passed = false;
-                findings.push(
-                  `Container '${c.name || "container"}' does not enforce readOnlyRootFilesystem: true (violates CM-7 / SI-4)`,
-                );
-              }
-            }
-          } else if (selectedRule === "fedramp-ac-2") {
-            for (const c of containers) {
-              if (c?.securityContext?.runAsNonRoot !== true) {
-                passed = false;
-                findings.push(
-                  `Container '${c.name || "container"}' allows root execution (runAsNonRoot: false) (violates AC-2)`,
-                );
-              }
-            }
-          } else if (selectedRule === "itsg33-boundary-isolation") {
-            const ingress = doc?.spec?.ingress || [];
-            if (ingress.length === 0) {
-              passed = false;
-              findings.push(
-                "NetworkPolicy does not specify ingress boundary isolation rules (violates ITSG-33 SC-7)",
-              );
-            }
-          }
-        } catch (e: any) {
-          passed = false;
-          findings.push(`Invalid JSON payload: ${e?.message || "parse error"}`);
-        }
-
-        evalData = {
-          passed,
-          findings,
-          engine: "In-Browser Policy AST Engine",
-        };
-      }
-
-      setEvalResult({
-        passed: evalData.passed,
-        message: evalData.passed
-          ? `Evaluated by ${evalData.engine} · All compliance invariants satisfied.`
-          : evalData.findings[0] ||
-            `Policy violation detected by rule '${selectedRule}'`,
-        findings: evalData.findings,
+      const res = await fetch(`${BASE_PATH}/api/eval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rule: selected, payload: input }),
       });
-    } catch (err) {
-      console.error("Evaluation failed:", err);
-    } finally {
-      setEvaluating(false);
+      const ct = res.headers.get("content-type") ?? "";
+      if (!ct.includes("application/json")) {
+        throw new Error(`${res.status} ${res.statusText}: non-JSON response from /api/eval`);
+      }
+      const body = (await res.json()) as { success: boolean; data?: RulepackEvalOutput; error?: string };
+      if (!res.ok || !body.success || !body.data) {
+        throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+      }
+      setState({
+        kind: "done",
+        rule: selected,
+        data: body.data,
+        provenance: {
+          kind: "live",
+          label: "mizan policy rulepack eval",
+          command: `mizan policy rulepack eval -r ${selected} -i <temp file> --format json`,
+          generatedAt: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      setState({ kind: "error", message: e instanceof Error ? e.message : String(e) });
     }
   };
 
+  const prov: Provenance =
+    state.kind === "done"
+      ? state.provenance
+      : { kind: "local", label: "your input", detail: "Input typed in this browser session; nothing evaluated yet." };
+
   return (
-    <div className="space-y-4">
-      {/* Sub-Navigation Header */}
-      <div className="flex items-center justify-between border-b border-ck-hairline pb-2">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={activeSubTab === "rulepacks" ? "default" : "outline"}
-            onClick={() => setActiveSubTab("rulepacks")}
-            className="h-7 text-xs font-mono"
-          >
-            Regorus Policy Rulepacks
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSubTab === "cicd" ? "default" : "outline"}
-            onClick={() => setActiveSubTab("cicd")}
-            className="h-7 text-xs font-mono"
-          >
-            SARIF &amp; GitLab Exporters
-          </Button>
-          <Button
-            size="sm"
-            variant={activeSubTab === "sbom" ? "default" : "outline"}
-            onClick={() => setActiveSubTab("sbom")}
-            className="h-7 text-xs font-mono"
-          >
-            CycloneDX SBOM Ingestion
-          </Button>
-        </div>
-        <Badge
-          variant="outline"
-          className="font-mono text-[10px] text-green-700 dark:text-green-400"
-        >
-          Engine: Regorus 0.3.4 + OSCAL 1.2
-        </Badge>
+    <Panel
+      title="Evaluate a rule"
+      subtitle="policy rulepack eval through the local engine"
+      provenance={prov}
+    >
+      <div className="space-y-3">
+        <DesktopOnly>
+          <div className="space-y-3">
+            <label className="block space-y-1">
+              <span className="text-xs text-ck-fg-mute">Rule</span>
+              <select
+                className="block w-full rounded-md border border-ck-hairline-strong bg-ck-bg-0 px-2 py-1.5 font-mono text-xs text-ck-fg-1"
+                value={selected}
+                onChange={(e) => setRule(e.target.value)}
+              >
+                {rules.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs text-ck-fg-mute">Input JSON (Kubernetes-style manifest, edit freely)</span>
+              <textarea
+                className="block h-48 w-full resize-y rounded-md border border-ck-hairline-strong bg-ck-bg-0 p-2 font-mono text-xs text-ck-fg-1"
+                spellCheck={false}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+            </label>
+            {parseError && <p className="text-xs text-ck-neg">Input is not valid JSON: {parseError}</p>}
+            <button
+              type="button"
+              className={btnPrimaryClass}
+              onClick={evaluate}
+              disabled={!selected || !!parseError || state.kind === "running"}
+            >
+              {state.kind === "running" ? "Evaluating..." : "Evaluate"}
+            </button>
+          </div>
+        </DesktopOnly>
+
+        {state.kind === "error" && (
+          <EmptyState kind="error" title="Evaluation failed">
+            {state.message}
+          </EmptyState>
+        )}
+        {state.kind === "done" && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Code>{state.rule}</Code>
+              {typeof state.data.passed === "boolean" ? (
+                <StateBadge tone={state.data.passed ? "pos" : "neg"}>
+                  {state.data.passed ? "passed" : "denied"}
+                </StateBadge>
+              ) : (
+                <StateBadge tone="unk">unknown</StateBadge>
+              )}
+            </div>
+            {(state.data.findings ?? []).length > 0 && (
+              <ul className="list-disc space-y-1 pl-5 text-sm text-ck-fg-2">
+                {(state.data.findings ?? []).map((f, i) => (
+                  <li key={i} className="break-words">{f}</li>
+                ))}
+              </ul>
+            )}
+            <Terminal command={state.provenance.command ?? ""} output={pretty(state.data)} maxHeight={320} />
+          </div>
+        )}
+        <Note title="Scope">
+          Evaluates one built-in rule against the input above. It does not change pipeline
+          results or waivers.
+        </Note>
       </div>
-
-      {activeSubTab === "rulepacks" && (
-        <div className="grid grid-cols-12 gap-3">
-          {/* Rule Selector List */}
-          <div className="col-span-5 space-y-2">
-            <span className="text-[11px] font-mono text-ck-fg-mute uppercase tracking-wider block">
-              Verified Compliance Rules
-            </span>
-            {rules.map((rule) => {
-              const isSelected = rule.id === selectedRule;
-              return (
-                <div
-                  key={rule.id}
-                  onClick={() => setSelectedRule(rule.id)}
-                  className={`p-2.5 border cursor-pointer transition-colors ${
-                    isSelected
-                      ? "border-ck-hairline-strong bg-ck-bg-2 shadow-[2px_2px_0_var(--ck-fg-1)]"
-                      : "border-ck-hairline bg-ck-bg-1 hover:border-ck-hairline-strong"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs font-semibold text-ck-fg-1">
-                      {rule.id}
-                    </span>
-                    <Badge
-                      variant="outline"
-                      className="text-[9px] font-mono uppercase"
-                    >
-                      {rule.severity}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-ck-fg-1 font-medium mt-1">
-                    {rule.name}
-                  </div>
-                  <div className="text-[10px] text-ck-fg-mute font-mono mt-0.5">
-                    {rule.framework}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Interactive Evaluation Sandbox */}
-          <div className="col-span-7 space-y-3">
-            <Card className="border-ck-hairline-strong bg-ck-bg-1">
-              <CardHeader className="p-3 border-b border-ck-hairline">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xs font-mono flex items-center gap-1.5">
-                    <Terminal className="h-3.5 w-3.5 text-accent" />
-                    Rego Workload Evaluation: {selectedRule}
-                  </CardTitle>
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      size="sm"
-                      onClick={() => handleRunEval(false)}
-                      disabled={evaluating}
-                      className="h-6 text-[10px] font-mono bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <Play className="h-2.5 w-2.5 mr-1" />
-                      Eval Violation
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleRunEval(true)}
-                      disabled={evaluating}
-                      className="h-6 text-[10px] font-mono bg-green-700 hover:bg-green-800 text-white"
-                    >
-                      <CheckCircle2 className="h-2.5 w-2.5 mr-1" />
-                      Eval Passing
-                    </Button>
-                  </div>
-                </div>
-                <CardDescription className="text-[11px] text-ck-fg-mute text-balance">
-                  {currentRuleObj.desc}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-3 space-y-2">
-                <pre className="p-2 bg-ck-bg-0 border border-ck-hairline font-mono text-[10px] text-ck-fg-1 overflow-x-auto max-h-40">
-                  {currentRuleObj.samplePayload}
-                </pre>
-
-                {/* Live Result Output */}
-                <div
-                  className={`p-2 border font-mono text-xs ${
-                    evalResult.passed
-                      ? "border-green-700 bg-green-950/20 text-green-700 dark:text-green-400"
-                      : "border-red-700 bg-red-950/20 text-red-700 dark:text-red-400"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 font-semibold">
-                    {evalResult.passed ? (
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                    ) : (
-                      <AlertTriangle className="h-3.5 w-3.5" />
-                    )}
-                    Status:{" "}
-                    {evalResult.passed
-                      ? "ALLOWED / COMPLIANT"
-                      : "DENIED / VIOLATION DETECTED"}
-                  </div>
-                  <div className="text-[11px] mt-1 opacity-90">
-                    {evalResult.message}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      )}
-
-      {activeSubTab === "cicd" && (
-        <div className="grid grid-cols-2 gap-3">
-          <Card className="border-ck-hairline-strong bg-ck-bg-1">
-            <CardHeader className="p-3 border-b border-ck-hairline">
-              <CardTitle className="text-xs font-mono flex items-center gap-1.5">
-                <FileCode className="h-3.5 w-3.5 text-accent" />
-                OASIS SARIF v2.1.0 Exporter
-              </CardTitle>
-              <CardDescription className="text-[11px]">
-                Target: GitHub Code Scanning, SonarQube &amp; VS Code SARIF
-                Viewer
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 space-y-2 font-mono text-[11px]">
-              <div className="p-2 bg-ck-bg-0 border border-ck-hairline text-ck-fg-1">
-                <div>
-                  $ mizan export sarif -i catalog.json -o mizan-sarif.json
-                </div>
-                <div className="text-green-700 dark:text-green-400 mt-1">
-                  [OK] Exported 9 controls to SARIF v2.1.0 schema with
-                  rule-level NIST URIs
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full h-7 text-xs font-mono"
-              >
-                <Download className="h-3 w-3 mr-1.5" />
-                Download SARIF v2.1.0 Sample
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-ck-hairline-strong bg-ck-bg-1">
-            <CardHeader className="p-3 border-b border-ck-hairline">
-              <CardTitle className="text-xs font-mono flex items-center gap-1.5">
-                <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-                GitLab Security Scanner Report v15.0.0
-              </CardTitle>
-              <CardDescription className="text-[11px]">
-                Target: GitLab CI/CD Security &amp; Compliance Pipeline Gates
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-3 space-y-2 font-mono text-[11px]">
-              <div className="p-2 bg-ck-bg-0 border border-ck-hairline text-ck-fg-1">
-                <div>
-                  $ mizan export gitlab -i catalog.json -o
-                  gl-security-report.json
-                </div>
-                <div className="text-green-700 dark:text-green-400 mt-1">
-                  [OK] Formatted scanner ID: mizan-compliance-scanner (v15.0.0)
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full h-7 text-xs font-mono"
-              >
-                <Download className="h-3 w-3 mr-1.5" />
-                Download GitLab Report Sample
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {activeSubTab === "sbom" && (
-        <Card className="border-ck-hairline-strong bg-ck-bg-1">
-          <CardHeader className="p-3 border-b border-ck-hairline">
-            <CardTitle className="text-xs font-mono flex items-center gap-1.5">
-              <PackageCheck className="h-3.5 w-3.5 text-accent" />
-              CycloneDX &amp; SPDX SBOM to OSCAL Component Definition
-            </CardTitle>
-            <CardDescription className="text-[11px]">
-              Ingests third-party bill of materials and automatically maps
-              software components to NIST SA-11 and SI-2 controls.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-3 space-y-3 font-mono text-[11px]">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="border border-ck-hairline bg-ck-bg-0 p-2 text-center">
-                <span className="text-[10px] text-ck-fg-mute block">
-                  Direct Dependencies
-                </span>
-                <span className="text-sm font-semibold text-ck-fg-1">
-                  24 Packages
-                </span>
-              </div>
-              <div className="border border-ck-hairline bg-ck-bg-0 p-2 text-center">
-                <span className="text-[10px] text-ck-fg-mute block">
-                  Target OSCAL Object
-                </span>
-                <span className="text-sm font-semibold text-ck-fg-1">
-                  component-definition
-                </span>
-              </div>
-              <div className="border border-ck-hairline bg-ck-bg-0 p-2 text-center">
-                <span className="text-[10px] text-ck-fg-mute block">
-                  Linked Controls
-                </span>
-                <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                  SA-11, SI-2
-                </span>
-              </div>
-            </div>
-
-            <div className="p-2 bg-ck-bg-0 border border-ck-hairline text-ck-fg-1">
-              <div>
-                $ mizan sbom import -i cyclonedx.json -o
-                oscal-component-definition.json
-              </div>
-              <div className="text-green-700 dark:text-green-400 mt-1">
-                [OK] Generated OSCAL Component Definition (UUID:
-                7a82b94e-5c61-4fa2-9382-3f81e6b01429)
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </Panel>
   );
 }

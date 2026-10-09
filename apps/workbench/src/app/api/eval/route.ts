@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callOscalCli } from "@/lib/mcp-client";
+import { bridgeError, guardBridgeRequest } from "@/lib/bridge-guard";
 import fs from "fs";
 import os from "os";
 import path from "path";
 
 export async function POST(req: NextRequest) {
+  const rejected = guardBridgeRequest(req);
+  if (rejected) return rejected;
   let tempFilePath: string | null = null;
   try {
     const body = await req.json();
     const { rule, payload } = body;
 
+    if (typeof rule !== "string" || !/^[A-Za-z0-9._:-]+$/.test(rule) || rule.startsWith("-")) {
+      return bridgeError(400, "Invalid rule identifier");
+    }
+    if (typeof payload !== "string" || payload.length > 1_000_000) {
+      return bridgeError(400, "Payload must be a string under 1 MB");
+    }
     if (!rule || !payload) {
       return NextResponse.json(
         { success: false, error: "Missing required 'rule' or 'payload'" },

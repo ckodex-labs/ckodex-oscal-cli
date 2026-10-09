@@ -110,21 +110,20 @@ pub fn inspect_document(doc: &OscalDocument) -> Result<DocumentSummary> {
 fn count_elements(val: &Value, stats: &mut ModelStats) {
     match val {
         Value::Object(obj) => {
-            if obj.contains_key("title")
-                && obj.contains_key("id")
-                && (obj.contains_key("parts")
-                    || obj.contains_key("params")
-                    || obj.contains_key("controls"))
-            {
-                let id = obj.get("id").and_then(Value::as_str).unwrap_or("");
-                stats.total_controls += 1;
-                let family = id
-                    .split(['-', '_', '.'])
-                    .next()
-                    .unwrap_or(id)
-                    .to_ascii_uppercase();
-                if !family.is_empty() {
-                    *stats.controls_by_family.entry(family).or_default() += 1;
+            if let Some(arr) = obj.get("controls").and_then(Value::as_array) {
+                for ctrl in arr {
+                    let Some(id) = ctrl.get("id").and_then(Value::as_str) else {
+                        continue;
+                    };
+                    stats.total_controls += 1;
+                    let family = id
+                        .split(['-', '_', '.'])
+                        .next()
+                        .unwrap_or(id)
+                        .to_ascii_uppercase();
+                    if !family.is_empty() {
+                        *stats.controls_by_family.entry(family).or_default() += 1;
+                    }
                 }
             }
             if obj.contains_key("groups")

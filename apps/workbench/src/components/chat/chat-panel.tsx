@@ -1,316 +1,215 @@
 "use client";
 
+/**
+ * Copilot drawer.
+ *
+ * No language model is connected in this build. The drawer accepts a small
+ * fixed set of commands (see ./commands.ts) and answers each one from
+ * captured engine output (SNAPSHOT) or, when the local engine is reachable,
+ * from a read-only engine call (LIVE). It never composes free-form answers.
+ */
+
 import * as React from "react";
-import { MessageItem, ChatMessage } from "./message-item";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Sparkles, Shield, GitMerge, FileCheck } from "lucide-react";
+import { runLive, useEngine, useSnapshot } from "@/lib/engine";
+import type { BlastRadiusReport, FedrampReport, LensMode } from "@/lib/oscal-types";
+import { StateBadge } from "@/components/kit";
+import type { AtlasFile, ValidateReport } from "../generative-ui/engine-types";
+import { MessageItem, type AnswerSources } from "./message-item";
 import {
-  BlastRadiusReport,
-  FedrampReport,
-  MergeReport,
-  LensMode,
-} from "@/lib/oscal-types";
+  COMMAND_HELP,
+  parseCommand,
+  SAMPLE_SSP,
+  SNAPSHOT_BLAST_TARGET,
+  type Answer,
+  type Entry,
+} from "./commands";
 
 interface ChatPanelProps {
   selectedControl?: string;
+  /** Accepted for shell compatibility; lookups do not vary by lens. */
   lens?: LensMode;
   onNavigateControl?: (id: string) => void;
 }
 
-async function callCliApi(
-  command: string,
-  args: string[],
-): Promise<{ ok: boolean; data?: any; error?: string }> {
-  try {
-    const res = await fetch("/api/cli", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ command, args }),
-    });
-    if (!res.ok) {
-      return {
-        ok: false,
-        error: `CLI daemon unavailable (HTTP ${res.status} · running in client distribution)`,
-      };
-    }
-    const contentType = res.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      return {
-        ok: false,
-        error: "CLI endpoint returned non-JSON (static web environment)",
-      };
-    }
-    const json = await res.json();
-    return { ok: json.success, data: json.data, error: json.error };
-  } catch (err: any) {
-    return { ok: false, error: err?.message || "Failed to reach CLI daemon" };
-  }
-}
+const ATLAS_OPTS = { file: "atlas.json" };
 
-export function ChatPanel({
-  selectedControl,
-  lens,
-  onNavigateControl,
-}: ChatPanelProps = {}) {
-  const [isDaemonConnected, setIsDaemonConnected] = React.useState<
-    boolean | null
-  >(null);
-  const [messages, setMessages] = React.useState<ChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      content:
-        "Welcome to **Mizan Compliance Workbench**. In local daemon mode, queries execute via the native `mizan` CLI binary. In client-side distribution, queries execute via the in-browser OSCAL AST kernel and WebCrypto Merkle engine.",
-    },
-  ]);
+export function ChatPanel({ selectedControl, onNavigateControl }: ChatPanelProps = {}) {
+  const { status } = useEngine();
+  const atlas = useSnapshot<AtlasFile>("nist-moderate-resolve", ATLAS_OPTS);
+  const blast = useSnapshot<BlastRadiusReport>("ssp-blast-radius");
+  const fedramp = useSnapshot<FedrampReport>("ssp-fedramp-validate");
+  const vCatalog = useSnapshot<ValidateReport>("nist-catalog-validate");
+  const vBaseline = useSnapshot<ValidateReport>("nist-moderate-validate");
+  const vSsp = useSnapshot<ValidateReport>("ssp-validate");
+
+  const sources: AnswerSources = {
+    atlas,
+    blast,
+    fedramp,
+    validate: { catalog: vCatalog, baseline: vBaseline, ssp: vSsp },
+  };
+
+  const [entries, setEntries] = React.useState<Entry[]>([]);
   const [input, setInput] = React.useState("");
-  const [loading, setLoading] = React.useState(false);
-  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const nextId = React.useRef(1);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
-  const handleSend = async (userPrompt?: string) => {
-    const promptToSend = userPrompt || input;
-    if (!promptToSend.trim() || loading) return;
+  React.useEffect(() => {
+    const el = listRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [entries]);
 
-    const userMsg: ChatMessage = {
-      id: String(Date.now()),
-      role: "user",
-      content: promptToSend,
-    };
+  React.useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
-    setMessages((prev) => [...prev, userMsg]);
+  const push = (inputText: string, answer: Answer) => {
+    const id = nextId.current++;
+    setEntries((prev) => [...prev.slice(-29), { id, input: inputText, answer }]);
+    return id;
+  };
+  const replace = (id: number, answer: Answer) =>
+    setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, answer } : e)));
+
+  const run = async (raw: string) => {
+    const text = raw.trim();
+    if (!text || busy) return;
     setInput("");
-    setLoading(true);
-
-    try {
-      let assistantMsg: ChatMessage;
-      const lower = promptToSend.toLowerCase();
-
-      if (
-        lower.includes("blast") ||
-        lower.includes("radius") ||
-        lower.includes("ac-1") ||
-        lower.includes("ac-2")
-      ) {
-        const target = lower.includes("ac-2")
-          ? "ac-2"
-          : selectedControl || "ac-1";
-        const apiRes = await callCliApi("blast-radius", [
-          "examples/sample-catalog.json",
-          "--target",
-          target,
-        ]);
-        if (apiRes.ok && apiRes.data) {
-          setIsDaemonConnected(true);
-          const report = apiRes.data as BlastRadiusReport;
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan blast-radius\` on \`examples/sample-catalog.json\` for target \`${target}\`:\n\n- Risk exposure score: **${report.risk_exposure_score ?? 0}**\n- Critical path: **${report.is_critical_path ? "YES" : "NO"}**\n- Direct dependents: **${report.direct_dependents?.length ?? 0}**\n- Transitive dependents: **${report.transitive_dependents?.length ?? 0}**`,
-            toolInvocations: [
-              {
-                toolName: "compute_blast_radius",
-                args: { target, file: "examples/sample-catalog.json" },
-                result: report,
-              },
-            ],
-          };
-        } else {
-          setIsDaemonConnected(false);
-          const direct =
-            target === "ac-2" ? ["ia-2", "ac-6"] : ["ac-2", "ac-3"];
-          const transitive =
-            target === "ac-2" ? ["cm-7", "si-4", "sc-7"] : ["ia-5", "sc-13"];
-          const score = target === "ac-2" ? 78 : 64;
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[IN-BROWSER AST GRAPH ENGINE · INFERRED VALENCE]\nComputed topological blast radius for target \`${target}\`:\n\n- Risk exposure score: **${score}**\n- Critical path: **YES**\n- Direct dependents: **${direct.join(", ")}** (${direct.length})\n- Transitive dependents: **${transitive.join(", ")}** (${transitive.length})\n- Invariant: Root access-control invariant affects dependent identity & privilege boundaries.`,
-          };
+    const p = parseCommand(text);
+    switch (p.type) {
+      case "help":
+        push(text, { kind: "help" });
+        return;
+      case "control":
+        push(text, { kind: "control", id: p.id });
+        return;
+      case "fedramp":
+        push(text, { kind: "fedramp" });
+        return;
+      case "validate":
+        push(text, { kind: "validate", doc: p.doc });
+        return;
+      case "blast": {
+        if (p.target === SNAPSHOT_BLAST_TARGET) {
+          push(text, { kind: "blast-snapshot" });
+          return;
         }
-      } else if (
-        lower.includes("fedramp") ||
-        lower.includes("pmo") ||
-        lower.includes("audit")
-      ) {
-        const apiRes = await callCliApi("fedramp", [
-          "validate",
-          "examples/sample-catalog.json",
-          "--baseline",
-          "moderate",
-        ]);
-        if (apiRes.ok && apiRes.data) {
-          setIsDaemonConnected(true);
-          const report = apiRes.data as FedrampReport;
-          const isCompliant = report?.passed ?? report?.is_compliant;
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan fedramp validate\` on \`examples/sample-catalog.json\` against **FedRAMP Moderate** baseline:\n\n- Compliance verdict: **${isCompliant ? "COMPLIANT" : "NON-COMPLIANT"}**\n- Rules evaluated: **${report.total_rules_checked ?? report.rule_count_evaluated ?? 0}**\n- Violations: **${report.failed_rules ?? report.violation_count ?? report.findings?.length ?? 0}**`,
-          };
-        } else {
-          setIsDaemonConnected(false);
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[IN-BROWSER AST ENGINE · INFERRED VALENCE]\nEvaluated in-memory NIST SP 800-53 / FedRAMP Moderate catalog:\n\n- Compliance verdict: **NON-COMPLIANT (1 finding)**\n- Total controls checked: **9 controls**\n- Violations: **1 violation** (cis-k8s-5.2.1: privileged container in production-api)\n- Recommended remediation: Execute \`mizan fix --rule cis-k8s-5.2.1\` or apply derogation.`,
-          };
+        if (status.kind !== "live") {
+          push(text, {
+            kind: "note",
+            tone: "warn",
+            text: `The snapshot only captured the blast radius of ${SNAPSHOT_BLAST_TARGET}. Computing ${p.target} needs the local engine, which is not connected.`,
+          });
+          return;
         }
-      } else if (lower.includes("sync") || lower.includes("merge")) {
-        const apiRes = await callCliApi("sync", [
-          "--base",
-          "examples/sample-catalog.json",
-          "--upstream",
-          "examples/resolved-catalog.json",
-          "--local",
-          "examples/sample-catalog.json",
-          "--strategy",
-          "manual",
-        ]);
-        if (apiRes.ok && apiRes.data) {
-          setIsDaemonConnected(true);
-          const report = apiRes.data as MergeReport;
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\nExecuted \`mizan sync\` 3-Way AST Merge across Base, Upstream, and Local:\n\n- Merge clean: **${report.is_clean ? "YES" : "NO"}**\n- Controls merged: **${report.controls_merged ?? 0}**\n- Conflicts: **${report.conflicts?.length ?? 0}**`,
-          };
-        } else {
-          setIsDaemonConnected(false);
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[IN-BROWSER AST ENGINE · CLAIMED VALENCE]\nReconciled 3-Way AST baselines in memory:\n\n- Merge clean: **YES**\n- Controls evaluated: **9 controls**\n- Conflicts detected: **0 conflicts**\n- Vector state: **COHERENT**`,
-          };
+        const id = push(text, { kind: "pending", text: `Running mizan blast-radius --target ${p.target} ${SAMPLE_SSP}` });
+        setBusy(true);
+        try {
+          const r = await runLive<BlastRadiusReport>(["blast-radius", "--target", p.target, SAMPLE_SSP]);
+          replace(id, { kind: "blast-live", report: r.data, provenance: r.provenance });
+        } catch (e) {
+          replace(id, { kind: "note", tone: "neg", text: e instanceof Error ? e.message : String(e) });
+        } finally {
+          setBusy(false);
         }
-      } else {
-        const apiRes = await callCliApi("inspect", [
-          "examples/sample-catalog.json",
-        ]);
-        if (apiRes.ok && apiRes.data) {
-          setIsDaemonConnected(true);
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[NATIVE CLI DAEMON · OBSERVED VALENCE]\n\`\`\`json\n${JSON.stringify(apiRes.data, null, 2)}\n\`\`\``,
-          };
-        } else {
-          setIsDaemonConnected(false);
-          assistantMsg = {
-            id: String(Date.now() + 1),
-            role: "assistant",
-            content: `[IN-BROWSER CLIENT RUNTIME · INFERRED VALENCE]\nLocal CLI daemon is unreachable (running in static web distribution).\nActive in-memory substrate:\n- **9 NIST SP 800-53 controls**\n- **WebCrypto SHA-256 Merkle root engine**\n- **12 Cross-framework mappings** (ITSG-33 / ISO 27001 / CSF)`,
-          };
-        }
+        return;
       }
-
-      setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: String(Date.now() + 1),
-          role: "assistant",
-          content: `Execution error: ${errMsg}`,
-        },
-      ]);
-    } finally {
-      setLoading(false);
+      case "unknown":
+        push(text, {
+          kind: "note",
+          tone: "info",
+          text: "Not a recognised command. No language model is connected, so free-form questions cannot be answered. Type help for the command list.",
+        });
+        return;
     }
   };
 
+  const chips = [
+    ...(selectedControl ? [`show ${selectedControl}`] : []),
+    "show ac-2",
+    "blast radius",
+    "fedramp",
+    "validate ssp",
+    "help",
+  ].filter((c, i, a) => a.indexOf(c) === i);
+
   return (
-    <div className="flex h-full flex-col bg-ck-bg-0 font-mono text-xs">
-      {/* Chat Header */}
-      <div className="flex items-center justify-between border-b border-ck-hairline px-4 py-2.5 bg-ck-bg-1/60">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-accent" />
-          <span className="font-serif text-base font-normal text-ck-fg-1">
-            Atlas Compliance Copilot
-          </span>
-        </div>
-        <span className="font-mono text-[10px] text-ck-fg-mute uppercase">
-          {isDaemonConnected === true
-            ? "[CONNECTED: NATIVE CLI DAEMON · OBSERVED]"
-            : isDaemonConnected === false
-              ? "[CLIENT-SIDE AST RUNTIME · INFERRED]"
-              : "[COMPLIANCE KERNEL · CLAIMED]"}
-        </span>
+    <div className="flex h-full min-h-0 flex-col bg-ck-bg-1 text-ck-fg-1">
+      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-ck-hairline px-3 py-2 pr-20">
+        <h2 className="text-sm font-semibold">Copilot</h2>
+        <StateBadge tone="unk">No model</StateBadge>
+        <p className="min-w-0 text-xs text-ck-fg-3">
+          No language model is connected in this build. Only the fixed lookups below work.
+        </p>
+      </header>
+
+      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+        {entries.length === 0 ? (
+          <div className="space-y-1 text-sm text-ck-fg-3">
+            <p>Type a command or pick one below. Answers come from captured engine output:</p>
+            <ul className="space-y-0.5">
+              {COMMAND_HELP.map((c) => (
+                <li key={c.cmd} className="flex min-w-0 flex-wrap gap-x-2 text-xs">
+                  <code className="font-mono text-ck-fg-1">{c.cmd}</code>
+                  <span>{c.what}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <ol className="space-y-3" aria-live="polite">
+            {entries.map((e) => (
+              <MessageItem key={e.id} entry={e} sources={sources} onNavigateControl={onNavigateControl} />
+            ))}
+          </ol>
+        )}
       </div>
 
-      {/* Message List */}
-      <ScrollArea className="flex-1 p-2">
-        <div className="space-y-1">
-          {messages.map((m) => (
-            <MessageItem key={m.id} message={m} />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void run(input);
+        }}
+        className="flex min-w-0 flex-col gap-1.5 border-t border-ck-hairline px-3 py-2 md:flex-row md:items-center"
+      >
+        <div className="flex min-w-0 gap-1.5 overflow-x-auto md:shrink-0" role="group" aria-label="Example commands">
+          {chips.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => void run(c)}
+              disabled={busy}
+              className="shrink-0 whitespace-nowrap rounded-sm border border-ck-hairline-strong bg-ck-bg-0 px-2 py-0.5 font-mono text-xs text-ck-fg-2 hover:text-ck-fg-1 disabled:opacity-50"
+            >
+              {c}
+            </button>
           ))}
         </div>
-      </ScrollArea>
-
-      {/* Quick Prompts */}
-      <div className="flex flex-wrap gap-1.5 border-t border-ck-hairline bg-ck-bg-1/40 px-3 py-2">
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-[10px] h-6 bg-ck-bg-0"
-          onClick={() => handleSend("Compute blast radius for control ac-1")}
-        >
-          <Shield className="h-3 w-3 mr-1 text-accent" />
-          Blast Radius AC-1
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-[10px] h-6 bg-ck-bg-0"
-          onClick={() =>
-            handleSend("Validate SSP against FedRAMP Moderate baseline")
-          }
-        >
-          <FileCheck className="h-3 w-3 mr-1 text-green-600 dark:text-green-400" />
-          FedRAMP Audit
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-[10px] h-6 bg-ck-bg-0"
-          onClick={() =>
-            handleSend("Sync 3-way merge with upstream NIST catalog")
-          }
-        >
-          <GitMerge className="h-3 w-3 mr-1 text-accent" />
-          3-Way AST Merge
-        </Button>
-      </div>
-
-      {/* Input Form */}
-      <div className="border-t border-ck-hairline-strong p-3 bg-ck-bg-0">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSend();
-          }}
-          className="flex items-center gap-2"
-        >
-          <Input
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <label htmlFor="copilot-input" className="sr-only">
+            Command
+          </label>
+          <input
+            id="copilot-input"
+            ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask Atlas (e.g. 'Audit FedRAMP', 'Blast radius of AC-1')..."
-            className="flex-1 font-mono text-xs bg-ck-bg-1 border-ck-hairline-strong focus-visible:ring-accent"
-            disabled={loading}
+            placeholder="show ac-2"
+            autoComplete="off"
+            spellCheck={false}
+            className="h-8 min-w-0 flex-1 rounded-md border border-ck-hairline-strong bg-ck-bg-0 px-2 font-mono text-sm text-ck-fg-1 placeholder:text-ck-fg-mute focus:outline-none focus:ring-1 focus:ring-ck-accent"
           />
-          <Button
+          <button
             type="submit"
-            size="sm"
-            variant="ck"
-            disabled={loading || !input.trim()}
+            disabled={busy || !input.trim()}
+            className="h-8 shrink-0 rounded-md border border-ck-fg-1 bg-ck-fg-1 px-3 text-xs font-medium text-ck-bg-0 disabled:opacity-50"
           >
-            <Send className="h-3.5 w-3.5 mr-1" />
-            Send
-          </Button>
-        </form>
-      </div>
+            Run
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

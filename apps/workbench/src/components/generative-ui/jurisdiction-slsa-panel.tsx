@@ -1,321 +1,335 @@
 "use client";
 
+/**
+ * Jurisdictions & SLSA.
+ *
+ * - Built-in jurisdiction catalogs (`catalog list`): excerpt catalogs embedded
+ *   in the binary, not complete baselines.
+ * - The official NIST SP 800-53 r5 catalog vendored in examples/ (`inspect`).
+ * - SLSA / attestation: only what the snapshot actually contains.
+ * - FedRAMP validation and schema validation of the sample SSP, shown as-is,
+ *   including the known counting defect and the schema-validation failure.
+ */
+
 import * as React from "react";
+import type {
+  BuiltinCatalog,
+  CatalogInspectOutput,
+  FedrampValidateOutput,
+  PipelineRunOutput,
+  ValidateOutput,
+} from "@/lib/snapshot-types-b";
 import {
-  Globe,
-  ShieldCheck,
-  Cpu,
-  RefreshCw,
-  Layers,
-  CheckCircle2,
-  Lock,
-  FileText,
-  Binary,
-} from "lucide-react";
+  DataTable,
+  EmptyState,
+  PageHeader,
+  Panel,
+  ReadOnlyNotice,
+  StatGrid,
+  StatTile,
+  StateBadge,
+  Terminal,
+  type Tone,
+} from "@/components/kit";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+  Code,
+  Fields,
+  Note,
+  SnapFallback,
+  num,
+  pretty,
+  useSnap,
+  type SnapResult,
+} from "@/components/generative-ui/b/shared";
+
+function severityTone(s: string | undefined): Tone {
+  const v = (s ?? "").toLowerCase();
+  if (v === "high" || v === "critical") return "neg";
+  if (v === "medium" || v === "moderate") return "warn";
+  if (v === "low") return "info";
+  return "unk";
+}
 
 export function JurisdictionSlsaPanel() {
-  const [selectedJurisdiction, setSelectedJurisdiction] = React.useState<
-    "us" | "ca" | "eu" | "enterprise"
-  >("us");
-  const [slsaVersion, setSlsaVersion] = React.useState<"v1.2" | "v1.0">("v1.2");
-  const [isVerifying, setIsVerifying] = React.useState(false);
-  const [verified, setVerified] = React.useState(true);
-  const [copiedBadge, setCopiedBadge] = React.useState(false);
-
-  const jurisdictions = {
-    us: {
-      name: "United States",
-      standard: "NIST SP 800-53 Rev 5 & FedRAMP Rev 5 High",
-      tag: "SP800-53r5",
-      controls: 9,
-      icon: "[US]",
-      description:
-        "Standard federal baseline with FedRAMP PMO parameters and moderate/high continuous monitoring.",
-    },
-    ca: {
-      name: "Canada",
-      standard: "CCCS ITSG-33 Protected B / Medium / Medium (PBMM)",
-      tag: "ITSG-33",
-      controls: 4,
-      icon: "[CA]",
-      description:
-        "Canadian Centre for Cyber Security federal cloud security framework with Canadian data residency boundary rules.",
-    },
-    eu: {
-      name: "European Union",
-      standard: "EUCS & ISO/IEC 27001:2022 Controls Mapping",
-      tag: "EUCS-High",
-      controls: 4,
-      icon: "[EU]",
-      description:
-        "European Cybersecurity Scheme with strict sovereign cloud isolation, EU key custody, and ISO 27001:2022 alignment.",
-    },
-    enterprise: {
-      name: "Enterprise Custom",
-      standard: "Company Sovereign Zero-Trust Overlay Baseline",
-      tag: "Enterprise-Core",
-      controls: 6,
-      icon: "[ENT]",
-      description:
-        "Custom corporate overlay inheriting federal baselines with internal FIDO2 hardware MFA and internal KMS rules.",
-    },
-  };
-
-  const currentJur = jurisdictions[selectedJurisdiction];
-  const [verifyResult, setVerifyResult] = React.useState<any>(null);
-
-  const handleVerify = async () => {
-    setIsVerifying(true);
-    try {
-      let isVerified = false;
-      let data: any = null;
-      try {
-        const res = await fetch("/api/cli", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            command: "attest",
-            args: ["verify", "mizan-pipeline-output/slsa-provenance.json"],
-          }),
-        });
-        if (
-          res.ok &&
-          res.headers.get("content-type")?.includes("application/json")
-        ) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            isVerified = Boolean(json.data.is_valid);
-            data = json.data;
-          }
-        }
-      } catch {
-        // Fallback to client-side WebCrypto in-toto verification
-      }
-
-      if (!data) {
-        const sampleSubject = "mizan-release-v1.4.3";
-        const enc = new TextEncoder();
-        const digestBuf = await crypto.subtle.digest(
-          "SHA-256",
-          enc.encode(sampleSubject),
-        );
-        const digestHex = Array.from(new Uint8Array(digestBuf))
-          .map((b) => b.toString(16).padStart(2, "0"))
-          .join("");
-
-        isVerified = true;
-        data = {
-          is_valid: true,
-          builder_id:
-            "https://github.com/ckodex-labs/ckodex-oscal-cli/actions/runs/36184886733",
-          build_type: "https://slsa.dev/provenance/v1",
-          subject_name: sampleSubject,
-          subject_digest: `sha256:${digestHex}`,
-          verification_engine: "In-Browser WebCrypto Substrate",
-        };
-      }
-
-      setVerified(isVerified);
-      setVerifyResult(data);
-    } catch (err) {
-      console.error("Provenance verification failed:", err);
-      setVerified(false);
-    } finally {
-      setIsVerifying(false);
-    }
-  };
+  const catalogs = useSnap<BuiltinCatalog[]>("catalog-list");
+  const nist = useSnap<CatalogInspectOutput>("nist-catalog-inspect", 1);
+  const pipeline = useSnap<PipelineRunOutput>("pipeline-run");
+  const fedramp = useSnap<FedrampValidateOutput>("ssp-fedramp-validate");
+  const validate = useSnap<ValidateOutput>("ssp-validate", 1);
 
   return (
-    <div className="space-y-6">
-      {/* Tri-Jurisdiction Baseline Explorer */}
-      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Globe className="h-5 w-5 text-primary" />
-              <CardTitle className="text-base font-semibold">
-                Tri-Jurisdictional Baseline Catalogs
-              </CardTitle>
-            </div>
-            <Badge variant="outline" className="font-mono text-xs">
-              Embedded Zero-Dependency
-            </Badge>
-          </div>
-          <CardDescription>
-            Built-in international cybersecurity standards and enterprise custom
-            overlays.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {(
-              Object.keys(jurisdictions) as Array<keyof typeof jurisdictions>
-            ).map((key) => {
-              const j = jurisdictions[key];
-              const isSelected = selectedJurisdiction === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => setSelectedJurisdiction(key)}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    isSelected
-                      ? "border-primary bg-primary/10 shadow-sm"
-                      : "border-border/50 hover:border-border hover:bg-muted/30"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xl">{j.icon}</span>
-                    <Badge
-                      variant={isSelected ? "default" : "secondary"}
-                      className="text-[10px] uppercase"
-                    >
-                      {j.tag}
-                    </Badge>
-                  </div>
-                  <div className="font-medium text-sm text-foreground">
-                    {j.name}
-                  </div>
-                  <div className="text-xs text-muted-foreground truncate">
-                    {j.controls} Baseline Controls
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+    <div className="space-y-5">
+      <PageHeader
+        eyebrow="Jurisdictions"
+        title="Jurisdictions & SLSA"
+        description="Which control catalogs the engine ships, what the official NIST catalog contains, what supply-chain evidence this snapshot holds, and how the sample SSP fares against FedRAMP and OSCAL schema checks."
+      />
+      <ReadOnlyNotice />
 
-          <div className="p-4 rounded-lg bg-muted/20 border border-border/40 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold text-sm text-foreground">
-                {currentJur.standard}
-              </span>
-              <Badge variant="outline" className="text-xs font-mono">
-                OSCAL 1.2.3
-              </Badge>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {currentJur.description}
-            </p>
-            <div className="pt-2 flex items-center gap-2 text-xs font-mono text-muted-foreground">
-              <span>
-                mizan catalog export -j {selectedJurisdiction} -o catalog.json
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 2xl:grid-cols-2">
+        <CatalogsPanel catalogs={catalogs} />
+        <NistPanel nist={nist} />
+      </div>
 
-      {/* SLSA v1.2 / v1.0 Supply Chain Provenance Inspector */}
-      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-500" />
-              <CardTitle className="text-base font-semibold">
-                Supply Chain Attestation (SLSA v1.2 / in-toto v1.0)
-              </CardTitle>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant={slsaVersion === "v1.2" ? "default" : "outline"}
-                className="h-7 text-xs font-mono"
-                onClick={() => setSlsaVersion("v1.2")}
-              >
-                SLSA v1.2
-              </Button>
-              <Button
-                size="sm"
-                variant={slsaVersion === "v1.0" ? "default" : "outline"}
-                className="h-7 text-xs font-mono"
-                onClick={() => setSlsaVersion("v1.0")}
-              >
-                SLSA v1.0 (Compat)
-              </Button>
-            </div>
-          </div>
-          <CardDescription>
-            Cryptographically signed provenance statements linking build
-            artifacts with OSCAL evidence Merkle proofs.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 rounded-xs bg-ck-bg-0 border border-ck-hairline-strong font-mono text-[11.5px] text-ck-fg-1 space-y-1 overflow-x-auto shadow-inner">
-            <div className="text-emerald-700 dark:text-emerald-400 font-semibold">{`// in-toto Statement / ${slsaVersion} Predicate · cryptographically verified`}</div>
-            <div>
-              <span className="text-ck-accent font-semibold">{`"_type"`}</span>:{" "}
-              <span className="text-emerald-800 dark:text-emerald-300">{`"https://in-toto.io/Statement/v1"`}</span>
-              ,
-            </div>
-            <div>
-              <span className="text-ck-accent font-semibold">{`"predicateType"`}</span>
-              :{" "}
-              <span className="text-emerald-800 dark:text-emerald-300">{`"${slsaVersion === "v1.2" ? "https://slsa.dev/provenance/v1.2" : "https://slsa.dev/provenance/v1"}"`}</span>
-              ,
-            </div>
-            <div>
-              <span className="text-ck-accent font-semibold">{`"subject"`}</span>
-              : [{`{`} <span className="text-ck-fg-2">{`"name"`}</span>:{" "}
-              <span className="text-emerald-800 dark:text-emerald-300">{`"ghcr.io/mizan/security-kernel:1.0.0"`}</span>
-              , <span className="text-ck-fg-2">{`"digest"`}</span>: {`{`}{" "}
-              <span className="text-ck-fg-2">{`"sha256"`}</span>:{" "}
-              <span className="text-cyan-800 dark:text-cyan-300 font-semibold">{`"4a8f9c0e2b..."`}</span>{" "}
-              {`}`} {`}`}],
-            </div>
-            <div>
-              <span className="text-ck-accent font-semibold">{`"predicate"`}</span>
-              : {`{`}{" "}
-              <span className="text-ck-fg-2">{`"buildDefinition"`}</span>: {`{`}{" "}
-              <span className="text-ck-fg-2">{`"oscal_compliance_extension"`}</span>
-              : {`{`} <span className="text-ck-fg-2">{`"evidence_level"`}</span>
-              :{" "}
-              <span className="text-emerald-800 dark:text-emerald-300">{`"e4_audit_passed"`}</span>
-              , <span className="text-ck-fg-2">{`"merkle_root"`}</span>:{" "}
-              <span className="text-cyan-800 dark:text-cyan-300 font-semibold">{`"sha256:7b1e..."`}</span>{" "}
-              {`}`} {`}`} {`}`}
-            </div>
-          </div>
+      <SlsaPanel pipeline={pipeline} />
 
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
-              {verified && verifyResult ? (
-                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-mono">
-                  <CheckCircle2 className="h-4 w-4 shrink-0" />
-                  <span>
-                    {verifyResult.verification_engine ===
-                    "In-Browser WebCrypto Substrate"
-                      ? `[INFERRED] Verified in-browser (WebCrypto substrate) · ${verifyResult.subject_name}`
-                      : `[OBSERVED] Verified by mizan CLI daemon · ${verifyResult.subject_name} (${verifyResult.merkle_root?.slice(0, 19)}…)`}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-xs text-muted-foreground font-mono">
-                  Unverified · Click to verify provenance attestation
-                </span>
-              )}
-            </div>
-            <Button
-              size="sm"
-              onClick={handleVerify}
-              disabled={isVerifying}
-              className="h-8 gap-2"
-            >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${isVerifying ? "animate-spin" : ""}`}
-              />
-              <span>Verify Provenance</span>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="grid gap-4 2xl:grid-cols-2">
+        <FedrampPanel fedramp={fedramp} />
+        <SchemaPanel validate={validate} />
+      </div>
     </div>
+  );
+}
+
+function CatalogsPanel({ catalogs }: { catalogs: SnapResult<BuiltinCatalog[]> }) {
+  if (!catalogs.data || !catalogs.provenance) {
+    return <SnapFallback title="built-in catalogs" state={catalogs} />;
+  }
+  return (
+    <Panel
+      title="Built-in jurisdiction catalogs"
+      subtitle="catalog list"
+      provenance={catalogs.provenance}
+    >
+      <div className="space-y-3">
+        <DataTable
+          caption="Built-in jurisdiction catalogs"
+          columns={[
+            { key: "code", label: "Code" },
+            { key: "jurisdiction", label: "Jurisdiction" },
+            { key: "standard", label: "Standard" },
+            { key: "count", label: "Controls", numeric: true },
+          ]}
+          rows={catalogs.data.map((c) => ({
+            code: <Code nowrap>{c.code}</Code>,
+            jurisdiction: <span className="text-ck-fg-1">{c.jurisdiction ?? "UNKNOWN"}</span>,
+            standard: c.standard ?? "UNKNOWN",
+            count: num(c.controls_count),
+          }))}
+        />
+        <Note title="Excerpts, not baselines">
+          These catalogs are small excerpts embedded in the binary for pipeline gating. They
+          are not complete baselines; for example, the full NIST SP 800-53 r5 catalog (next
+          panel) contains far more controls than the US excerpt.
+        </Note>
+      </div>
+    </Panel>
+  );
+}
+
+function NistPanel({ nist }: { nist: SnapResult<CatalogInspectOutput> }) {
+  if (!nist.data || !nist.provenance) {
+    return <SnapFallback title="NIST SP 800-53 r5 catalog" state={nist} />;
+  }
+  const n = nist.data;
+  const families = Object.keys(n.stats?.controls_by_family ?? {}).length;
+  return (
+    <Panel
+      title="Official NIST SP 800-53 r5 catalog"
+      subtitle="Vendored in examples/nist-800-53-r5/ and used by the Atlas"
+      provenance={nist.provenance}
+    >
+      <div className="space-y-3">
+        <StatGrid>
+          <StatTile label="Controls" value={num(n.stats?.total_controls)} hint="incl. enhancements" />
+          <StatTile label="Groups" value={num(n.stats?.total_groups)} />
+          <StatTile label="Parameters" value={num(n.stats?.total_params)} />
+          <StatTile label="Families listed" value={n.stats?.controls_by_family ? String(families) : "UNKNOWN"} />
+        </StatGrid>
+        <Fields
+          items={[
+            { label: "Title", value: n.title ?? "UNKNOWN" },
+            { label: "Version", value: n.version ?? "UNKNOWN", mono: true },
+            { label: "OSCAL version", value: n.oscal_version ?? "UNKNOWN", mono: true },
+            { label: "File", value: n.file ?? "UNKNOWN", mono: true },
+          ]}
+        />
+        <p className="text-xs text-ck-fg-mute">
+          Source and digest of this file are recorded in the snapshot manifest inputs. Open the
+          Atlas surface to browse the full catalog.
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+function SlsaPanel({ pipeline }: { pipeline: SnapResult<PipelineRunOutput> }) {
+  const p = pipeline.data;
+  if (!p || !pipeline.provenance) {
+    return <SnapFallback title="supply-chain evidence" state={pipeline} />;
+  }
+  const hasAny = p.slsa_provenance_path || p.merkle_root || typeof p.cas_objects_written === "number";
+  return (
+    <Panel
+      title="SLSA and attestation evidence"
+      subtitle="Only fields present in the captured pipeline run output"
+      provenance={pipeline.provenance}
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3">
+          {hasAny ? (
+            <Fields
+              items={[
+                { label: "SLSA provenance written to", value: p.slsa_provenance_path ?? "UNKNOWN", mono: true },
+                { label: "Merkle root", value: p.merkle_root ?? "UNKNOWN", mono: true },
+                { label: "CAS objects written", value: num(p.cas_objects_written), mono: true },
+              ]}
+            />
+          ) : (
+            <p className="text-sm text-ck-fg-3">The pipeline output contains no supply-chain fields.</p>
+          )}
+          <p className="text-xs text-ck-fg-mute">
+            These values come from <Code>pipeline run</Code>. A path shows that the run reported
+            writing a file; it is not evidence of the file&apos;s contents or of a signature.
+          </p>
+        </div>
+        <EmptyState kind="unknown" title="Attestation contents not captured">
+          The SLSA provenance document the pipeline wrote was not copied into this snapshot,
+          and <Code>mizan attest slsa</Code> was not captured. Subject digests, builder identity,
+          and signature status are therefore not established here.
+        </EmptyState>
+      </div>
+    </Panel>
+  );
+}
+
+function FedrampPanel({ fedramp }: { fedramp: SnapResult<FedrampValidateOutput> }) {
+  if (!fedramp.data || !fedramp.provenance) {
+    return <SnapFallback title="FedRAMP validation" state={fedramp} />;
+  }
+  const f = fedramp.data;
+  const findings = f.findings ?? [];
+  const findingsCount = typeof f.findings_count === "number" ? f.findings_count : findings.length;
+  // Defensive: only shown if a future snapshot reports impossible counts.
+  const countDefect =
+    typeof f.failed_rules === "number" &&
+    typeof f.total_rules_checked === "number" &&
+    f.failed_rules > f.total_rules_checked;
+  return (
+    <Panel
+      title="FedRAMP validation: sample SSP"
+      subtitle={`Baseline ${f.baseline ?? "UNKNOWN"}, ${f.file ?? ""}`}
+      provenance={fedramp.provenance}
+      actions={
+        typeof f.is_compliant === "boolean" ? (
+          <StateBadge tone={f.is_compliant ? "pos" : "neg"}>
+            {f.is_compliant ? "compliant" : "not compliant"}
+          </StateBadge>
+        ) : (
+          <StateBadge tone="unk">unknown</StateBadge>
+        )
+      }
+    >
+      <div className="space-y-3">
+        <p className="text-sm text-ck-fg-2">
+          <span className="font-mono ck-num">{num(f.failed_rules)}</span> of{" "}
+          <span className="font-mono ck-num">{num(f.total_rules_checked)}</span> rules failed (
+          <span className="font-mono ck-num">{findingsCount}</span> findings).
+        </p>
+        <StatGrid>
+          <StatTile label="Rules checked" value={num(f.total_rules_checked)} />
+          <StatTile label="Passed" value={num(f.passed_rules)} tone={f.passed_rules ? "pos" : "neutral"} />
+          <StatTile label="Failed" value={num(f.failed_rules)} tone={f.failed_rules ? "neg" : "neutral"} />
+          <StatTile label="Findings" value={String(findingsCount)} />
+        </StatGrid>
+        {countDefect && (
+          <Note tone="warn" title="Inconsistent counts">
+            <Code>failed_rules</Code> ({num(f.failed_rules)}) exceeds{" "}
+            <Code>total_rules_checked</Code> ({num(f.total_rules_checked)}). Shown as reported.
+          </Note>
+        )}
+        <DataTable
+          caption="FedRAMP findings"
+          empty={<p className="text-sm text-ck-fg-3">No findings reported.</p>}
+          columns={[
+            { key: "rule", label: "Rule" },
+            { key: "title", label: "Finding" },
+            { key: "severity", label: "Severity" },
+          ]}
+          rows={findings.map((x) => ({
+            rule: <Code nowrap>{x.rule_id}</Code>,
+            title: (
+              <div className="min-w-0">
+                <p className="text-ck-fg-1">{x.title ?? "UNKNOWN"}</p>
+                {x.detail && <p className="text-xs text-ck-fg-mute">{x.detail}</p>}
+              </div>
+            ),
+            severity: <StateBadge tone={severityTone(x.severity)}>{x.severity ?? "unknown"}</StateBadge>,
+          }))}
+        />
+      </div>
+    </Panel>
+  );
+}
+
+function SchemaPanel({ validate }: { validate: SnapResult<ValidateOutput> }) {
+  if (!validate.data || !validate.provenance) {
+    return <SnapFallback title="schema validation" state={validate} />;
+  }
+  const v = validate.data;
+  const diags = v.diagnostics ?? [];
+  const errors = diags.filter((x) => (x.level ?? "").toLowerCase() === "error").length;
+  return (
+    <Panel
+      title="OSCAL schema validation: sample SSP"
+      subtitle={v.file}
+      provenance={validate.provenance}
+      actions={
+        typeof v.is_valid === "boolean" ? (
+          <StateBadge tone={v.is_valid ? "pos" : "neg"}>{v.is_valid ? "valid" : "invalid"}</StateBadge>
+        ) : (
+          <StateBadge tone="unk">unknown</StateBadge>
+        )
+      }
+    >
+      <div className="space-y-3">
+        <StatGrid>
+          <StatTile
+            label="Schema valid"
+            value={typeof v.schema_valid === "boolean" ? String(v.schema_valid) : "UNKNOWN"}
+            tone={v.schema_valid === false ? "neg" : v.schema_valid ? "pos" : "unk"}
+          />
+          <StatTile
+            label="Constraints valid"
+            value={typeof v.constraints_valid === "boolean" ? String(v.constraints_valid) : "UNKNOWN"}
+            tone={v.constraints_valid === false ? "neg" : v.constraints_valid ? "pos" : "unk"}
+          />
+          <StatTile label="Errors" value={String(errors)} tone={errors ? "neg" : "neutral"} />
+          <StatTile label="Exit code" value={num(validate.exitCode)} tone={validate.exitCode ? "neg" : "neutral"} />
+        </StatGrid>
+        <p className="text-sm text-ck-fg-3">
+          The repository&apos;s example SSP does not conform to the OSCAL schema. The
+          FedRAMP check still ran against it; its result should be read with that in mind.
+        </p>
+        <ul className="space-y-2">
+          {diags.map((x, i) => (
+            <li key={i} className="rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <StateBadge tone={(x.level ?? "").toLowerCase() === "error" ? "neg" : "warn"}>
+                  {x.level ?? "unknown"}
+                </StateBadge>
+                <Code>{x.code ?? "UNKNOWN"}</Code>
+              </div>
+              <p className="mt-1 text-sm text-ck-fg-1 break-words">{x.message ?? "UNKNOWN"}</p>
+              {x.path && <p className="mt-0.5 font-mono text-2xs text-ck-fg-mute break-all">{x.path}</p>}
+            </li>
+          ))}
+        </ul>
+        {validate.record?.stderr && (
+          <Terminal
+            command={validate.command}
+            output={`stderr:\n${validate.record.stderr.trim()}`}
+            exitCode={validate.exitCode}
+            maxHeight={200}
+          />
+        )}
+        <details className="text-sm">
+          <summary className="cursor-pointer text-ck-fg-3 hover:text-ck-fg-1">Raw JSON output</summary>
+          <div className="mt-2">
+            <Terminal command={validate.command} output={pretty(v)} exitCode={validate.exitCode} maxHeight={4000} />
+          </div>
+        </details>
+      </div>
+    </Panel>
   );
 }

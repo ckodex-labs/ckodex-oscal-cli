@@ -1,4 +1,5 @@
 pub mod badge;
+pub mod findings;
 pub mod gitlab;
 pub mod sarif;
 

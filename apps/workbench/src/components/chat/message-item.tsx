@@ -1,112 +1,147 @@
 "use client";
 
 import * as React from "react";
-import ReactMarkdown from "react-markdown";
+import type { EngineData } from "@/lib/engine";
+import type { BlastRadiusReport, FedrampReport } from "@/lib/oscal-types";
+import { StateBadge } from "@/components/kit";
+import { AnswerCard } from "../generative-ui/answer-card";
+import { ControlCard } from "../generative-ui/control-card";
 import { BlastRadiusCard } from "../generative-ui/blast-radius-card";
 import { FedrampBadgeCard } from "../generative-ui/fedramp-badge-card";
-import { MergeConflictCard } from "../generative-ui/merge-conflict-card";
-import { ControlCard } from "../generative-ui/control-card";
-import {
-  BlastRadiusReport,
-  FedrampReport,
-  MergeReport,
-  ControlDetail,
-} from "@/lib/oscal-types";
-import { Bot, User } from "lucide-react";
+import { ValidateCard } from "../generative-ui/validate-card";
+import type { AtlasFile, ValidateReport } from "../generative-ui/engine-types";
+import { COMMAND_HELP, type Entry, type ValidateDoc } from "./commands";
 
-export interface ChatMessage {
-  id: string;
-  role: "user" | "assistant" | "system";
-  content: string;
-  toolInvocations?: Array<{
-    toolName: string;
-    args: unknown;
-    result?: unknown;
-  }>;
+export interface AnswerSources {
+  atlas: EngineData<AtlasFile>;
+  blast: EngineData<BlastRadiusReport>;
+  fedramp: EngineData<FedrampReport>;
+  validate: Record<ValidateDoc, EngineData<ValidateReport>>;
 }
 
-interface MessageItemProps {
-  message: ChatMessage;
+function Note({ tone, children }: { tone: "info" | "warn" | "neg" | "unk"; children: React.ReactNode }) {
+  const label = { info: "Note", warn: "Limit", neg: "Error", unk: "Unknown" }[tone];
+  return (
+    <div className="flex min-w-0 flex-wrap items-baseline gap-2 text-sm text-ck-fg-2">
+      <StateBadge tone={tone}>{label}</StateBadge>
+      <span className="min-w-0">{children}</span>
+    </div>
+  );
 }
 
-export function MessageItem({ message }: MessageItemProps) {
-  const isUser = message.role === "user";
+/** Render an EngineData source: loading, missing, or the given card. */
+function FromSource<T>({
+  source,
+  what,
+  children,
+}: {
+  source: EngineData<T>;
+  what: string;
+  children: (data: T, s: EngineData<T>) => React.ReactNode;
+}) {
+  if (source.loading) return <Note tone="info">Loading {what} from the snapshot.</Note>;
+  if (!source.data || !source.provenance) {
+    return (
+      <Note tone="unk">
+        {what} is not available: {source.error ?? "no data"}.
+      </Note>
+    );
+  }
+  return <>{children(source.data, source)}</>;
+}
+
+function HelpCard() {
+  return (
+    <div className="space-y-1 text-sm text-ck-fg-2">
+      <p>Available commands. Each answer is read from captured engine output and carries its provenance.</p>
+      <ul className="space-y-0.5">
+        {COMMAND_HELP.map((c) => (
+          <li key={c.cmd} className="flex min-w-0 flex-wrap gap-x-2">
+            <code className="font-mono text-xs text-ck-fg-1">{c.cmd}</code>
+            <span className="text-xs text-ck-fg-3">{c.what}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function MessageItem({
+  entry,
+  sources,
+  onNavigateControl,
+}: {
+  entry: Entry;
+  sources: AnswerSources;
+  onNavigateControl?: (id: string) => void;
+}) {
+  const a = entry.answer;
+  let body: React.ReactNode;
+  switch (a.kind) {
+    case "help":
+      body = <HelpCard />;
+      break;
+    case "control":
+      body = (
+        <FromSource source={sources.atlas} what="The catalog projection">
+          {(atlas, s) => {
+            const c = atlas.controls.find((x) => x.id === a.id);
+            if (!c) {
+              return (
+                <AnswerCard title="Not found" provenance={s.provenance!}>
+                  <p>
+                    No control <span className="font-mono">{a.id}</span> among the{" "}
+                    <span className="font-mono">{atlas.controls.length}</span> controls in the catalog projection.
+                  </p>
+                </AnswerCard>
+              );
+            }
+            return <ControlCard control={c} provenance={s.provenance!} onOpen={onNavigateControl} />;
+          }}
+        </FromSource>
+      );
+      break;
+    case "blast-snapshot":
+      body = (
+        <FromSource source={sources.blast} what="The blast-radius capture">
+          {(r, s) => <BlastRadiusCard report={r} provenance={s.provenance!} />}
+        </FromSource>
+      );
+      break;
+    case "blast-live":
+      body = <BlastRadiusCard report={a.report} provenance={a.provenance} />;
+      break;
+    case "fedramp":
+      body = (
+        <FromSource source={sources.fedramp} what="The FedRAMP capture">
+          {(r, s) => <FedrampBadgeCard report={r} provenance={s.provenance!} />}
+        </FromSource>
+      );
+      break;
+    case "validate":
+      body = (
+        <FromSource source={sources.validate[a.doc]} what="The validation capture">
+          {(r, s) => <ValidateCard report={r} provenance={s.provenance!} exitCode={s.exitCode} />}
+        </FromSource>
+      );
+      break;
+    case "pending":
+      body = <Note tone="info">{a.text}</Note>;
+      break;
+    case "note":
+      body = <Note tone={a.tone}>{a.text}</Note>;
+      break;
+  }
 
   return (
-    <div
-      className={`flex gap-3 py-3 ${isUser ? "bg-ck-bg-1/40 px-3 border-y border-ck-hairline" : "px-3"}`}
-    >
-      <div className="flex-shrink-0 mt-0.5">
-        {isUser ? (
-          <div className="h-6 w-6 rounded-[2px] bg-ck-bg-2 border border-ck-hairline flex items-center justify-center text-ck-fg-1">
-            <User className="h-3.5 w-3.5" />
-          </div>
-        ) : (
-          <div className="h-6 w-6 rounded-[2px] bg-accent text-white flex items-center justify-center shadow-sm">
-            <Bot className="h-3.5 w-3.5" />
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0 space-y-2">
-        <div className="flex items-center gap-2 font-mono text-[10px] text-ck-fg-mute">
-          <span className="font-semibold text-ck-fg-1 uppercase">
-            {isUser ? "Architect / Author" : "Atlas Copilot"}
-          </span>
-        </div>
-
-        {/* Text Content */}
-        {message.content && (
-          <div className="font-sans text-xs text-ck-fg-1 leading-relaxed prose dark:prose-invert max-w-none">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
-          </div>
-        )}
-
-        {/* Generative UI Tool Execution Outputs */}
-        {message.toolInvocations?.map((inv, idx) => {
-          if (!inv.result) return null;
-
-          switch (inv.toolName) {
-            case "compute_blast_radius":
-              return (
-                <BlastRadiusCard
-                  key={idx}
-                  report={inv.result as BlastRadiusReport}
-                />
-              );
-            case "validate_fedramp":
-              return (
-                <FedrampBadgeCard
-                  key={idx}
-                  report={inv.result as FedrampReport}
-                />
-              );
-            case "sync_and_merge":
-              return (
-                <MergeConflictCard
-                  key={idx}
-                  report={inv.result as MergeReport}
-                />
-              );
-            case "query_control":
-              return (
-                <ControlCard key={idx} control={inv.result as ControlDetail} />
-              );
-            default:
-              return (
-                <div
-                  key={idx}
-                  className="p-2 border border-ck-hairline bg-ck-bg-0 font-mono text-xs"
-                >
-                  <span className="font-semibold">{inv.toolName}:</span>
-                  <pre className="mt-1 text-[10px] overflow-x-auto text-ck-fg-mute">
-                    {JSON.stringify(inv.result, null, 2)}
-                  </pre>
-                </div>
-              );
-          }
-        })}
-      </div>
-    </div>
+    <li className="min-w-0 space-y-1.5">
+      <p className="font-mono text-xs text-ck-fg-3">
+        <span className="text-ck-fg-mute" aria-hidden>
+          {">"}{" "}
+        </span>
+        {entry.input}
+      </p>
+      {body}
+    </li>
   );
 }

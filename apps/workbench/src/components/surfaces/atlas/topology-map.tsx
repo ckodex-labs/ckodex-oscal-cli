@@ -4,6 +4,7 @@ import * as React from "react";
 import type { AtlasControl, AtlasFamily } from "@/lib/atlas-types";
 import type { SspImplementedRequirement } from "@/lib/atlas-types";
 import type { LensMode } from "@/lib/oscal-types";
+import { StatementText } from "./statement";
 import {
   displayId,
   implState,
@@ -22,6 +23,7 @@ export interface TopologyMapProps {
   pulseActive: boolean;
   onTriggerPulse: () => void;
   lens?: LensMode;
+  onOpenInComposer?: (id: string) => void;
 }
 
 interface FamilyCoord {
@@ -153,12 +155,14 @@ export function TopologyMap({
   pulseActive,
   onTriggerPulse,
   lens = "architect",
+  onOpenInComposer,
 }: TopologyMapProps) {
   const [zoom, setZoom] = React.useState(1);
   const [pan, setPan] = React.useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = React.useState(false);
   const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 });
   const [focusedFam, setFocusedFam] = React.useState<string | null>(null);
+  const [dossierOpen, setDossierOpen] = React.useState(false);
   const [semanticZoom, setSemanticZoom] = React.useState<"posture" | "controls">(
     lens === "ciso" ? "posture" : "controls",
   );
@@ -177,28 +181,109 @@ export function TopologyMap({
   const selectedFamilyId = selectedControl ? selectedControl.family : null;
   const hoveredControl = hoverId ? index.byId.get(hoverId) : null;
 
-  // Handle drag pan
-  const handleMouseDown = (e: React.MouseEvent) => {
-    // Only drag on canvas background, not controls
-    if ((e.target as HTMLElement).tagName === "svg" || (e.target as HTMLElement).tagName === "rect") {
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  // Non-passive wheel event listener for focal zooming
+  React.useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const clientX = e.clientX - rect.left;
+      const clientY = e.clientY - rect.top;
+
+      // SVG viewBox coordinates (1180 x 740)
+      const svgX = (clientX / rect.width) * 1180;
+      const svgY = (clientY / rect.height) * 740;
+
+      const factor = e.deltaY < 0 ? 1.15 : 0.87;
+      setZoom((prevZoom) => {
+        const nextZoom = Math.min(4.5, Math.max(0.4, Number((prevZoom * factor).toFixed(3))));
+        setPan((prevPan) => ({
+          x: svgX - ((svgX - prevPan.x) / prevZoom) * nextZoom,
+          y: svgY - ((svgY - prevPan.y) / prevZoom) * nextZoom,
+        }));
+        return nextZoom;
+      });
+    };
+
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
+  // Handle pointer-based drag pan with pointer capture
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // If clicking an interactive UI element or control node, do not initiate canvas drag
+    const el = e.target as Element | null;
+    if (el?.closest("button, input, select, textarea, [data-control-node]")) {
+      return;
     }
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    try {
+      (e.currentTarget as Element).setPointerCapture(e.pointerId);
+    } catch {}
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isDragging) return;
     setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
   };
 
-  const handleMouseUp = () => {
-    setIsDragging(false);
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (isDragging) {
+      setIsDragging(false);
+      try {
+        (e.currentTarget as Element).releasePointerCapture(e.pointerId);
+      } catch {}
+    }
+  };
+
+  const nudgePan = (dx: number, dy: number) => {
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      nudgePan(80, 0);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      nudgePan(-80, 0);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      nudgePan(0, 80);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      nudgePan(0, -80);
+    } else if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      setZoom((z) => Math.min(4.5, Number((z + 0.25).toFixed(2))));
+    } else if (e.key === "-") {
+      e.preventDefault();
+      setZoom((z) => Math.max(0.4, Number((z - 0.25).toFixed(2))));
+    } else if (e.key === "0") {
+      e.preventDefault();
+      handleFit();
+    }
   };
 
   const handleFit = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
     setFocusedFam(null);
+  };
+
+  const handleFamilyDoubleClick = (famId: string) => {
+    const fc = FAMILY_COORD_MAP.get(famId);
+    if (!fc) return;
+    const targetZoom = 2.4;
+    const targetPanX = 1180 / 2 - fc.cx * targetZoom;
+    const targetPanY = 740 / 2 - fc.cy * targetZoom;
+    setZoom(targetZoom);
+    setPan({ x: targetPanX, y: targetPanY });
+    setFocusedFam(famId);
+    setSemanticZoom("controls");
   };
 
   // Pre-calculate family controls and layout
@@ -283,7 +368,96 @@ export function TopologyMap({
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Pan / Move Controls */}
+          <span className="ck-eyebrow hidden lg:inline">Move:</span>
+          <div className="inline-flex rounded-md border border-ck-hairline-strong bg-ck-bg-0 p-0.5" title="Pan Map Canvas (Arrow Keys or Drag)">
+            <button
+              type="button"
+              onClick={() => nudgePan(80, 0)}
+              className="px-1.5 py-0.5 text-2xs text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Pan Left (ArrowLeft)"
+            >
+              &#9664;
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgePan(0, 80)}
+              className="px-1.5 py-0.5 text-2xs text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Pan Up (ArrowUp)"
+            >
+              &#9650;
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgePan(0, -80)}
+              className="px-1.5 py-0.5 text-2xs text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Pan Down (ArrowDown)"
+            >
+              &#9660;
+            </button>
+            <button
+              type="button"
+              onClick={() => nudgePan(-80, 0)}
+              className="px-1.5 py-0.5 text-2xs text-ck-fg-2 hover:text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Pan Right (ArrowRight)"
+            >
+              &#9654;
+            </button>
+          </div>
+
+          {/* Zoom Level & Steppers */}
+          <span className="ck-eyebrow hidden lg:inline">Zoom:</span>
+          <div className="inline-flex items-center rounded-md border border-ck-hairline-strong bg-ck-bg-0 p-0.5">
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.max(0.4, Number((z - 0.25).toFixed(2))))}
+              className="px-2 py-0.5 text-xs text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Zoom Out (-)"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              onClick={handleFit}
+              className="px-1.5 py-0.5 text-2xs font-mono font-bold text-ck-accent hover:bg-ck-bg-2 rounded transition-colors"
+              title="Click to Reset Zoom & Pan (0)"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom((z) => Math.min(4.5, Number((z + 0.25).toFixed(2))))}
+              className="px-2 py-0.5 text-xs text-ck-fg-1 hover:bg-ck-bg-2 rounded transition-colors"
+              title="Zoom In (+)"
+            >
+              +
+            </button>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleFit}
+            className="rounded border border-ck-hairline-strong bg-ck-bg-0 px-2 py-1 text-2xs text-ck-fg-2 hover:bg-ck-bg-2 transition-colors"
+            title="Reset Pan and Zoom to Fit Territory"
+          >
+            Fit
+          </button>
+
+          {/* Dossier Detail Toggle */}
+          <button
+            type="button"
+            onClick={() => setDossierOpen((v) => !v)}
+            className={`rounded border px-2.5 py-1 text-2xs font-semibold transition-colors ${
+              dossierOpen
+                ? "border-ck-accent bg-ck-accent text-white"
+                : "border-ck-hairline-strong bg-ck-bg-0 text-ck-fg-1 hover:bg-ck-bg-2"
+            }`}
+            title="Toggle Control Detail Dossier"
+          >
+            {dossierOpen ? "Close Detail" : "Control Detail"}
+          </button>
+
           <button
             type="button"
             onClick={onTriggerPulse}
@@ -299,45 +473,21 @@ export function TopologyMap({
                 pulseActive ? "bg-white animate-ping" : "bg-ck-accent"
               }`}
             />
-            {pulseActive ? "Radiating Pulse..." : "Replay Change Pulse"}
+            {pulseActive ? "Pulse..." : "Pulse"}
           </button>
-
-          <button
-            type="button"
-            onClick={handleFit}
-            className="rounded border border-ck-hairline bg-ck-bg-0 px-2 py-1 text-2xs text-ck-fg-2 hover:bg-ck-bg-2"
-            title="Reset Pan and Zoom to Fit Territory"
-          >
-            Fit
-          </button>
-          <div className="inline-flex rounded border border-ck-hairline bg-ck-bg-0">
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.min(2.5, z + 0.2))}
-              className="px-2 py-1 text-xs text-ck-fg-1 hover:bg-ck-bg-2"
-              title="Zoom In"
-            >
-              +
-            </button>
-            <button
-              type="button"
-              onClick={() => setZoom((z) => Math.max(0.6, z - 0.2))}
-              className="border-l border-ck-hairline px-2 py-1 text-xs text-ck-fg-1 hover:bg-ck-bg-2"
-              title="Zoom Out"
-            >
-              -
-            </button>
-          </div>
         </div>
       </div>
 
       {/* SVG Canvas Map */}
       <div
         ref={containerRef}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        className="relative h-[480px] md:h-[520px] lg:h-[560px] w-full overflow-hidden rounded-md border border-ck-hairline-strong bg-ck-bg-0 shadow-sm select-none"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className="relative h-[480px] md:h-[540px] lg:h-[600px] w-full overflow-hidden rounded-md border border-ck-hairline-strong bg-ck-bg-0 shadow-sm select-none focus:outline-none focus:ring-1 focus:ring-ck-accent"
       >
         <svg
           viewBox="0 0 1180 740"
@@ -707,9 +857,13 @@ export function TopologyMap({
                     e.stopPropagation();
                     setFocusedFam((prev) => (prev === fc.id ? null : fc.id));
                   }}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    handleFamilyDoubleClick(fc.id);
+                  }}
                   className="cursor-pointer"
                 >
-                  <title>{`${fc.id.toUpperCase()}: ${fam?.title ?? fc.short} (${baselineCount} baseline controls)`}</title>
+                  <title>{`${fc.id.toUpperCase()}: ${fam?.title ?? fc.short} (${baselineCount} baseline controls) · Double-click to zoom into family`}</title>
 
                   {/* Hexagon Shape */}
                   <polygon
@@ -859,9 +1013,15 @@ export function TopologyMap({
                       return (
                         <g
                           key={c.id}
+                          data-control-node="true"
                           onClick={(e) => {
                             e.stopPropagation();
                             onSelectControl(c.id);
+                          }}
+                          onDoubleClick={(e) => {
+                            e.stopPropagation();
+                            onSelectControl(c.id);
+                            setDossierOpen(true);
                           }}
                           onMouseEnter={() => onHoverControl(c.id)}
                           onMouseLeave={() => onHoverControl(null)}
@@ -874,7 +1034,7 @@ export function TopologyMap({
                                 : s.kind === "declared-empty"
                                   ? "declared EMPTY"
                                   : "undeclared in SSP"
-                            }`}
+                            } · Double-click to open full dossier`}
                           </title>
 
                           <rect
@@ -894,6 +1054,30 @@ export function TopologyMap({
                             }
                             strokeWidth={isSelected ? 2 : 1}
                           />
+
+                          {/* Level of Detail (LOD): Control ID text when zoomed in */}
+                          {zoom >= 1.35 && (
+                            <text
+                              x={node.x}
+                              y={node.y + half + 7.5}
+                              textAnchor="middle"
+                              className={`font-mono text-[7px] pointer-events-none select-none transition-opacity ${
+                                isSelected ? "fill-ck-accent font-bold" : "fill-ck-fg-1"
+                              }`}
+                            >
+                              {c.id.toUpperCase()}
+                            </text>
+                          )}
+                          {zoom >= 2.2 && c.params && c.params.length > 0 && (
+                            <text
+                              x={node.x}
+                              y={node.y + half + 14.5}
+                              textAnchor="middle"
+                              className="font-mono text-[6px] fill-ck-fg-mute pointer-events-none select-none"
+                            >
+                              {c.params.length}p
+                            </text>
+                          )}
 
                           {/* Active Selection Tactical Targeting Brackets */}
                           {isSelected && (
@@ -1053,6 +1237,17 @@ export function TopologyMap({
                   <span>ASSURANCE: NIST-SP800-53-MOD</span>
                   <span>MERKLE: VERIFIED</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onSelectControl(hoveredControl.id);
+                    setDossierOpen(true);
+                  }}
+                  className="pointer-events-auto mt-2.5 flex w-full items-center justify-center gap-1.5 rounded border border-ck-accent bg-ck-accent/15 px-2 py-1 text-2xs font-semibold text-ck-accent hover:bg-ck-accent hover:text-white transition-colors"
+                >
+                  <span>INSPECT DOSSIER &amp; TAILORING</span>
+                  <span>&rarr;</span>
+                </button>
               </div>
             );
           })()
@@ -1082,6 +1277,42 @@ export function TopologyMap({
               <span>BUS PROTOCOL: OSCAL-AST</span>
             </div>
           </div>
+        ) : selectedControl ? (
+          <div className="pointer-events-auto absolute right-3 top-3 max-w-[300px] rounded-md border border-ck-hairline-strong bg-ck-bg-1/95 p-3 shadow-xl backdrop-blur-md transition-all duration-150">
+            <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5 text-3xs font-mono uppercase tracking-widest text-ck-fg-mute">
+              <span className="flex items-center gap-1 font-bold text-ck-accent">
+                <span className="h-1.5 w-1.5 rounded-full bg-ck-accent animate-pulse" />
+                SELECTED TARGET
+              </span>
+              <span>{selectedControl.family.toUpperCase()} &middot; {FAMILY_COORD_MAP.get(selectedControl.family)?.short ?? "Family"}</span>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between gap-2">
+              <span className="font-mono text-sm font-bold text-ck-fg-1">
+                {displayId(selectedControl.id)}
+              </span>
+              <span className="font-mono text-3xs text-ck-fg-mute">
+                {selectedControl.id}
+              </span>
+            </div>
+            <div className="mt-1 line-clamp-2 text-xs font-medium text-ck-fg-2">
+              {selectedControl.title}
+            </div>
+            <div className="mt-2.5 flex items-center justify-between text-2xs">
+              <span className="font-mono text-ck-fg-mute text-3xs">CLICK NODE TO TOGGLE</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDossierOpen(true);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 rounded border border-ck-accent bg-ck-accent/15 px-2 py-0.5 font-mono text-2xs font-semibold text-ck-accent hover:bg-ck-accent hover:text-white transition-colors cursor-pointer"
+              >
+                <span>DOSSIER</span>
+                <span>&rarr;</span>
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="pointer-events-none absolute right-3 top-3 hidden sm:flex items-center gap-2.5 rounded-md border border-ck-hairline-strong bg-ck-bg-1/90 px-3 py-1.5 text-2xs text-ck-fg-mute backdrop-blur-md shadow-sm">
             <span className="flex items-center gap-1.5 font-bold text-ck-fg-1">
@@ -1100,6 +1331,139 @@ export function TopologyMap({
                 <span className="text-ck-warn font-semibold">5 POA&amp;M ITEMS</span>
               </>
             )}
+          </div>
+        )}
+
+        {/* Sliding GovX Tactical Control Dossier Drawer */}
+        {dossierOpen && selectedControl && (
+          <div
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            className="absolute top-0 right-0 z-30 flex h-full w-full max-w-[390px] flex-col border-l border-ck-hairline-strong bg-ck-bg-1/98 p-4 shadow-2xl backdrop-blur-md overflow-y-auto animate-in slide-in-from-right duration-200 font-mono"
+          >
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2 border-b border-ck-hairline pb-2.5">
+              <div>
+                <div className="flex items-center gap-1.5 text-3xs uppercase tracking-widest text-ck-accent font-bold">
+                  <span className="h-1.5 w-1.5 rounded-full bg-ck-accent animate-ping" />
+                  GOVX CONTROL DOSSIER // {displayId(selectedControl.id)}
+                </div>
+                <h3 className="mt-1 font-serif text-lg font-semibold text-ck-fg-1">
+                  {selectedControl.title}
+                </h3>
+                <span className="text-3xs text-ck-fg-mute">
+                  ID: {selectedControl.id} &middot; Family: {selectedControl.family.toUpperCase()} ({FAMILY_COORD_MAP.get(selectedControl.family)?.short})
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDossierOpen(false)}
+                className="rounded border border-ck-hairline-strong bg-ck-bg-0 px-2 py-1 text-xs text-ck-fg-mute hover:text-ck-fg-1 hover:bg-ck-bg-2 transition-colors"
+                title="Close Dossier"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3.5 text-xs text-ck-fg-2">
+              {/* Status & Tailoring Summary */}
+              {(() => {
+                const s = implState(selectedControl.id, byControl);
+                return (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={`rounded px-1.5 py-0.5 text-2xs font-bold uppercase tracking-wider ${
+                        s.kind === "declared" && s.status === "implemented"
+                          ? "bg-ck-pos/15 text-ck-pos border border-ck-pos/30"
+                          : s.kind === "declared" && s.status === "partial"
+                            ? "bg-ck-warn/15 text-ck-warn border border-ck-warn/30"
+                            : "bg-ck-bg-2 text-ck-fg-mute border border-ck-hairline"
+                      }`}
+                    >
+                      {s.kind === "declared" ? s.status : s.kind === "declared-empty" ? "empty" : "undeclared"}
+                    </span>
+                    {selectedControl.in_baseline ? (
+                      <span className="rounded border border-ck-info/30 bg-ck-info/10 px-1.5 py-0.5 text-2xs text-ck-info">
+                        Moderate Baseline
+                      </span>
+                    ) : (
+                      <span className="rounded border border-ck-hairline bg-ck-bg-0 px-1.5 py-0.5 text-2xs text-ck-fg-mute">
+                        Catalog Only
+                      </span>
+                    )}
+                    {selectedControl.params && selectedControl.params.length > 0 && (
+                      <span className="rounded border border-ck-hairline bg-ck-bg-0 px-1.5 py-0.5 text-2xs text-ck-fg-2">
+                        {selectedControl.params.length} params
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Statement */}
+              <div className="space-y-1">
+                <span className="ck-eyebrow text-3xs">Control Statement</span>
+                {selectedControl.statement ? (
+                  <div className="rounded border border-ck-hairline bg-ck-bg-0 p-2.5 font-sans text-xs leading-relaxed text-ck-fg-1">
+                    <StatementText
+                      statement={selectedControl.statement}
+                      params={selectedControl.params ?? []}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-2xs text-ck-fg-mute">No statement projected for this control.</p>
+                )}
+              </div>
+
+              {/* Parameters List */}
+              {selectedControl.params && selectedControl.params.length > 0 && (
+                <div className="space-y-1">
+                  <span className="ck-eyebrow text-3xs">Tailorable Parameters ({selectedControl.params.length})</span>
+                  <div className="max-h-36 overflow-y-auto space-y-1 rounded border border-ck-hairline bg-ck-bg-0 p-2">
+                    {selectedControl.params.map((p) => (
+                      <div key={p.id} className="text-2xs">
+                        <span className="font-bold text-ck-accent">{p.id}</span>
+                        <span className="block text-ck-fg-mute">{p.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Architectural Corridors */}
+              <div className="space-y-1">
+                <span className="ck-eyebrow text-3xs">Boundary Corridors</span>
+                <div className="flex flex-wrap gap-1">
+                  {CORRIDORS.filter(([fam1, fam2]) => fam1 === selectedControl.family || fam2 === selectedControl.family).map(([fam1, fam2, label]) => (
+                    <span
+                      key={`${fam1}-${fam2}`}
+                      className="inline-flex items-center gap-1 rounded border border-ck-hairline bg-ck-bg-0 px-1.5 py-0.5 text-3xs"
+                    >
+                      <span className="font-bold text-ck-accent">{fam1.toUpperCase()}&harr;{fam2.toUpperCase()}</span>
+                      <span className="text-ck-fg-mute">{label}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* FedRAMP Assurance & Actions */}
+              <div className="border-t border-ck-hairline pt-2.5 space-y-2">
+                <div className="flex items-center justify-between text-3xs text-ck-fg-mute">
+                  <span>ASSURANCE: NIST-SP800-53-MOD</span>
+                  <span>MERKLE: 07617ef7a90b</span>
+                </div>
+                {onOpenInComposer && selectedControl.in_baseline && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenInComposer(selectedControl.id)}
+                    className="flex w-full items-center justify-center gap-1.5 rounded border border-ck-accent bg-ck-accent px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity"
+                  >
+                    <span>Tailor Parameter Values in Composer</span>
+                    <span>&rarr;</span>
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

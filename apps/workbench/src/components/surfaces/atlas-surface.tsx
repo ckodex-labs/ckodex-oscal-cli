@@ -531,6 +531,7 @@ export function AtlasSurface({
                   pulseActive={pulseActive}
                   onTriggerPulse={triggerPulse}
                   lens={lens}
+                  onOpenInComposer={onOpenInComposer}
                 />
               </div>
             ) : (

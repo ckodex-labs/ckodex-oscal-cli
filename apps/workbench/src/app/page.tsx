@@ -137,6 +137,7 @@ function Workbench() {
             selectedId={selectedControlId}
             onSelectControl={setSelectedControlId}
             onOpenInComposer={openInComposer}
+            lens={lens}
           />
         )}
         {surface === "bridge" && (

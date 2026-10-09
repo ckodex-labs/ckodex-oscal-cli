@@ -18,12 +18,14 @@ import {
   Panel,
   ProvenanceTag,
   Segmented,
+  StateBadge,
   StatGrid,
   StatTile,
   Toolbar,
 } from "@/components/kit";
 import { useSnapshot } from "@/lib/engine";
 import type { InspectResult } from "@/lib/atlas-types";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   displayId,
   implLabel,
@@ -42,28 +44,48 @@ import {
   type GridMode,
 } from "./atlas/family-grid";
 import { ControlDetail } from "./atlas/control-detail";
+import { TopologyMap } from "./atlas/topology-map";
 import { INPUT } from "./atlas/ui";
 
 export interface AtlasSurfaceProps {
   selectedId: string;
   onSelectControl: (id: string) => void;
   onOpenInComposer: (id: string) => void;
+  lens?: LensMode;
 }
 
 export function AtlasSurface({
   selectedId,
   onSelectControl,
   onOpenInComposer,
+  lens = "architect",
 }: AtlasSurfaceProps) {
   const atlasSnap = useAtlas();
   const ssp = useSspStatus();
   const catInspect = useSnapshot<InspectResult>("nist-catalog-inspect");
 
   const [mode, setMode] = React.useState<GridMode>("baseline");
+  const [viewType, setViewType] = React.useState<"topology" | "grid">(
+    lens === "architect" ? "topology" : "grid",
+  );
+  const [pulseActive, setPulseActive] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [family, setFamily] = React.useState<string>("all");
   const [hoverId, setHoverId] = React.useState<string | null>(null);
   const detailRef = React.useRef<HTMLDivElement>(null);
+
+  // Synchronize viewType when lens switches to architect
+  React.useEffect(() => {
+    if (lens === "architect") {
+      setViewType("topology");
+    }
+  }, [lens]);
+
+  const triggerPulse = React.useCallback(() => {
+    setPulseActive(true);
+    const timer = setTimeout(() => setPulseActive(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const index = atlasSnap.index;
   const nq = normalizeQuery(query);
@@ -219,6 +241,42 @@ export function AtlasSurface({
   const focusId = hoverId ?? selectedId;
   const focusCtl = index.byId.get(focusId);
 
+  const LENS_METADATA: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Visualizing hexagonal family topology, cross-family corridors, and dependency boundaries.",
+      tone: "info",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Focusing on control statement prose, parameter tailoring values, and SSP implementation narrative.",
+      tone: "pos",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Inspecting OSCAL machine AST schemas, node definitions, and CLI automation syntax.",
+      tone: "neutral",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing SSP implementation evidence statuses, declaration presence, and test objectives.",
+      tone: "warn",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Mapping critical path controls, blast radius exposure, and POA&M remediation debt.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Executive baseline posture rollup, family completion ratios, and governance compliance.",
+      tone: "info",
+    },
+  };
+
   return (
     <>
       {header(
@@ -238,9 +296,32 @@ export function AtlasSurface({
         </>,
       )}
 
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={LENS_METADATA[lens].tone}>
+            {LENS_METADATA[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {LENS_METADATA[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
+
       <Panel
-        title="Coverage"
-        subtitle="Counts from the resolved baseline and the catalog projection."
+        title={lens === "architect" ? "Architectural Topology & Coverage" : "Coverage"}
+        subtitle={
+          lens === "architect"
+            ? "Topological corridor links, family clusters, and baseline resolution."
+            : lens === "author"
+              ? "Authoring parameter density, baseline scope, and tailoring status."
+              : lens === "assessor"
+                ? "Assessment implementation presence, declaration states, and catalog scope."
+                : "Counts from the resolved baseline and the catalog projection."
+        }
         provenance={prov}
       >
         <StatGrid>
@@ -249,21 +330,43 @@ export function AtlasSurface({
             value={counts.baselineControls}
             hint="NIST Moderate"
           />
-          <StatTile
-            label="Baseline families"
-            value={counts.baselineFamilies}
-            hint={`of ${index.atlas.families.length} in catalog`}
-          />
-          <StatTile
-            label="Controls in catalog"
-            value={counts.catalogControls}
-            hint="incl. enhancements"
-          />
-          <StatTile
-            label="Withdrawn in catalog"
-            value={index.withdrawnCount}
-            hint={`${withdrawnInBaseline} in baseline`}
-          />
+          {lens === "architect" ? (
+            <>
+              <StatTile
+                label="Active corridors"
+                value={18}
+                hint="Cross-family paths"
+              />
+              <StatTile
+                label="Boundary hubs"
+                value={20}
+                hint="Family clusters"
+              />
+              <StatTile
+                label="Max coupling"
+                value="AC (7)"
+                hint="Boundary corridors"
+              />
+            </>
+          ) : (
+            <>
+              <StatTile
+                label="Baseline families"
+                value={counts.baselineFamilies}
+                hint={`of ${index.atlas.families.length} in catalog`}
+              />
+              <StatTile
+                label="Controls in catalog"
+                value={counts.catalogControls}
+                hint="incl. enhancements"
+              />
+              <StatTile
+                label="Withdrawn in catalog"
+                value={index.withdrawnCount}
+                hint={`${withdrawnInBaseline} in baseline`}
+              />
+            </>
+          )}
           <StatTile
             label="SSP coverage"
             tone="unk"
@@ -305,9 +408,17 @@ export function AtlasSurface({
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(280px,320px)] lg:items-start">
         <Panel
           title={
-            mode === "baseline" ? "Baseline by family" : "Catalog by family"
+            viewType === "topology"
+              ? "Hexagonal Topology Map"
+              : mode === "baseline"
+                ? "Baseline by family"
+                : "Catalog by family"
           }
-          subtitle={`${visible.length} of ${modeSet.length} controls shown`}
+          subtitle={
+            viewType === "topology"
+              ? "Interactive geometric territorial map of 20 NIST families and 18 architectural corridors"
+              : `${visible.length} of ${modeSet.length} controls shown`
+          }
           provenance={prov}
         >
           <div className="space-y-3">
@@ -323,101 +434,160 @@ export function AtlasSurface({
                 placeholder="Search id or title (ac-2, AC-2(1), audit)"
                 className={`${INPUT} w-full sm:w-64`}
               />
-              <label className="sr-only" htmlFor="atlas-family">
-                Family
-              </label>
-              <select
-                id="atlas-family"
-                value={family}
-                onChange={(e) => setFamily(e.target.value)}
-                className={`${INPUT} max-w-full`}
-              >
-                <option value="all">All families</option>
-                {families.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.id.toUpperCase()} {f.title}
-                  </option>
-                ))}
-              </select>
               <Segmented
-                label="Control set"
-                value={mode}
-                onChange={(m) => {
-                  setMode(m);
-                  if (
-                    m === "baseline" &&
-                    family !== "all" &&
-                    !index.atlas.families.find(
-                      (f) => f.id === family && f.in_baseline > 0,
-                    )
-                  ) {
-                    setFamily("all");
-                  }
-                }}
+                label="View mode"
+                value={viewType}
+                onChange={(v) => setViewType(v as "topology" | "grid")}
                 options={[
-                  {
-                    value: "baseline",
-                    label: `Baseline ${counts.baselineControls}`,
-                  },
-                  {
-                    value: "catalog",
-                    label: `Full catalog ${counts.catalogControls}`,
-                  },
+                  { value: "topology", label: "Hexagonal Map" },
+                  { value: "grid", label: "Family Grid" },
                 ]}
               />
+              {viewType === "grid" && (
+                <>
+                  <label className="sr-only" htmlFor="atlas-family">
+                    Family
+                  </label>
+                  <select
+                    id="atlas-family"
+                    value={family}
+                    onChange={(e) => setFamily(e.target.value)}
+                    className={`${INPUT} max-w-full`}
+                  >
+                    <option value="all">All families</option>
+                    {families.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.id.toUpperCase()} {f.title}
+                      </option>
+                    ))}
+                  </select>
+                  <Segmented
+                    label="Control set"
+                    value={mode}
+                    onChange={(m) => {
+                      setMode(m);
+                      if (
+                        m === "baseline" &&
+                        family !== "all" &&
+                        !index.atlas.families.find(
+                          (f) => f.id === family && f.in_baseline > 0,
+                        )
+                      ) {
+                        setFamily("all");
+                      }
+                    }}
+                    options={[
+                      {
+                        value: "baseline",
+                        label: `Baseline ${counts.baselineControls}`,
+                      },
+                      {
+                        value: "catalog",
+                        label: `Full catalog ${counts.catalogControls}`,
+                      },
+                    ]}
+                  />
+                </>
+              )}
             </Toolbar>
 
-            <Legend items={legend} />
+            {viewType === "topology" ? (
+              <div className="space-y-3">
+                <p
+                  aria-live="polite"
+                  className="min-h-[2.75rem] rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-1.5 text-sm text-ck-fg-2"
+                >
+                  {focusCtl ? (
+                    <>
+                      <span className="font-mono text-xs font-semibold text-ck-fg-1">
+                        {displayId(focusCtl.id)}
+                      </span>{" "}
+                      <span className="text-ck-fg-1">{focusCtl.title}</span>
+                      <span className="block text-xs text-ck-fg-mute">
+                        {hoverId ? "Pointer/focus" : "Selected"}:{" "}
+                        {index.familyById.get(focusCtl.family)?.title}
+                        {focusCtl.withdrawn
+                          ? ", withdrawn"
+                          : focusCtl.in_baseline
+                            ? `, in baseline, ${implLabel(implState(focusCtl.id, ssp.byControl)).toLowerCase()}`
+                            : ", not in Moderate baseline"}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-ck-fg-mute">
+                      Click or hover a control node to select it; drag to pan; use + / - to zoom; click Replay Pulse to animate corridor flow.
+                    </span>
+                  )}
+                </p>
 
-            <p
-              aria-live="polite"
-              className="min-h-[2.75rem] rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-1.5 text-sm text-ck-fg-2"
-            >
-              {focusCtl ? (
-                <>
-                  <span className="font-mono text-xs font-semibold text-ck-fg-1">
-                    {displayId(focusCtl.id)}
-                  </span>{" "}
-                  <span className="text-ck-fg-1">{focusCtl.title}</span>
-                  <span className="block text-xs text-ck-fg-mute">
-                    {hoverId ? "Pointer/focus" : "Selected"}:{" "}
-                    {index.familyById.get(focusCtl.family)?.title}
-                    {focusCtl.withdrawn
-                      ? ", withdrawn"
-                      : focusCtl.in_baseline
-                        ? `, in baseline, ${implLabel(implState(focusCtl.id, ssp.byControl)).toLowerCase()}`
-                        : ", not in Moderate baseline"}
-                  </span>
-                </>
-              ) : (
-                <span className="text-ck-fg-mute">
-                  Hover or focus a cell to see its id and title.
-                </span>
-              )}
-            </p>
-
-            {visible.length === 0 ? (
-              <EmptyState kind="empty" title="No controls match">
-                Nothing in the {mode === "baseline" ? "baseline" : "catalog"}{" "}
-                matches
-                {query ? ` "${query}"` : ""}
-                {family !== "all" ? ` in ${family.toUpperCase()}` : ""}.
-              </EmptyState>
+                <TopologyMap
+                  index={index}
+                  byControl={ssp.byControl}
+                  selectedId={selectedId}
+                  onSelectControl={select}
+                  hoverId={hoverId}
+                  onHoverControl={setHoverId}
+                  query={query}
+                  pulseActive={pulseActive}
+                  onTriggerPulse={triggerPulse}
+                  lens={lens}
+                />
+              </div>
             ) : (
-              <FamilyGrid
-                index={index}
-                visible={visible}
-                byControl={ssp.byControl}
-                mode={mode}
-                selectedId={selectedId}
-                onSelect={select}
-                onHover={setHoverId}
-              />
+              <div className="space-y-3">
+                <Legend items={legend} />
+
+                <p
+                  aria-live="polite"
+                  className="min-h-[2.75rem] rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-1.5 text-sm text-ck-fg-2"
+                >
+                  {focusCtl ? (
+                    <>
+                      <span className="font-mono text-xs font-semibold text-ck-fg-1">
+                        {displayId(focusCtl.id)}
+                      </span>{" "}
+                      <span className="text-ck-fg-1">{focusCtl.title}</span>
+                      <span className="block text-xs text-ck-fg-mute">
+                        {hoverId ? "Pointer/focus" : "Selected"}:{" "}
+                        {index.familyById.get(focusCtl.family)?.title}
+                        {focusCtl.withdrawn
+                          ? ", withdrawn"
+                          : focusCtl.in_baseline
+                            ? `, in baseline, ${implLabel(implState(focusCtl.id, ssp.byControl)).toLowerCase()}`
+                            : ", not in Moderate baseline"}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-ck-fg-mute">
+                      Hover or focus a cell to see its id and title.
+                    </span>
+                  )}
+                </p>
+
+                {visible.length === 0 ? (
+                  <EmptyState kind="empty" title="No controls match">
+                    Nothing in the {mode === "baseline" ? "baseline" : "catalog"}{" "}
+                    matches
+                    {query ? ` "${query}"` : ""}
+                    {family !== "all" ? ` in ${family.toUpperCase()}` : ""}.
+                  </EmptyState>
+                ) : (
+                  <FamilyGrid
+                    index={index}
+                    visible={visible}
+                    byControl={ssp.byControl}
+                    mode={mode}
+                    selectedId={selectedId}
+                    onSelect={select}
+                    onHover={setHoverId}
+                  />
+                )}
+                <p className="text-xs text-ck-fg-mute">
+                  Arrow keys move between cells; Enter selects. Enhancements are
+                  grouped with their parent control.
+                </p>
+              </div>
             )}
-            <p className="text-xs text-ck-fg-mute">
-              Arrow keys move between cells; Enter selects. Enhancements are
-              grouped with their parent control.
-            </p>
           </div>
         </Panel>
 
@@ -435,6 +605,7 @@ export function AtlasSurface({
               sspError={ssp.error}
               onSelect={onSelectControl}
               onOpenInComposer={onOpenInComposer}
+              lens={lens}
             />
           </Panel>
         </div>

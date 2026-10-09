@@ -4,6 +4,7 @@ import * as React from "react";
 import { EmptyState, ProvenanceTag, StateBadge } from "@/components/kit";
 import type { Provenance } from "@/lib/provenance";
 import type { SspImplementedRequirement } from "@/lib/atlas-types";
+import type { LensMode } from "@/lib/oscal-types";
 import { displayId, implState, statusTone, type AtlasIndex } from "./model";
 import { StatementText } from "./statement";
 import { BTN_PRIMARY, LINK_BTN } from "./ui";
@@ -23,6 +24,30 @@ function Row({
   );
 }
 
+// Authoritative family corridors for architectural analysis
+const FAMILY_CORRIDORS_MAP: Record<string, string[]> = {
+  ac: ["ia", "au", "sc", "cm", "pe", "ps", "ma"],
+  ia: ["ac"],
+  au: ["ac", "si"],
+  sc: ["ac", "si", "ir"],
+  cm: ["ac", "cp", "ca", "sa"],
+  cp: ["cm"],
+  ca: ["cm", "pl"],
+  pl: ["ca"],
+  pm: [],
+  pt: [],
+  pe: ["ac"],
+  ps: ["ac"],
+  ma: ["ac"],
+  mp: [],
+  sa: ["cm", "sr"],
+  sr: ["sa", "ra"],
+  si: ["sc", "ra", "au"],
+  ra: ["si", "sr"],
+  ir: ["sc", "at"],
+  at: ["ir"],
+};
+
 export function ControlDetail({
   index,
   id,
@@ -31,6 +56,7 @@ export function ControlDetail({
   sspError,
   onSelect,
   onOpenInComposer,
+  lens = "architect",
 }: {
   index: AtlasIndex;
   id: string;
@@ -39,6 +65,7 @@ export function ControlDetail({
   sspError: string | null;
   onSelect: (id: string) => void;
   onOpenInComposer: (id: string) => void;
+  lens?: LensMode;
 }) {
   const c = index.byId.get(id);
   if (!c) {
@@ -128,6 +155,107 @@ export function ControlDetail({
           </Row>
         )}
       </dl>
+
+      {/* Lens Perspective Intelligence Box */}
+      <div className="rounded-md border border-ck-hairline-strong bg-ck-bg-1 p-2.5 space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="ck-eyebrow text-ck-accent">Lens · {lens.toUpperCase()}</span>
+          <span className="font-mono text-2xs text-ck-fg-mute">perspective</span>
+        </div>
+
+        {lens === "architect" && (
+          <div className="space-y-1.5 text-xs text-ck-fg-2">
+            <p className="font-medium text-ck-fg-1">Hexagonal Topology Corridors:</p>
+            {FAMILY_CORRIDORS_MAP[c.family]?.length ? (
+              <div className="flex flex-wrap gap-1">
+                {FAMILY_CORRIDORS_MAP[c.family].map((targetFam) => (
+                  <span
+                    key={targetFam}
+                    className="inline-flex items-center gap-1 rounded bg-ck-bg-0 border border-ck-hairline px-1.5 py-0.5 font-mono text-2xs"
+                  >
+                    <span className="font-bold text-ck-accent">{c.family.toUpperCase()}</span>
+                    <span>&harr;</span>
+                    <span className="font-semibold">{targetFam.toUpperCase()}</span>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-2xs text-ck-fg-mute">No direct boundary corridors mapped for this family.</p>
+            )}
+            <p className="text-2xs text-ck-fg-3">
+              Coupling: {c.family.toUpperCase()} connects to {FAMILY_CORRIDORS_MAP[c.family]?.length ?? 0} adjacent family clusters in the Moderate baseline.
+            </p>
+          </div>
+        )}
+
+        {lens === "author" && (
+          <div className="space-y-1.5 text-xs text-ck-fg-2">
+            <p className="font-medium text-ck-fg-1">Prose & Parameter Tailoring:</p>
+            <p className="text-2xs text-ck-fg-3">
+              {c.params && c.params.length > 0
+                ? `Declares ${c.params.length} configurable parameter${c.params.length === 1 ? "" : "s"} requiring organizational assignment.`
+                : "Standard control with no parameter tailoring required."}
+            </p>
+            <button
+              type="button"
+              className={BTN_PRIMARY}
+              disabled={!c.in_baseline}
+              onClick={() => onOpenInComposer(c.id)}
+            >
+              Tailor in Composer
+            </button>
+          </div>
+        )}
+
+        {lens === "engineer" && (
+          <div className="space-y-1 text-xs text-ck-fg-2 font-mono">
+            <p className="text-2xs text-ck-fg-mute font-sans font-medium">CLI Inspection Syntax:</p>
+            <pre className="rounded bg-ck-bg-0 border border-ck-hairline p-1.5 text-2xs text-ck-fg-1 overflow-x-auto">
+              ckx oscal control inspect --id {c.id}
+            </pre>
+            <div className="text-2xs text-ck-fg-3 font-sans">
+              AST Node: {c.id} &middot; Family: {c.family} &middot; Baseline: {String(c.in_baseline)}
+            </div>
+          </div>
+        )}
+
+        {lens === "assessor" && (
+          <div className="space-y-1 text-xs text-ck-fg-2">
+            <p className="font-medium text-ck-fg-1">Assessment Audit Rubric:</p>
+            <div className="flex items-center gap-2">
+              <span className="text-2xs text-ck-fg-mute">Declared Status:</span>
+              {s.kind === "declared" ? (
+                <StateBadge tone={statusTone(s.status)}>{s.status}</StateBadge>
+              ) : s.kind === "declared-empty" ? (
+                <StateBadge tone="unk">EMPTY</StateBadge>
+              ) : (
+                <StateBadge tone="neutral">UNDECLARED</StateBadge>
+              )}
+            </div>
+            <p className="text-2xs text-ck-fg-3">
+              FedRAMP Moderate test objective: verifies implementation presence and evidence artifact bindings.
+            </p>
+          </div>
+        )}
+
+        {lens === "risk-owner" && (
+          <div className="space-y-1 text-xs text-ck-fg-2">
+            <p className="font-medium text-ck-fg-1">Risk Exposure & Residual Impact:</p>
+            <p className="text-2xs text-ck-fg-3">
+              Baseline weight: Critical path control in Moderate profile. If unsatisfied, generates audit finding with required POA&amp;M milestone.
+            </p>
+          </div>
+        )}
+
+        {lens === "ciso" && (
+          <div className="space-y-1 text-xs text-ck-fg-2">
+            <p className="font-medium text-ck-fg-1">Executive Governance Rollup:</p>
+            <p className="text-2xs text-ck-fg-3">
+              Family {c.family.toUpperCase()} has {family?.in_baseline ?? 0} controls in the Moderate baseline. Contributes to organizational compliance authorization package.
+            </p>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-1.5">
         <h3 className="ck-eyebrow">Statement</h3>

@@ -15,6 +15,7 @@ import {
   Toolbar,
   type Tone,
 } from "@/components/kit";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   ActionButton,
   DOCKET_PROVENANCE,
@@ -57,13 +58,17 @@ function DueCell({ n }: { n: number }) {
   );
 }
 
+export interface DocketSurfaceProps {
+  poams: PoamItem[];
+  onSelectPoamControl: (id: string) => void;
+  lens?: LensMode;
+}
+
 export function DocketSurface({
   poams,
   onSelectPoamControl,
-}: {
-  poams: PoamItem[];
-  onSelectPoamControl: (id: string) => void;
-}) {
+  lens = "risk-owner",
+}: DocketSurfaceProps) {
   const [sort, setSort] = React.useState<SortKey>("due");
   const [desc, setDesc] = React.useState(false);
   const [status, setStatus] = React.useState<StatusFilter>("all");
@@ -108,6 +113,42 @@ export function DocketSurface({
 
   const sortLabel: Record<SortKey, string> = { due: "Due date", age: "Age open", risk: "Risk", id: "ID" };
 
+  const DOCKET_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Managing remediation debt, scheduled milestone progress, and overdue vulnerability risks.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Executive risk exposure burndown, liability milestones, and critical compliance exceptions.",
+      tone: "info",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing POA&M closure evidence, milestone verification artifacts, and acceptance justifications.",
+      tone: "neutral",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Tracking technical patch remediation, configuration fixes, and automated PR remediations.",
+      tone: "pos",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Correlating open POA&M deficiency descriptions with control implementation statements.",
+      tone: "neutral",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Evaluating structural dependencies and blast radius of components carrying open POA&M items.",
+      tone: "info",
+    },
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -117,6 +158,21 @@ export function DocketSurface({
       />
 
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={DOCKET_LENS_INFO[lens].tone}>
+            {DOCKET_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {DOCKET_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <Panel title="Summary" subtitle={FIXTURE_DATE_NOTE} provenance={DOCKET_PROVENANCE}>
         <StatRow>

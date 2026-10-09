@@ -155,6 +155,7 @@ function Workbench() {
               );
               void recordLocal(`Mapping edge ${edgeId} confirmed (fixture data)`);
             }}
+            lens={lens}
           />
         )}
         {surface === "composer" && (
@@ -162,9 +163,10 @@ function Workbench() {
             selectedControlId={selectedControlId}
             onSelectControl={setSelectedControlId}
             onRecordLocal={recordLocal}
+            lens={lens}
           />
         )}
-        {surface === "ledger" && <LedgerSurface evidence={fixture.evidence} />}
+        {surface === "ledger" && <LedgerSurface evidence={fixture.evidence} lens={lens} />}
         {surface === "docket" && (
           <DocketSurface
             poams={fixture.poams}
@@ -172,13 +174,14 @@ function Workbench() {
               setSelectedControlId(id.toLowerCase());
               setSurface("atlas");
             }}
+            lens={lens}
           />
         )}
-        {surface === "pipeline" && <PipelineSurface onRecordLocal={recordLocal} />}
+        {surface === "pipeline" && <PipelineSurface onRecordLocal={recordLocal} lens={lens} />}
         {surface === "jurisdiction" && <JurisdictionSlsaPanel />}
         {surface === "cicd" && <CicdSbomPanel />}
         {surface === "fabric" && <FabricSurface />}
-        {surface === "inspector" && <InspectorSurface onRecordLocal={recordLocal} />}
+        {surface === "inspector" && <InspectorSurface onRecordLocal={recordLocal} lens={lens} />}
       </AppShell>
 
       <ShortcutsModal isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />

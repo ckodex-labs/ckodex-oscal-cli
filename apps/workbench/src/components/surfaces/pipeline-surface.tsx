@@ -28,6 +28,7 @@ import {
   StateBadge,
   Terminal,
 } from "@/components/kit";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   Code,
   Fields,
@@ -41,17 +42,57 @@ import {
 } from "@/components/generative-ui/b/shared";
 import { LiveChecks } from "@/components/surfaces/pipeline/live-checks";
 
+export interface PipelineSurfaceProps {
+  onRecordLocal: (event: string) => Promise<void>;
+  lens?: LensMode;
+}
+
 export function PipelineSurface({
   onRecordLocal,
-}: {
-  onRecordLocal: (event: string) => Promise<void>;
-}) {
+  lens = "engineer",
+}: PipelineSurfaceProps) {
   const { status } = useEngine();
   const run = useSnap<PipelineRunOutput>("pipeline-run");
   const sarif = useSnap<SarifExportOutput>("pipeline-export-sarif", 2);
   const rules = useSnap<Rulepack[]>("policy-rulepack-list", 3);
 
   const d = run.data;
+
+  const PIPELINE_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "CI/CD execution telemetry, automated policy rule evaluations, exit codes, and SARIF static analysis diagnostics.",
+      tone: "pos",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing deterministic CI policy gate evaluation records, rule violations, and cryptographic Merkle provenance.",
+      tone: "neutral",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing pipeline gate topology, rulepack policy composition, and SBOM dependency component boundaries.",
+      tone: "info",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Evaluating policy rulepack bindings, waiver exception rationales, and automated gate thresholds.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Monitoring active pipeline policy waivers, unmitigated build violations, and release blockage risks.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Executive view of supply chain gates, SLSA provenance integrity, and enterprise build pipeline pass rates.",
+      tone: "info",
+    },
+  };
 
   return (
     <div className="space-y-5">
@@ -82,6 +123,21 @@ export function PipelineSurface({
         }
       />
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={PIPELINE_LENS_INFO[lens].tone}>
+            {PIPELINE_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {PIPELINE_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       {!d || !run.provenance ? (
         <SnapFallback title="pipeline run output" state={run} />

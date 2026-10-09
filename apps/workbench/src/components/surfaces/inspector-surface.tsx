@@ -20,6 +20,7 @@ import {
   StateBadge,
 } from "@/components/kit";
 import type { InspectReport, ValidateReport } from "@/components/generative-ui/engine-types";
+import type { LensMode } from "@/lib/oscal-types";
 import { DOCS, type DocId } from "./inspector/documents";
 import { InspectBody } from "./inspector/inspect-body";
 import { ValidateBody } from "./inspector/validate-body";
@@ -27,6 +28,7 @@ import { LiveRunner } from "./inspector/live-runner";
 
 export interface InspectorSurfaceProps {
   onRecordLocal: (event: string) => Promise<void>;
+  lens?: LensMode;
 }
 
 function missing(id: string, error: string | null) {
@@ -37,7 +39,10 @@ function missing(id: string, error: string | null) {
   };
 }
 
-export function InspectorSurface({ onRecordLocal }: InspectorSurfaceProps) {
+export function InspectorSurface({
+  onRecordLocal,
+  lens = "engineer",
+}: InspectorSurfaceProps) {
   const { status, manifest } = useEngine();
   const [docId, setDocId] = React.useState<DocId>("catalog");
   const doc = DOCS.find((d) => d.id === docId)!;
@@ -45,6 +50,42 @@ export function InspectorSurface({ onRecordLocal }: InspectorSurfaceProps) {
   const inspect = useSnapshot<InspectReport>(doc.inspectId);
   const validate = useSnapshot<ValidateReport>(doc.validateId);
   const input = manifest?.inputs.find((i) => i.path === doc.sourceInput);
+
+  const INSPECTOR_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Inspecting raw document schemas, AST node counts, and CLI command execution diagnostics.",
+      tone: "neutral",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Evaluating syntax conformance, constraint validation diagnostics, and schema errors.",
+      tone: "warn",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Verifying catalog and profile composition, inclusion rules, and parameter definitions.",
+      tone: "info",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Reviewing document prose validity, parameter definition structures, and metadata integrity.",
+      tone: "pos",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Checking schema compliance status and document readiness for formal authorization submission.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Executive view of core artifact validity, schema health, and engine diagnostic status.",
+      tone: "info",
+    },
+  };
 
   return (
     <>
@@ -65,6 +106,21 @@ export function InspectorSurface({ onRecordLocal }: InspectorSurfaceProps) {
         }
       />
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={INSPECTOR_LENS_INFO[lens].tone}>
+            {INSPECTOR_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {INSPECTOR_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <div className="flex min-w-0 flex-wrap items-center gap-3">
         <Segmented<DocId>

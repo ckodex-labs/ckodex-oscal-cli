@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { EvidenceItem } from "@/lib/atlas-data";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   DataTable,
   EmptyState,
@@ -52,11 +53,55 @@ function FreshBadge({ days }: { days: number }) {
   return <StateBadge tone={FRESH_TONE[f]}>{f}</StateBadge>;
 }
 
-export function LedgerSurface({ evidence }: { evidence: EvidenceItem[] }) {
+export interface LedgerSurfaceProps {
+  evidence: EvidenceItem[];
+  lens?: LensMode;
+}
+
+export function LedgerSurface({
+  evidence,
+  lens = "assessor",
+}: LedgerSurfaceProps) {
   const [method, setMethod] = React.useState<MethodFilter>("all");
   const [fresh, setFresh] = React.useState<FreshFilter>("all");
   const [query, setQuery] = React.useState("");
   const [selectedId, setSelectedId] = React.useState<string | null>(evidence[0]?.id ?? null);
+
+  const LEDGER_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing evidence freshness, collection methodology (automated vs manual), and cryptographically bound attachments.",
+      tone: "neutral",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Checking automated collector integrations, webhook event receipts, and infrastructure evidence artifacts.",
+      tone: "pos",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Associating evidentiary artifacts with control implementation narratives and component descriptions.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Identifying stale evidence, unproven control claims, and impending audit expirations.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Enterprise evidence posture, automated collection coverage ratio, and audit readiness health.",
+      tone: "info",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing evidence collector coverage topology across boundary components and control families.",
+      tone: "info",
+    },
+  };
 
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -103,6 +148,21 @@ export function LedgerSurface({ evidence }: { evidence: EvidenceItem[] }) {
       />
 
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={LEDGER_LENS_INFO[lens].tone}>
+            {LEDGER_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {LEDGER_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <Panel title="Summary" subtitle={FIXTURE_DATE_NOTE} provenance={LEDGER_PROVENANCE}>
         <StatRow>

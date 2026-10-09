@@ -3,6 +3,7 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import type { BridgeEdge, MappingRow } from "@/lib/atlas-data";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   DataTable,
   DesktopOnly,
@@ -38,6 +39,7 @@ interface BridgeSurfaceProps {
   edgesIso: BridgeEdge[];
   edgesCsf: BridgeEdge[];
   onEdgeConfirmHuman?: (edgeId: string) => void;
+  lens?: LensMode;
 }
 
 type Target = "iso" | "csf";
@@ -57,6 +59,7 @@ export function BridgeSurface({
   edgesIso,
   edgesCsf,
   onEdgeConfirmHuman,
+  lens = "architect",
 }: BridgeSurfaceProps) {
   const [target, setTarget] = React.useState<Target>("iso");
   const [view, setView] = React.useState<View>("diagram");
@@ -91,6 +94,42 @@ export function BridgeSurface({
     return m;
   }, [edges]);
 
+  const BRIDGE_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing framework boundary mapping, semantic equivalence, and structural crosswalk coherence.",
+      tone: "info",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing crosswalk mappings, human review confirmations, and framework gap justification notes.",
+      tone: "warn",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Formulating cross-framework relationship rationales and tailoring translation narratives.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Evaluating unmapped control risks, multi-regulation gaps, and compliance liability coverage.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "High-level harmonization across ISO 27001 and NIST CSF 2.0 to eliminate redundant audit spending.",
+      tone: "pos",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Tracing target control obligations down to technical implementation statements and telemetry.",
+      tone: "neutral",
+    },
+  };
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -111,6 +150,21 @@ export function BridgeSurface({
       />
 
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={BRIDGE_LENS_INFO[lens].tone}>
+            {BRIDGE_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {BRIDGE_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <Panel title="Summary" subtitle={`${SOURCE_LABEL} to ${TARGET_LABEL[target]}`} provenance={BRIDGE_PROVENANCE}>
         <StatRow>

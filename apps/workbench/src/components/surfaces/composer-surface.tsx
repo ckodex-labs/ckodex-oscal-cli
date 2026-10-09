@@ -32,6 +32,7 @@ import type {
   AtlasParam,
   ValidateResult,
 } from "@/lib/atlas-types";
+import type { LensMode } from "@/lib/oscal-types";
 import {
   displayId,
   matchesQuery,
@@ -46,6 +47,7 @@ export interface ComposerSurfaceProps {
   selectedControlId: string;
   onSelectControl: (id: string) => void;
   onRecordLocal: (event: string) => Promise<void>;
+  lens?: LensMode;
 }
 
 type Drafts = Record<string, Record<string, string>>;
@@ -59,6 +61,7 @@ export function ComposerSurface({
   selectedControlId,
   onSelectControl,
   onRecordLocal,
+  lens = "author",
 }: ComposerSurfaceProps) {
   const atlasSnap = useAtlas();
   const modValidate = useSnapshot<ValidateResult>("nist-moderate-validate");
@@ -147,10 +150,61 @@ export function ComposerSurface({
 
   const active = params.find((p) => p.id === activeParam) ?? null;
 
+  const COMPOSER_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    author: {
+      title: "Author Lens Active",
+      desc: "Drafting implementation narrative, configuring control parameter values, and applying organizational assignments.",
+      tone: "pos",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "OSCAL GitOps workspace split, YAML frontmatter schema, and machine-readable assembly.",
+      tone: "neutral",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing control tailoring rationale, parameter boundary compliance, and verification objectives.",
+      tone: "warn",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Evaluating baseline control tailoring against component boundaries and service architecture.",
+      tone: "info",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Reviewing residual exposure resulting from parameter tailoring and baseline exceptions.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Executive oversight of organizational tailoring policies, mandatory baselines, and parameter deviations.",
+      tone: "info",
+    },
+  };
+
   return (
     <>
       {header}
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={COMPOSER_LENS_INFO[lens].tone}>
+            {COMPOSER_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {COMPOSER_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <ControlPicker
         index={index}

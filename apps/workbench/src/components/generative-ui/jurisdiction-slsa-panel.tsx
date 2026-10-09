@@ -42,6 +42,8 @@ import {
   type SnapResult,
 } from "@/components/generative-ui/b/shared";
 
+import type { LensMode } from "@/lib/oscal-types";
+
 function severityTone(s: string | undefined): Tone {
   const v = (s ?? "").toLowerCase();
   if (v === "high" || v === "critical") return "neg";
@@ -50,12 +52,52 @@ function severityTone(s: string | undefined): Tone {
   return "unk";
 }
 
-export function JurisdictionSlsaPanel() {
+export interface JurisdictionSlsaPanelProps {
+  lens?: LensMode;
+}
+
+export function JurisdictionSlsaPanel({ lens = "ciso" }: JurisdictionSlsaPanelProps) {
   const catalogs = useSnap<BuiltinCatalog[]>("catalog-list");
   const nist = useSnap<CatalogInspectOutput>("nist-catalog-inspect", 1);
   const pipeline = useSnap<PipelineRunOutput>("pipeline-run");
   const fedramp = useSnap<FedrampValidateOutput>("ssp-fedramp-validate");
   const validate = useSnap<ValidateOutput>("ssp-validate", 1);
+
+  const JURISDICTION_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Sovereign jurisdiction catalog baselines, FedRAMP package compliance readiness, and enterprise SLSA attestation.",
+      tone: "info",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing SLSA v1.2 build provenance, FedRAMP rule validation errors, and schema conformance diagnostics.",
+      tone: "warn",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing multi-jurisdiction catalog federation (US NIST vs FedRAMP vs sovereign overlays) and SLSA levels.",
+      tone: "info",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Reviewing catalog version discrepancies, SSP schema compliance, and jurisdiction inheritance mappings.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Tracking FedRAMP validation violations, supply chain attestation gaps, and authorization submission blockers.",
+      tone: "warn",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Inspecting raw SLSA provenance JSON payloads, Merkle roots, and machine schema validation outputs.",
+      tone: "pos",
+    },
+  };
 
   return (
     <div className="space-y-5">
@@ -65,6 +107,21 @@ export function JurisdictionSlsaPanel() {
         description="Which control catalogs the engine ships, what the official NIST catalog contains, what supply-chain evidence this snapshot holds, and how the sample SSP fares against FedRAMP and OSCAL schema checks."
       />
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={JURISDICTION_LENS_INFO[lens].tone}>
+            {JURISDICTION_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {JURISDICTION_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <div className="grid gap-4 2xl:grid-cols-2">
         <CatalogsPanel catalogs={catalogs} />

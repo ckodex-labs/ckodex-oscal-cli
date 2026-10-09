@@ -89,6 +89,8 @@ const CORRIDORS: [string, string, string][] = [
   ["ir", "at", "Incident Drills"],
 ];
 
+const POAM_CONTROLS = new Set(["ac-3", "sc-7", "ia-2", "ac-17", "si-4"]);
+
 function getHexPolygonPoints(cx: number, cy: number, r: number): string {
   const pts: string[] = [];
   for (let i = 0; i < 6; i++) {
@@ -163,11 +165,17 @@ export function TopologyMap({
   const [overlay, setOverlay] = React.useState<"state" | "params" | "corridors">(
     "state",
   );
+  const [hoveredCorridor, setHoveredCorridor] = React.useState<{
+    fam1: string;
+    fam2: string;
+    label: string;
+  } | null>(null);
 
   const containerRef = React.useRef<HTMLDivElement>(null);
 
   const selectedControl = index.byId.get(selectedId);
   const selectedFamilyId = selectedControl ? selectedControl.family : null;
+  const hoveredControl = hoverId ? index.byId.get(hoverId) : null;
 
   // Handle drag pan
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -336,7 +344,7 @@ export function TopologyMap({
           preserveAspectRatio="xMidYMid meet"
           className="h-full w-full cursor-grab active:cursor-grabbing"
         >
-          {/* Subtle territory grid pattern background */}
+          {/* Subtle territory grid pattern background and animations */}
           <defs>
             <pattern
               id="atlas-grid"
@@ -351,6 +359,15 @@ export function TopologyMap({
                 strokeWidth="0.5"
               />
             </pattern>
+            <style>{`
+              @keyframes corridorDash {
+                to { stroke-dashoffset: -20; }
+              }
+              .corridor-active-flow {
+                stroke-dasharray: 5 5;
+                animation: corridorDash 1s linear infinite;
+              }
+            `}</style>
           </defs>
           <rect width="1180" height="740" fill="url(#atlas-grid)" />
 
@@ -380,12 +397,36 @@ export function TopologyMap({
                 selectedFamilyId === fam1 || selectedFamilyId === fam2;
               const isConnectedToFocused =
                 focusedFam === fam1 || focusedFam === fam2;
+              const isCorridorHovered =
+                hoveredCorridor?.fam1 === fam1 && hoveredCorridor?.fam2 === fam2;
               const isHighlighted =
-                isConnectedToSelected || isConnectedToFocused || pulseActive;
+                isConnectedToSelected ||
+                isConnectedToFocused ||
+                isCorridorHovered ||
+                pulseActive;
 
               return (
-                <g key={`corridor-${idx}`}>
+                <g
+                  key={`corridor-${idx}`}
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoveredCorridor({ fam1, fam2, label })}
+                  onMouseLeave={() => setHoveredCorridor(null)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedFam((prev) => (prev === fam1 ? null : fam1));
+                    onSelectControl(fam1 + "-1");
+                  }}
+                >
                   <title>{`${fam1.toUpperCase()} <-> ${fam2.toUpperCase()}: ${label}`}</title>
+                  {/* Expanded invisible hit target for easy mouse hover */}
+                  <line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke="transparent"
+                    strokeWidth={14}
+                  />
                   <line
                     x1={x1}
                     y1={y1}
@@ -396,16 +437,20 @@ export function TopologyMap({
                         ? "var(--ck-accent)"
                         : "var(--ck-hairline-strong)"
                     }
-                    strokeWidth={isHighlighted ? 2.2 : 1.2}
+                    strokeWidth={isHighlighted ? 2.4 : 1.2}
                     strokeOpacity={isHighlighted ? 0.95 : 0.4}
-                    className={pulseActive ? "animate-corridor-flow" : ""}
+                    className={isHighlighted || pulseActive ? "corridor-active-flow" : ""}
                   />
                   {(overlay === "corridors" || isHighlighted) && (
                     <text
                       x={(x1 + x2) / 2}
                       y={(y1 + y2) / 2 - 4}
                       textAnchor="middle"
-                      className="fill-ck-fg-mute font-mono text-[9px] pointer-events-none"
+                      className={`font-mono text-[9px] pointer-events-none transition-colors ${
+                        isHighlighted
+                          ? "fill-ck-accent font-semibold"
+                          : "fill-ck-fg-mute"
+                      }`}
                     >
                       {label}
                     </text>
@@ -512,12 +557,44 @@ export function TopologyMap({
                     {fc.short}
                   </text>
 
-                  {/* Posture Mode Display */}
+                  {/* Posture Mode Display with Radial Completion Meter */}
                   {semanticZoom === "posture" && (
                     <g className="pointer-events-none">
+                      {(() => {
+                        const gaugeR = fc.r - 20;
+                        const circ = 2 * Math.PI * gaugeR;
+                        const offset = circ * (1 - covPct / 100);
+                        return (
+                          <>
+                            <circle
+                              cx={fc.cx}
+                              cy={fc.cy + 6}
+                              r={gaugeR}
+                              fill="none"
+                              stroke="var(--ck-hairline-strong)"
+                              strokeWidth="3.5"
+                              strokeOpacity="0.35"
+                            />
+                            {covPct > 0 && (
+                              <circle
+                                cx={fc.cx}
+                                cy={fc.cy + 6}
+                                r={gaugeR}
+                                fill="none"
+                                stroke="var(--ck-pos)"
+                                strokeWidth="3.5"
+                                strokeDasharray={circ}
+                                strokeDashoffset={offset}
+                                strokeLinecap="round"
+                                transform={`rotate(-90 ${fc.cx} ${fc.cy + 6})`}
+                              />
+                            )}
+                          </>
+                        );
+                      })()}
                       <text
                         x={fc.cx}
-                        y={fc.cy + 10}
+                        y={fc.cy + 13}
                         textAnchor="middle"
                         className="font-serif text-2xl font-normal fill-ck-fg-1"
                       >
@@ -525,7 +602,7 @@ export function TopologyMap({
                       </text>
                       <text
                         x={fc.cx}
-                        y={fc.cy + 25}
+                        y={fc.cy + 27}
                         textAnchor="middle"
                         className="font-mono text-[9px] fill-ck-fg-mute"
                       >
@@ -642,6 +719,20 @@ export function TopologyMap({
                             />
                           )}
 
+                          {/* Risk Owner Open Weakness Ring */}
+                          {lens === "risk-owner" && POAM_CONTROLS.has(c.id) && (
+                            <circle
+                              cx={node.x}
+                              cy={node.y}
+                              r={half + 4}
+                              fill="none"
+                              stroke="var(--ck-warn)"
+                              strokeWidth="1.6"
+                              strokeDasharray="2 2"
+                              className="animate-pulse"
+                            />
+                          )}
+
                           {/* Hover Focus Ring */}
                           {isHovered && !isSelected && (
                             <circle
@@ -676,6 +767,93 @@ export function TopologyMap({
           </div>
         )}
 
+        {/* Tactical HUD Overlay (Top-Right) */}
+        {hoveredControl ? (
+          (() => {
+            const hState = implState(hoveredControl.id, byControl);
+            const statusStr =
+              hState.kind === "declared"
+                ? hState.status
+                : hState.kind === "declared-empty"
+                  ? "empty"
+                  : "undeclared in ssp";
+            const isPos = hState.kind === "declared" && hState.status === "implemented";
+            const isWarn = hState.kind === "declared" && hState.status === "partial";
+            return (
+              <div className="pointer-events-none absolute right-3 top-3 max-w-[280px] rounded-md border border-ck-hairline-strong bg-ck-bg-1/95 p-3 shadow-lg backdrop-blur-sm transition-all duration-150">
+                <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5">
+                  <span className="font-mono text-xs font-bold text-ck-accent">
+                    {displayId(hoveredControl.id)}
+                  </span>
+                  <span className="font-mono text-3xs uppercase tracking-wider text-ck-fg-mute">
+                    {hoveredControl.family.toUpperCase()} · {FAMILY_COORD_MAP.get(hoveredControl.family)?.short ?? "Family"}
+                  </span>
+                </div>
+                <div className="mt-1.5 line-clamp-2 text-xs font-medium text-ck-fg-1">
+                  {hoveredControl.title}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-2xs">
+                  <span
+                    className={`rounded px-1.5 py-0.5 font-mono ${
+                      isPos
+                        ? "bg-ck-pos/15 text-ck-pos border border-ck-pos/30"
+                        : isWarn
+                          ? "bg-ck-warn/15 text-ck-warn border border-ck-warn/30"
+                          : "bg-ck-bg-2 text-ck-fg-mute border border-ck-hairline"
+                    }`}
+                  >
+                    {statusStr}
+                  </span>
+                  {hoveredControl.params && hoveredControl.params.length > 0 && (
+                    <span className="rounded border border-ck-hairline bg-ck-bg-0 px-1.5 py-0.5 font-mono text-ck-fg-2">
+                      {hoveredControl.params.length} params
+                    </span>
+                  )}
+                  {POAM_CONTROLS.has(hoveredControl.id) && (
+                    <span className="rounded border border-ck-warn/40 bg-ck-warn/10 px-1.5 py-0.5 font-mono text-ck-warn font-semibold">
+                      POA&M Weakness
+                    </span>
+                  )}
+                </div>
+                <div className="mt-2 text-3xs font-mono text-ck-fg-mute">
+                  Click node to inspect statement & tailoring
+                </div>
+              </div>
+            );
+          })()
+        ) : hoveredCorridor ? (
+          <div className="pointer-events-none absolute right-3 top-3 max-w-[280px] rounded-md border border-ck-accent bg-ck-bg-1/95 p-3 shadow-lg backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-2 border-b border-ck-hairline pb-1.5">
+              <span className="font-mono text-xs font-bold text-ck-accent">
+                {`${hoveredCorridor.fam1.toUpperCase()} <-> ${hoveredCorridor.fam2.toUpperCase()}`}
+              </span>
+              <span className="font-mono text-3xs uppercase tracking-wider text-ck-fg-mute">
+                Boundary Corridor
+              </span>
+            </div>
+            <div className="mt-1.5 text-xs font-medium text-ck-fg-1">
+              {hoveredCorridor.label}
+            </div>
+            <div className="mt-1 text-2xs text-ck-fg-mute">
+              Architectural dependency corridor between {FAMILY_COORD_MAP.get(hoveredCorridor.fam1)?.short} and {FAMILY_COORD_MAP.get(hoveredCorridor.fam2)?.short}.
+            </div>
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute right-3 top-3 hidden sm:flex items-center gap-2.5 rounded-md border border-ck-hairline bg-ck-bg-1/80 px-2.5 py-1 text-2xs text-ck-fg-mute backdrop-blur-xs">
+            <span>20 Families</span>
+            <span className="h-3 w-px bg-ck-hairline" />
+            <span>18 Corridors</span>
+            <span className="h-3 w-px bg-ck-hairline" />
+            <span>287 Controls</span>
+            {lens === "risk-owner" && (
+              <>
+                <span className="h-3 w-px bg-ck-hairline" />
+                <span className="text-ck-warn font-medium">5 POA&M items</span>
+              </>
+            )}
+          </div>
+        )}
+
         {/* Canvas Legend Overlay */}
         <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-3 rounded-md border border-ck-hairline bg-ck-bg-1/90 px-3 py-1.5 text-2xs backdrop-blur-xs">
           <span className="font-semibold text-ck-fg-1">Status:</span>
@@ -695,6 +873,12 @@ export function TopologyMap({
             <span className="h-2 w-2 rounded-xs border border-ck-hairline-strong bg-ck-bg-0" />
             <span className="text-ck-fg-mute">Undeclared</span>
           </span>
+          {lens === "risk-owner" && (
+            <span className="flex items-center gap-1 border-l border-ck-hairline pl-2">
+              <span className="h-2 w-2 rounded-full border border-ck-warn bg-ck-warn/20" />
+              <span className="text-ck-warn font-medium">POA&M Risk</span>
+            </span>
+          )}
         </div>
       </div>
     </div>

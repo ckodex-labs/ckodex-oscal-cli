@@ -35,11 +35,52 @@ import {
   useSnap,
   type SnapResult,
 } from "@/components/generative-ui/b/shared";
+import type { LensMode } from "@/lib/oscal-types";
 
-export function CicdSbomPanel() {
+export interface CicdSbomPanelProps {
+  lens?: LensMode;
+}
+
+export function CicdSbomPanel({ lens = "engineer" }: CicdSbomPanelProps) {
   const { status } = useEngine();
   const rules = useSnap<Rulepack[]>("policy-rulepack-list", 3);
   const sbom = useSnap<SbomImportOutput>("sbom-import");
+
+  const CICD_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Rego policy rulepack authoring, CycloneDX SBOM component parsing, and local engine dry-run evaluations.",
+      tone: "pos",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing automated policy gate rules, SBOM component cryptographic traceability, and verification evidence.",
+      tone: "neutral",
+    },
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing policy gate composition, component definition separation, and SBOM dependency boundaries.",
+      tone: "info",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Reviewing policy rule titles, component description narratives, and waiver exemption documentation.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Monitoring automated CI blocking rules, release gate waivers, and component vulnerability exposures.",
+      tone: "warn",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Enterprise supply chain policy enforcement, software bill of materials integrity, and automated gate governance.",
+      tone: "info",
+    },
+  };
 
   return (
     <div className="space-y-5">
@@ -49,6 +90,21 @@ export function CicdSbomPanel() {
         description="The Rego rules the engine ships for CI gating, and the OSCAL component definition produced from the example CycloneDX SBOM."
       />
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={CICD_LENS_INFO[lens].tone}>
+            {CICD_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {CICD_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <RulepacksPanel rules={rules} />
 

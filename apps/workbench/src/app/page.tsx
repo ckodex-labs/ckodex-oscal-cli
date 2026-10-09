@@ -178,9 +178,9 @@ function Workbench() {
           />
         )}
         {surface === "pipeline" && <PipelineSurface onRecordLocal={recordLocal} lens={lens} />}
-        {surface === "jurisdiction" && <JurisdictionSlsaPanel />}
-        {surface === "cicd" && <CicdSbomPanel />}
-        {surface === "fabric" && <FabricSurface />}
+        {surface === "jurisdiction" && <JurisdictionSlsaPanel lens={lens} />}
+        {surface === "cicd" && <CicdSbomPanel lens={lens} />}
+        {surface === "fabric" && <FabricSurface lens={lens} />}
         {surface === "inspector" && <InspectorSurface onRecordLocal={recordLocal} lens={lens} />}
       </AppShell>
 

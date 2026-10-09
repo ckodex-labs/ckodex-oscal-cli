@@ -142,7 +142,49 @@ function SpiffePanel() {
   );
 }
 
-export function FabricSurface() {
+import type { LensMode } from "@/lib/oscal-types";
+
+export interface FabricSurfaceProps {
+  lens?: LensMode;
+}
+
+export function FabricSurface({ lens = "architect" }: FabricSurfaceProps) {
+  const FABRIC_LENS_INFO: Record<
+    LensMode,
+    { title: string; desc: string; tone: "info" | "pos" | "warn" | "neutral" }
+  > = {
+    architect: {
+      title: "Architect Lens Active",
+      desc: "Analyzing 8-level standing authority hierarchy (Root -> Tenant -> Namespace -> Workspace -> Plane -> Environment -> Project -> Resource).",
+      tone: "info",
+    },
+    engineer: {
+      title: "Engineer Lens Active",
+      desc: "Inspecting SPIFFE ID parsing, workload identity SVIDs, trust domains, and zero-trust service account bindings.",
+      tone: "pos",
+    },
+    ciso: {
+      title: "CISO Lens Active",
+      desc: "Enterprise multi-tenant isolation verification, cryptographic root boundary guarantees, and cross-tenant leakage prevention.",
+      tone: "info",
+    },
+    assessor: {
+      title: "Assessor Lens Active",
+      desc: "Auditing authority paths, cryptographic identity proofs, and non-bypassable admission boundaries.",
+      tone: "warn",
+    },
+    author: {
+      title: "Author Lens Active",
+      desc: "Reviewing tenant naming conventions, workspace scoping, and document ownership metadata.",
+      tone: "neutral",
+    },
+    "risk-owner": {
+      title: "Risk Owner Lens Active",
+      desc: "Monitoring tenant quota exhaustion risks, privilege escalation exposure, and unauthenticated workload vectors.",
+      tone: "warn",
+    },
+  };
+
   return (
     <>
       <PageHeader
@@ -151,6 +193,21 @@ export function FabricSurface() {
         description="Authority hierarchy and workload identity. Only the SPIFFE parse comes from the engine; the rest of this page is illustrative and describes no real organization."
       />
       <ReadOnlyNotice />
+
+      {/* Active Lens Status Banner */}
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-3 py-2 text-xs">
+        <div className="flex items-center gap-2 min-w-0">
+          <StateBadge tone={FABRIC_LENS_INFO[lens].tone}>
+            {FABRIC_LENS_INFO[lens].title}
+          </StateBadge>
+          <span className="text-ck-fg-2 truncate font-medium">
+            {FABRIC_LENS_INFO[lens].desc}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0 text-2xs text-ck-fg-mute font-mono">
+          <span>Lens: {lens} (L key cycles)</span>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <SpiffePanel />

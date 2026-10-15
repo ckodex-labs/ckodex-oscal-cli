@@ -419,7 +419,7 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
                     "title": format!("{repo_name} Security Component Definition"),
                     "last-modified": chrono::Utc::now().to_rfc3339(),
                     "version": "1.0.0",
-                    "oscal-version": "1.2.0"
+                    "oscal-version": "1.2.3"
                 },
                 "components": components
             }
@@ -452,7 +452,7 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
                     "title": format!("{repo_name} System Security Plan"),
                     "last-modified": chrono::Utc::now().to_rfc3339(),
                     "version": "1.0.0",
-                    "oscal-version": "1.2.0"
+                    "oscal-version": "1.2.3"
                 },
                 "import-profile": {
                     "href": "https://github.com/usnistgov/oscal-content/blob/master/nist.gov/SP800-53/rev5/json/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json"

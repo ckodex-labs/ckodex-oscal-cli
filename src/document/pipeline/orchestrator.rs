@@ -273,7 +273,7 @@ impl PipelineOrchestrator {
                     "title": "Mizan Automated Compliance Pipeline Assessment",
                     "last-modified": chrono::Utc::now().to_rfc3339(),
                     "version": "1.0",
-                    "oscal-version": "1.2.0"
+                    "oscal-version": "1.2.3"
                 },
                 "results": [{
                     "uuid": uuid::Uuid::new_v4().to_string(),

@@ -105,3 +105,51 @@ mizan assemble workspace/ -o ssp-assembled.json
 # Perform 3-way AST merge across Git branches
 mizan sync --base base.json --upstream upstream.json --local local.json -o merged.json
 ```
+
+---
+
+### 7. Strict NIST OSCAL Validation & Linting (`mizan validate`, `oscal-cli validate`, `mizan lint`)
+```bash
+# Validate against official NIST OSCAL v1.2.3 schemas with strict constraints
+mizan validate path/to/doc.json --strict
+oscal-cli validate --strict path/to/doc.json
+
+# Model-specific validation commands
+mizan catalog validate path/to/catalog.json
+mizan profile validate path/to/profile.json
+mizan ssp validate path/to/ssp.json
+
+# Lint OSCAL document for UUID hygiene, timestamps, and schema deprecations
+mizan lint path/to/doc.json
+mizan lint path/to/doc.json --fix
+oscal-cli lint path/to/doc.json
+```
+
+---
+
+### 8. Blast Radius Impact Analysis, Quick-Fix & Waivers (`mizan blast-radius`, `mizan fix`, `mizan waive`)
+```bash
+# Calculate downstream compliance blast radius of modifying a control or component
+mizan blast-radius examples/sample-ssp.json --target ac-1
+
+# Automated quick-fix engine for standard compliance findings
+mizan fix path/to/doc.json --rule require-remarks --apply
+
+# Create time-bounded cryptographic pipeline derogation waiver
+mizan waive create --rule cis-k8s-5.2.1 --resource deployment.yaml --duration-days 30 --justification "Planned migration"
+mizan waive list
+mizan waive revoke <lease-id>
+```
+
+---
+
+### 9. Cryptographic Evidence Capsules & Contrast Badges (`mizan export capsule`, `mizan export badge`)
+```bash
+# Export standalone offline cryptographic evidence capsule (WebCrypto Merkle proof)
+mizan export capsule -a assessment-results.json -o capsule.html
+
+# Generate APCA WCAG 3.0 contrast-compliant shieldcn-zig badge (?wcag=3, |Lc| >= 60)
+mizan export badge --label "FedRAMP" --message "Moderate COMPLIANT" --color green --variant secondary --wcag 3
+mizan export badge --from-document examples/sample-catalog.json --variant secondary --wcag 3
+```
+

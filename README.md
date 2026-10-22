@@ -115,7 +115,7 @@ Mizan is architected around hexagonal domain boundaries with six primary operati
 3. **The Pipeline**: Pre-commit terminal simulation executing `oscal-schema`, `slsa-provenance`, and `responsible-role` gates.
 4. **Root Fabric**: Zero-trust multi-tenant partition isolation backed by SPIFFE workload identifiers and partition quotas.
 5. **Jurisdictions & SLSA**: Unified cross-walk mapping international defense/enterprise standards with verifiable in-toto build provenance.
-6. **The Atlas**: Force-directed topological graph visualization tracing control cascading impacts and parameter alterations.
+6. **The Atlas**: Force-directed topological graph visualization tracing control cascading impacts, live **MITRE ATLAS Threat Path Simulator**, and **Frontier AI Provider Comparison HUD** (Anthropic, Google, OpenAI, Cohere).
 
 ---
 
@@ -221,6 +221,20 @@ dagger run cargo run -p mizan-dagger-ci -- all
 ```bash
 mizan resolve examples/nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json -o moderate.json
 ```
+
+### Frontier AI & MITRE ATLAS Threat Matrix Components
+
+Mizan includes production-grade NIST OSCAL v1.2.3 component definitions, threat catalogs, profiles, and mapping collections for frontier and sovereign AI workloads in [`examples/usecases/`](examples/usecases/) (detailed guide: [`docs/frontier_ai_and_threat_matrix.md`](docs/frontier_ai_and_threat_matrix.md)):
+
+| Target Workload / Framework | Model Kind | File Path | Focus Invariants |
+| :--- | :--- | :--- | :--- |
+| **Anthropic Claude 3.5 / 3.7 / ClaudeGov** | `component-definition` | `examples/usecases/anthropic-claude-component.json` | Constitutional AI (AC-3), Prompt Boundary Isolation (AC-4), ASL-2/3 Red-Teaming (SA-11), Egress Lockdown (SC-7) |
+| **Google Vertex AI & Gemini 1.5 Pro** | `component-definition` | `examples/usecases/google-gemini-vertex-component.json` | SAIF Framework, VPC Service Controls (AC-4), CMEK (SC-28), SynthID Watermarking (SI-7) |
+| **OpenAI GPT-4o / Azure OpenAI** | `component-definition` | `examples/usecases/openai-gpt4-azure-component.json` | FedRAMP High JAB P-ATO, Azure Private Link (AC-17), Content Safety Prompt Shields (SI-4), Preparedness Framework (RA-3) |
+| **Cohere North 2 Sovereign AI** | `component-definition` | `examples/usecases/cohere-north-component.json` | Zero Customer Data Retention (SC-28), National Sovereign Boundary (AC-4), Hardware Enclave Isolation (SC-13) |
+| **MITRE ATLAS AI Threat Matrix** | `catalog` | `examples/usecases/mitre-atlas-catalog.json` | Full tactics AML.TA0001–AML.TA0011 (Prompt Injection, Jailbreak, Data Poisoning, Model Extraction, Inversion) |
+| **NIST to MITRE ATLAS Crosswalk** | `mapping-collection` | `examples/usecases/nist-to-mitre-atlas-crosswalk.json` | Bidirectional crosswalk mapping ATLAS threat techniques to compensating NIST SP 800-53 Rev 5 controls |
+| **Frontier AI & MITRE Profile** | `profile` | `examples/usecases/frontier-ai-mitre-profile.json` | Tailored baseline with parameter constraints for frontier LLM deployments |
 
 ---
 

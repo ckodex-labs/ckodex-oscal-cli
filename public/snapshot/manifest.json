@@ -1,0 +1,300 @@
+{
+  "schema": "mizan.workbench.snapshot/v1",
+  "generatedAt": "2026-10-23T23:54:28.851Z",
+  "mizanVersion": "oscal-cli 0.1.0",
+  "gitCommit": "c41b7005fdbe07c783c62f1f979b6c6029ba89fa",
+  "gitDirty": true,
+  "inputs": [
+    {
+      "path": "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json",
+      "sha256": "01f37cf90ea99d92242c936cbfbdebcc338eef1f71454e2acac36cc56e9bc062",
+      "source": "usnistgov/oscal-content@78650f02ad9321bb7b817846f8fbd4f2bcd620de"
+    },
+    {
+      "path": "examples/nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json",
+      "sha256": "9030dbf1f13169947eb97eb101b4bd2f00d3c151b100455a923ac75803f00ea1",
+      "source": "usnistgov/oscal-content@78650f02ad9321bb7b817846f8fbd4f2bcd620de"
+    },
+    {
+      "path": "examples/sample-ssp.json",
+      "sha256": "e4844c01b69dd5307286f57d74ee0b861a543822b80092224875e66358a380fe",
+      "source": "repository example"
+    },
+    {
+      "path": "examples/inventory-sbom.json",
+      "sha256": "a722804be563140c4583fcbe8aa7eb5f55a377369d95ee08a24a22a4d4607c0f",
+      "source": "repository example"
+    }
+  ],
+  "commands": [
+    {
+      "id": "version",
+      "title": "Engine version",
+      "argv": [
+        "--version"
+      ],
+      "exitCode": 0,
+      "durationMs": 7,
+      "stdoutSha256": "40fef3b92e12ba21f14dc2c6c122cc25e4302384b1182fd7ded014044d6b9bd1",
+      "output": "version.txt"
+    },
+    {
+      "id": "catalog-list",
+      "title": "Built-in jurisdiction catalogs",
+      "argv": [
+        "--format",
+        "json",
+        "catalog",
+        "list"
+      ],
+      "exitCode": 0,
+      "durationMs": 7,
+      "stdoutSha256": "3e6e9001cca6619e4a3544a3b1157c677e32f7015d933d15281af75deec8bd6e",
+      "output": "catalog-list.json"
+    },
+    {
+      "id": "nist-catalog-inspect",
+      "title": "Inspect NIST SP 800-53 Rev 5 catalog",
+      "argv": [
+        "--format",
+        "json",
+        "inspect",
+        "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 52,
+      "stdoutSha256": "07932870beb22223e13136f3d2cce43db16153886467d9d2c3c67b7e1a169524",
+      "output": "nist-catalog-inspect.json"
+    },
+    {
+      "id": "nist-catalog-validate",
+      "title": "Validate NIST SP 800-53 Rev 5 catalog",
+      "argv": [
+        "--format",
+        "json",
+        "validate",
+        "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 119,
+      "stdoutSha256": "8fd92b481a5293654c72b218a36789b39194b1547bd30aa41edbe5c80dac1a24",
+      "output": "nist-catalog-validate.json"
+    },
+    {
+      "id": "nist-moderate-resolve",
+      "title": "Resolve NIST Moderate baseline profile to a catalog",
+      "argv": [
+        "--format",
+        "json",
+        "resolve",
+        "examples/nist-800-53-r5/NIST_SP-800-53_rev5_MODERATE-baseline_profile.json",
+        "-o",
+        "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 82,
+      "stdoutSha256": "44bc4d3b562284b352321c060ac58f17e7c03fbf595567d035fa32cffde10fbe",
+      "output": "nist-moderate-resolve.txt"
+    },
+    {
+      "id": "nist-moderate-inspect",
+      "title": "Inspect the resolved Moderate catalog",
+      "argv": [
+        "--format",
+        "json",
+        "inspect",
+        "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 21,
+      "stdoutSha256": "e6813265d61d86a97ed2ec2242ffd8f93f6ce875b96789f157af95cd87d407c5",
+      "output": "nist-moderate-inspect.json"
+    },
+    {
+      "id": "nist-moderate-validate",
+      "title": "Validate the resolved Moderate catalog",
+      "argv": [
+        "--format",
+        "json",
+        "validate",
+        "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 62,
+      "stdoutSha256": "4f9e5e741f6095e113c2a210b02e0bebe4c404e3633753086b5301cac0522c6a",
+      "output": "nist-moderate-validate.json"
+    },
+    {
+      "id": "ssp-inspect",
+      "title": "Inspect sample SSP",
+      "argv": [
+        "--format",
+        "json",
+        "inspect",
+        "examples/sample-ssp.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "e63ce16e66e65236a878c857bc7e4b1381866326d97ebf84a5c5315d94e1620a",
+      "output": "ssp-inspect.json"
+    },
+    {
+      "id": "ssp-validate",
+      "title": "Validate sample SSP",
+      "argv": [
+        "--format",
+        "json",
+        "validate",
+        "examples/sample-ssp.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 47,
+      "stdoutSha256": "9c5ef081b65ce3a07c0ef6fa8a8fbfbe3de6f4b5dfea1e2e353d77c279457410",
+      "output": "ssp-validate.json"
+    },
+    {
+      "id": "ssp-fedramp-validate",
+      "title": "FedRAMP Moderate rules against sample SSP",
+      "argv": [
+        "--format",
+        "json",
+        "fedramp",
+        "validate",
+        "examples/sample-ssp.json",
+        "--baseline",
+        "moderate"
+      ],
+      "exitCode": 0,
+      "durationMs": 7,
+      "stdoutSha256": "c34d9fafbb1710efffe223c0f3420fe2a59062f637dff9539b1d65d50d1af73e",
+      "output": "ssp-fedramp-validate.json"
+    },
+    {
+      "id": "ssp-blast-radius",
+      "title": "Blast radius of ac-1 in sample SSP",
+      "argv": [
+        "--format",
+        "json",
+        "blast-radius",
+        "--target",
+        "ac-1",
+        "examples/sample-ssp.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "2939e47e8df3fe77e4734005e4718a4a352be53bf68515810d0cd3aeb5eacb23",
+      "output": "ssp-blast-radius.json"
+    },
+    {
+      "id": "policy-rulepack-list",
+      "title": "Built-in policy rulepacks",
+      "argv": [
+        "--format",
+        "json",
+        "policy",
+        "rulepack",
+        "list"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "4038b9c1698760a9fac1246eba8b814581016d2bf02c17fd439b13bd20c1d82a",
+      "output": "policy-rulepack-list.json"
+    },
+    {
+      "id": "sbom-import",
+      "title": "Import CycloneDX inventory SBOM as an OSCAL component-definition",
+      "argv": [
+        "--format",
+        "json",
+        "sbom",
+        "import",
+        "-i",
+        "examples/inventory-sbom.json",
+        "-o",
+        "apps/workbench/.snapshot-work/sbom-component-definition.json"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "ff723d151c121b79d900aa5f7b17824e59fef4ce6b9247fcdbb20066cb7d3846",
+      "output": "sbom-import.json"
+    },
+    {
+      "id": "fsm-status",
+      "title": "Compliance FSM status at its initial state",
+      "argv": [
+        "--format",
+        "json",
+        "fsm",
+        "status"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "8e38204d4275151ad84802b0d889d05504896381052700089e344a188f3793e4",
+      "output": "fsm-status.json"
+    },
+    {
+      "id": "pipeline-run",
+      "title": "End-to-end pipeline (US jurisdiction, inventory SBOM, all built-in rules)",
+      "argv": [
+        "--format",
+        "json",
+        "pipeline",
+        "run",
+        "-j",
+        "us",
+        "--sbom",
+        "examples/inventory-sbom.json",
+        "-o",
+        "apps/workbench/.snapshot-work/pipeline"
+      ],
+      "exitCode": 0,
+      "durationMs": 9,
+      "stdoutSha256": "03d72b4360cdc2d0342c53585d07cdc5a746791658af1e8002bc23cbc9ee55b2",
+      "output": "pipeline-run.json"
+    },
+    {
+      "id": "pipeline-export-sarif",
+      "title": "Export the pipeline assessment results to SARIF",
+      "argv": [
+        "--format",
+        "json",
+        "export",
+        "sarif",
+        "-i",
+        "apps/workbench/.snapshot-work/pipeline/oscal-assessment-results.json",
+        "-o",
+        "apps/workbench/.snapshot-work/pipeline-results.sarif"
+      ],
+      "exitCode": 0,
+      "durationMs": 6,
+      "stdoutSha256": "6baeb44af30a6b6df126b90a0877258279f28b7cd1eb39e910a3f8e7bb486439",
+      "output": "pipeline-export-sarif.json"
+    }
+  ],
+  "skipped": [
+    {
+      "id": "search/model/entity/framework/snapshot/release/claim/evidence/graph/import",
+      "reason": "requires a running OSCALify gRPC server; the Pages build has none and the script makes no network calls"
+    },
+    {
+      "id": "health",
+      "reason": "requires a running OSCALify gRPC server; the Pages build has none and the script makes no network calls"
+    },
+    {
+      "id": "audit",
+      "reason": "audits a live Kubernetes cluster; no cluster in the build environment"
+    },
+    {
+      "id": "mcp",
+      "reason": "long-running stdio server, not a one-shot command"
+    },
+    {
+      "id": "daemon/watch",
+      "reason": "long-running background processes, not one-shot commands"
+    },
+    {
+      "id": "tui/gui/workbench",
+      "reason": "interactive front-ends, no machine output"
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "file": "examples/sample-ssp.json",
+  "kind": "system-security-plan",
+  "baseline": "Moderate",
+  "is_compliant": false,
+  "total_rules_checked": 4,
+  "passed_rules": 2,
+  "failed_rules": 2,
+  "findings_count": 6,
+  "findings": [
+    {
+      "rule_id": "FEDRAMP-ROLE-01",
+      "title": "Missing Mandatory Role: system-owner",
+      "severity": "medium",
+      "detail": "FedRAMP requires the 'system-owner' role defined in document metadata"
+    },
+    {
+      "rule_id": "FEDRAMP-ROLE-01",
+      "title": "Missing Mandatory Role: isso",
+      "severity": "medium",
+      "detail": "FedRAMP requires the 'isso' role defined in document metadata"
+    },
+    {
+      "rule_id": "FEDRAMP-CTRL-01",
+      "title": "Unimplemented Core Control: ac-2",
+      "severity": "high",
+      "detail": "FedRAMP Moderate baseline requires explicit implementation for core control 'ac-2'"
+    },
+    {
+      "rule_id": "FEDRAMP-CTRL-01",
+      "title": "Unimplemented Core Control: au-1",
+      "severity": "high",
+      "detail": "FedRAMP Moderate baseline requires explicit implementation for core control 'au-1'"
+    },
+    {
+      "rule_id": "FEDRAMP-CTRL-01",
+      "title": "Unimplemented Core Control: ia-1",
+      "severity": "high",
+      "detail": "FedRAMP Moderate baseline requires explicit implementation for core control 'ia-1'"
+    },
+    {
+      "rule_id": "FEDRAMP-CTRL-01",
+      "title": "Unimplemented Core Control: sc-1",
+      "severity": "high",
+      "detail": "FedRAMP Moderate baseline requires explicit implementation for core control 'sc-1'"
+    }
+  ]
+}

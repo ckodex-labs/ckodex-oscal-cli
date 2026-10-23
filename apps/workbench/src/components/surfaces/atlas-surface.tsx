@@ -55,6 +55,8 @@ export interface AtlasSurfaceProps {
   onSelectControl: (id: string) => void;
   onOpenInComposer: (id: string) => void;
   lens?: LensMode;
+  initialViewType?: "topology" | "grid" | "mitre" | "simulator" | "frontier";
+  onViewTypeChange?: (viewType: "topology" | "grid" | "mitre" | "simulator" | "frontier") => void;
 }
 
 export function AtlasSurface({
@@ -62,6 +64,8 @@ export function AtlasSurface({
   onSelectControl,
   onOpenInComposer,
   lens = "architect",
+  initialViewType,
+  onViewTypeChange,
 }: AtlasSurfaceProps) {
   const atlasSnap = useAtlas();
   const ssp = useSspStatus();
@@ -70,19 +74,31 @@ export function AtlasSurface({
   const [mode, setMode] = React.useState<GridMode>("baseline");
   const [viewType, setViewType] = React.useState<
     "topology" | "grid" | "mitre" | "simulator" | "frontier"
-  >(lens === "architect" ? "topology" : "grid");
+  >(initialViewType ?? (lens === "architect" ? "topology" : "grid"));
   const [pulseActive, setPulseActive] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const [family, setFamily] = React.useState<string>("all");
   const [hoverId, setHoverId] = React.useState<string | null>(null);
   const detailRef = React.useRef<HTMLDivElement>(null);
 
+  // Synchronize viewType if initialViewType prop changes
+  React.useEffect(() => {
+    if (initialViewType && initialViewType !== viewType) {
+      setViewType(initialViewType);
+    }
+  }, [initialViewType]);
+
   // Synchronize viewType when lens switches to architect
   React.useEffect(() => {
-    if (lens === "architect") {
+    if (lens === "architect" && !initialViewType) {
       setViewType("topology");
     }
-  }, [lens]);
+  }, [lens, initialViewType]);
+
+  const handleViewTypeChange = (next: "topology" | "grid" | "mitre" | "simulator" | "frontier") => {
+    setViewType(next);
+    onViewTypeChange?.(next);
+  };
 
   const triggerPulse = React.useCallback(() => {
     setPulseActive(true);
@@ -459,7 +475,7 @@ export function AtlasSurface({
                 label="View mode"
                 value={viewType}
                 onChange={(v) =>
-                  setViewType(v as "topology" | "grid" | "mitre" | "simulator" | "frontier")
+                  handleViewTypeChange(v as "topology" | "grid" | "mitre" | "simulator" | "frontier")
                 }
                 options={[
                   { value: "topology", label: "Hexagonal Map" },

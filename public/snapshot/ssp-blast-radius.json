@@ -1,0 +1,39 @@
+{
+  "target_id": "ac-1",
+  "target_kind": "Control",
+  "documents_analyzed": [
+    "examples/sample-ssp.json"
+  ],
+  "direct_dependents": [
+    {
+      "id": "ac-1",
+      "kind": "ImplementedRequirement",
+      "relation": "implements-control",
+      "title": "SSP Requirement for ac-1",
+      "document": "sample-ssp.json"
+    },
+    {
+      "id": "d4e5f6a7-b8c9-4d5e-8f9a-3b4c5d6e7f8a",
+      "kind": "Component",
+      "relation": "implements-via-component",
+      "title": "PostgreSQL RBAC roles enforced",
+      "document": "sample-ssp.json"
+    }
+  ],
+  "transitive_dependents": [
+    {
+      "id": "d4e5f6a7-b8c9-4d5e-8f9a-3b4c5d6e7f8a",
+      "kind": "Component",
+      "relation": "implements-via-component",
+      "title": "PostgreSQL RBAC roles enforced",
+      "document": "sample-ssp.json"
+    }
+  ],
+  "affected_components": [
+    "d4e5f6a7-b8c9-4d5e-8f9a-3b4c5d6e7f8a"
+  ],
+  "affected_findings": [],
+  "affected_poam_items": [],
+  "risk_exposure_score": 1.5,
+  "is_critical_path": false
+}

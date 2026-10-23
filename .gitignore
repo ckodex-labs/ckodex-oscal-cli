@@ -40,4 +40,5 @@ Thumbs.db
 /.oscal-cli/
 /.mizan/
 # Generated Pages Docs
-public/docs/api/
+public/docs/api/*
+!public/docs/api/index.html

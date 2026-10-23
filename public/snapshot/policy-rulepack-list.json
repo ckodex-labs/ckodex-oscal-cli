@@ -1,0 +1,50 @@
+[
+  {
+    "id": "cis-k8s-5.2.1",
+    "name": "Disallow Privileged Containers",
+    "benchmark": "CIS Kubernetes Benchmark v1.8 / FedRAMP High AC-6",
+    "target_controls": [
+      "ac-6",
+      "cm-7"
+    ],
+    "severity": "High",
+    "description": "Privileged containers share all capabilities of the host kernel and must be blocked in production.",
+    "rego_source": "\npackage oscal.k8s.privileged\n\ndeny contains msg if {\n    container := input.spec.containers[_]\n    container.securityContext.privileged == true\n    msg := sprintf(\"Container %v has privileged: true\", [container.name])\n}\n"
+  },
+  {
+    "id": "cis-k8s-5.2.6",
+    "name": "Require Read-Only Root Filesystem",
+    "benchmark": "CIS Kubernetes Benchmark v1.8 / FedRAMP High SI-4",
+    "target_controls": [
+      "si-4",
+      "cm-7"
+    ],
+    "severity": "Medium",
+    "description": "Containers must run with read-only root filesystems to prevent runtime binary tampering.",
+    "rego_source": "\npackage oscal.k8s.readonly_root\n\ndeny contains msg if {\n    container := input.spec.containers[_]\n    not container.securityContext.readOnlyRootFilesystem == true\n    msg := sprintf(\"Container %v does not set readOnlyRootFilesystem: true\", [container.name])\n}\n"
+  },
+  {
+    "id": "fedramp-ac-2",
+    "name": "Disallow Root User Execution",
+    "benchmark": "FedRAMP Rev 5 High / NIST SP 800-53 AC-2",
+    "target_controls": [
+      "ac-2",
+      "ia-2"
+    ],
+    "severity": "High",
+    "description": "Containers must specify runAsNonRoot: true to enforce non-privileged execution context.",
+    "rego_source": "\npackage oscal.fedramp.non_root\n\ndeny contains msg if {\n    container := input.spec.containers[_]\n    not container.securityContext.runAsNonRoot == true\n    msg := sprintf(\"Container %v does not enforce runAsNonRoot: true\", [container.name])\n}\n"
+  },
+  {
+    "id": "itsg33-boundary-isolation",
+    "name": "CCCS ITSG-33 Sovereign Boundary Isolation",
+    "benchmark": "CCCS ITSG-33 PBMM / SC-7 Boundary Protection",
+    "target_controls": [
+      "sc-7",
+      "ac-4"
+    ],
+    "severity": "High",
+    "description": "Enforce network boundary isolation and egress restriction policies for Protected B workloads.",
+    "rego_source": "\npackage oscal.itsg33.boundary\n\ndeny contains msg if {\n    not input.spec.ingress\n    msg := \"NetworkPolicy must define explicit ingress isolation rules\"\n}\n"
+  }
+]

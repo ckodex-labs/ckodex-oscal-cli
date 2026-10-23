@@ -1,0 +1,26 @@
+[
+  {
+    "code": "us",
+    "controls_count": 9,
+    "jurisdiction": "United States",
+    "standard": "NIST SP 800-53 Rev 5 / FedRAMP Rev 5 Core Baseline"
+  },
+  {
+    "code": "ca",
+    "controls_count": 4,
+    "jurisdiction": "Canada",
+    "standard": "CCCS ITSG-33 / Protected B Medium Medium (PBMM)"
+  },
+  {
+    "code": "eu",
+    "controls_count": 4,
+    "jurisdiction": "European Union",
+    "standard": "EUCS / ISO/IEC 27001:2022 Controls Mapping"
+  },
+  {
+    "code": "enterprise",
+    "controls_count": 1,
+    "jurisdiction": "Enterprise",
+    "standard": "Enterprise Custom Overlay Baseline Template"
+  }
+]

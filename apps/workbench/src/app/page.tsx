@@ -55,6 +55,29 @@ function Workbench() {
   const fixture = React.useMemo(() => createAtlasInitialData(), []);
   const [edgesIso, setEdgesIso] = React.useState<BridgeEdge[]>(fixture.edgesIso);
 
+  // Synchronize surface with URL hash for deep linking and navigation
+  React.useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace(/^#/, "").trim().toLowerCase();
+      if (hash && ALL_SURFACES.some((s) => s.id === hash)) {
+        setSurface(hash as SurfaceId);
+      }
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
+  const handleSurfaceChange = React.useCallback((nextSurface: SurfaceId) => {
+    setSurface(nextSurface);
+    if (typeof window !== "undefined") {
+      const currentHash = window.location.hash.replace(/^#/, "").trim().toLowerCase();
+      if (currentHash !== nextSurface) {
+        window.history.replaceState(null, "", `#${nextSurface}`);
+      }
+    }
+  }, []);
+
   React.useEffect(() => {
     document.documentElement.dataset.theme = theme;
   }, [theme]);
@@ -88,7 +111,7 @@ function Workbench() {
       }
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const match = ALL_SURFACES.find((s) => s.key === e.key);
-      if (match) setSurface(match.id);
+      if (match) handleSurfaceChange(match.id);
       if (e.key === "?") setIsShortcutsOpen((o) => !o);
       if (e.key === "t" || e.key === "T") {
         setTheme((p) => (p === "ledger" ? "vault" : p === "vault" ? "hc" : "ledger"));
@@ -103,11 +126,11 @@ function Workbench() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [handleSurfaceChange]);
 
   const openInComposer = (id: string) => {
     setSelectedControlId(id);
-    setSurface("composer");
+    handleSurfaceChange("composer");
   };
 
   return (
@@ -118,7 +141,7 @@ function Workbench() {
         lens={lens}
         onLensChange={setLens}
         surface={surface}
-        onSurfaceChange={setSurface}
+        onSurfaceChange={handleSurfaceChange}
         receipts={receipts}
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         isCopilotOpen={isCopilotOpen}
@@ -132,12 +155,37 @@ function Workbench() {
           />
         }
       >
-        {surface === "atlas" && (
+        {(surface === "atlas" ||
+          surface === "frontier" ||
+          surface === "threats" ||
+          surface === "simulator") && (
           <AtlasSurface
             selectedId={selectedControlId}
             onSelectControl={setSelectedControlId}
             onOpenInComposer={openInComposer}
             lens={lens}
+            initialViewType={
+              surface === "frontier"
+                ? "frontier"
+                : surface === "threats"
+                ? "mitre"
+                : surface === "simulator"
+                ? "simulator"
+                : lens === "architect"
+                ? "topology"
+                : "grid"
+            }
+            onViewTypeChange={(v) => {
+              if (v === "frontier" && surface !== "frontier") handleSurfaceChange("frontier");
+              else if (v === "mitre" && surface !== "threats") handleSurfaceChange("threats");
+              else if (v === "simulator" && surface !== "simulator") handleSurfaceChange("simulator");
+              else if (
+                (v === "topology" || v === "grid") &&
+                (surface === "frontier" || surface === "threats" || surface === "simulator")
+              ) {
+                handleSurfaceChange("atlas");
+              }
+            }}
           />
         )}
         {surface === "bridge" && (
@@ -172,7 +220,7 @@ function Workbench() {
             poams={fixture.poams}
             onSelectPoamControl={(id: string) => {
               setSelectedControlId(id.toLowerCase());
-              setSurface("atlas");
+              handleSurfaceChange("atlas");
             }}
             lens={lens}
           />

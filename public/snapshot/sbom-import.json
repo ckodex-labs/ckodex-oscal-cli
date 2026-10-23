@@ -1,0 +1,7 @@
+{
+  "format": "CycloneDX",
+  "spec_version": "1.5",
+  "component_count": 3,
+  "direct_dependencies": 3,
+  "oscal_component_uuid": "c19b1bb2-3ad2-4715-8ba2-8d1c22518c29"
+}

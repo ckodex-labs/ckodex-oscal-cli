@@ -28,6 +28,9 @@ import { SurfaceIcon } from "./surface-icons";
 export type SurfaceId =
   | "atlas"
   | "bridge"
+  | "frontier"
+  | "threats"
+  | "simulator"
   | "composer"
   | "ledger"
   | "docket"
@@ -51,6 +54,14 @@ export const SURFACE_GROUPS: { label: string; items: SurfaceDef[] }[] = [
     items: [
       { id: "atlas", label: "Atlas", key: "1", source: "engine" },
       { id: "bridge", label: "Bridge", key: "2", source: "fixture" },
+    ],
+  },
+  {
+    label: "Frontier AI & Threats",
+    items: [
+      { id: "frontier", label: "Frontier AI Models", key: "f", source: "engine" },
+      { id: "threats", label: "MITRE ATLAS Matrix", key: "m", source: "engine" },
+      { id: "simulator", label: "Threat Simulator", key: "s", source: "engine" },
     ],
   },
   {
@@ -265,13 +276,17 @@ function NavLinks({
 function NavFooter() {
   const { manifest } = useEngine();
   const link = "flex items-center justify-between rounded-md px-2.5 py-1 text-xs text-ck-fg-3 hover:bg-ck-bg-2 hover:text-ck-fg-1";
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
   return (
     <div className="space-y-3 border-t border-ck-hairline pt-3">
       <div className="space-y-0.5">
-        <a className={link} href="./docs/api/mizan/index.html" target="_blank" rel="noopener noreferrer">
+        <a className={link} href={`${basePath}/docs/`} target="_blank" rel="noopener noreferrer">
+          Documentation Hub <span aria-hidden className="text-ck-fg-mute">{"\u2197"}</span>
+        </a>
+        <a className={link} href={`${basePath}/docs/api/mizan_oscal/index.html`} target="_blank" rel="noopener noreferrer">
           Rust API docs <span aria-hidden className="text-ck-fg-mute">{"\u2197"}</span>
         </a>
-        <a className={link} href="./capsule.html" target="_blank" rel="noopener noreferrer">
+        <a className={link} href={`${basePath}/capsule.html`} target="_blank" rel="noopener noreferrer">
           Evidence capsule <span aria-hidden className="text-ck-fg-mute">{"\u2197"}</span>
         </a>
         <a className={link} href="https://github.com/ckodex-labs/ckodex-oscal-cli" target="_blank" rel="noopener noreferrer">

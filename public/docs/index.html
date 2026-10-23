@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mizan Developer & Architecture Documentation Portal</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card: #111827;
+      --border: #1f2937;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #2dd4bf;
+      --blue: #3b82f6;
+      --emerald: #10b981;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      padding: 2rem 1.5rem;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .brand h1 { font-size: 1.5rem; font-weight: 700; color: #fff; }
+    .brand span { font-size: 0.85rem; color: var(--accent); font-family: ui-monospace, monospace; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      margin-left: 1.25rem;
+      transition: color 0.15s ease;
+    }
+    .nav-links a:hover { color: #fff; text-decoration: underline; }
+    .hero {
+      margin-bottom: 3rem;
+    }
+    .hero h2 { font-size: 2rem; font-weight: 800; margin-bottom: 0.75rem; color: #fff; }
+    .hero p { color: var(--muted); font-size: 1.1rem; max-width: 700px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      transition: transform 0.15s ease, border-color 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+    .card h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem; color: #fff; }
+    .card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem; flex-grow: 1; }
+    .card a {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.875rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+    .card a:hover { text-decoration: underline; }
+    footer {
+      border-top: 1px solid var(--border);
+      padding-top: 1.5rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <h1>Mizan</h1>
+        <span>OSCAL v1.2.3</span>
+      </div>
+      <nav class="nav-links">
+        <a href="../">Interactive Workbench</a>
+        <a href="../capsule.html">Evidence Capsule</a>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <h2>Technical Documentation & Developer Hub</h2>
+      <p>Comprehensive engineering specifications, Rust API documentation, and threat governance architecture for high-assurance compliance systems.</p>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <div>
+          <h3>Rust Engine API Reference</h3>
+          <p>Full rustdoc reference for the pure semantic kernel: document parsers, 3-way GitOps AST synchronizer, validation engines, and Merkle tree evidence generators.</p>
+        </div>
+        <a href="api/mizan_oscal/index.html">Open Rustdoc API &rarr;</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h3>Frontier AI & MITRE ATLAS Matrix</h3>
+          <p>Authoritative guide on NIST OSCAL v1.2.3 component definitions for Anthropic Claude, Google Gemini, OpenAI, Cohere North, and the MITRE ATLAS AI Threat Matrix.</p>
+        </div>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli/blob/main/docs/frontier_ai_and_threat_matrix.md" target="_blank" rel="noopener">Read AI Governance Guide &rarr;</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h3>Mizan CLI Reference Manual</h3>
+          <p>Complete command-line manual covering multi-jurisdiction catalogs, strict metaschema validation, blast-radius impact analysis, and pipeline derogation waivers.</p>
+        </div>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli/blob/main/docs/cli_reference.md" target="_blank" rel="noopener">View CLI Reference &rarr;</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h3>Model Context Protocol (MCP) Guide</h3>
+          <p>Specification of the 21 native JSON-RPC 2.0 stdio MCP tools exposed to autonomous AI coding agents for compliance authoring, inspection, and attestation.</p>
+        </div>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli/blob/main/docs/mcp_protocol.md" target="_blank" rel="noopener">Explore MCP Protocol &rarr;</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h3>Root Fabric & Zero-Trust Architecture</h3>
+          <p>Deep architectural guide detailing SPIFFE/SPIRE workload attestation, OIDC claim verification, multi-tenant partition boundaries, and cryptographic datastore.</p>
+        </div>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli/blob/main/docs/root_fabric.md" target="_blank" rel="noopener">Read Root Fabric Specs &rarr;</a>
+      </div>
+
+      <div class="card">
+        <div>
+          <h3>Offline Merkle Evidence Capsule</h3>
+          <p>Standalone, air-gap verifiable audit capsule with in-browser WebCrypto SHA-256 Merkle proofs for zero-trust compliance distribution.</p>
+        </div>
+        <a href="../capsule.html">Launch Evidence Capsule &rarr;</a>
+      </div>
+    </div>
+
+    <footer>
+      <span>Published under Apache-2.0 License by ckodex-labs.</span>
+      <span>NIST OSCAL v1.2.3 · NIST SP 800-53 Rev 5</span>
+    </footer>
+  </div>
+</body>
+</html>

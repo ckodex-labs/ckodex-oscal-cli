@@ -34,6 +34,55 @@ const SURFACE_ICONS: Record<SurfaceId, React.ReactNode> = {
       <line x1="6.5" y1="8" x2="9.5" y2="8" strokeDasharray="1.5 1.5" />
     </svg>
   ),
+  frontier: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <circle cx="8" cy="3" r="2" />
+      <circle cx="3" cy="12" r="2" />
+      <circle cx="13" cy="12" r="2" />
+      <circle cx="8" cy="8" r="1.5" />
+      <line x1="8" y1="5" x2="8" y2="6.5" />
+      <line x1="4.5" y1="10.5" x2="7" y2="8.8" />
+      <line x1="11.5" y1="10.5" x2="9" y2="8.8" />
+    </svg>
+  ),
+  threats: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <polygon points="8,1.5 14,4.5 14,9 8,14.5 2,9 2,4.5" />
+      <line x1="8" y1="5" x2="8" y2="8.5" />
+      <circle cx="8" cy="11" r="0.75" fill="currentColor" />
+    </svg>
+  ),
+  simulator: (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    >
+      <circle cx="8" cy="8" r="6" />
+      <circle cx="8" cy="8" r="3" />
+      <line x1="8" y1="2" x2="8" y2="5" />
+      <line x1="8" y1="11" x2="8" y2="14" />
+      <line x1="2" y1="8" x2="5" y2="8" />
+      <line x1="11" y1="8" x2="14" y2="8" />
+    </svg>
+  ),
   composer: (
     <svg
       width="14"

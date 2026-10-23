@@ -1,0 +1,8 @@
+{
+  "file": "examples/sample-ssp.json",
+  "kind": "system-security-plan",
+  "is_valid": true,
+  "schema_valid": true,
+  "constraints_valid": true,
+  "diagnostics": []
+}

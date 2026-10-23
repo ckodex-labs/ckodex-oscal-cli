@@ -1,0 +1,42 @@
+{
+  "file": "apps/workbench/.snapshot-work/nist-moderate-resolved.json",
+  "kind": "catalog",
+  "title": "[Resolved] Electronic (OSCAL) Version of NIST Special Publication 800-53 Revision 5.2.0 MODERATE IMPACT BASELINE",
+  "version": "1.0.0-resolved",
+  "oscal_version": "1.2.3",
+  "uuid": "50925a61-e380-45e5-a830-f6ade1cf6601",
+  "last_modified": "2026-10-23T23:54:28.598409+00:00",
+  "published": "2026-10-23T23:54:28.598409+00:00",
+  "stats": {
+    "total_controls": 287,
+    "controls_by_family": {
+      "AC": 39,
+      "AT": 6,
+      "AU": 16,
+      "CA": 10,
+      "CM": 24,
+      "CP": 23,
+      "IA": 24,
+      "IR": 13,
+      "MA": 9,
+      "MP": 7,
+      "PE": 18,
+      "PL": 7,
+      "PS": 9,
+      "RA": 10,
+      "SA": 17,
+      "SC": 25,
+      "SI": 18,
+      "SR": 12
+    },
+    "total_groups": 18,
+    "total_params": 643,
+    "total_roles": 0,
+    "total_parties": 0,
+    "total_components": 0,
+    "total_findings": 0,
+    "total_observations": 0,
+    "total_poam_items": 0,
+    "total_mappings": 0
+  }
+}

@@ -31,9 +31,12 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 export function ShortcutsModal({ isOpen, onClose }: ShortcutsModalProps) {
   const surfaces = [...ALL_SURFACES].sort((a, b) => {
-    const ka = a.key === "0" ? 10 : Number(a.key);
-    const kb = b.key === "0" ? 10 : Number(b.key);
-    return ka - kb;
+    const numA = a.key === "0" ? 10 : Number(a.key);
+    const numB = b.key === "0" ? 10 : Number(b.key);
+    if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+    if (!isNaN(numA)) return -1;
+    if (!isNaN(numB)) return 1;
+    return a.key.localeCompare(b.key);
   });
   return (
     <Dialog.Root open={isOpen} onOpenChange={(o) => !o && onClose()}>

@@ -296,9 +296,16 @@ fn generate_capsule_html(
       </div>
       <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">{title}</p>
     </div>
-    <div class="badge-verified" id="crypto-badge">
-      <span>●</span>
-      <span id="badge-status">VALIDATING PROOF...</span>
+    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+      <nav style="display: flex; gap: 1rem; align-items: center;">
+        <a href="./" style="color: var(--emerald); text-decoration: none; font-size: 0.85rem; font-weight: 600;">&larr; Workbench</a>
+        <a href="./docs/" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">Documentation</a>
+        <a href="https://github.com/ckodex-labs/ckodex-oscal-cli" target="_blank" rel="noopener" style="color: var(--text-muted); text-decoration: none; font-size: 0.85rem;">GitHub</a>
+      </nav>
+      <div class="badge-verified" id="crypto-badge">
+        <span>●</span>
+        <span id="badge-status">VALIDATING PROOF...</span>
+      </div>
     </div>
   </header>
 

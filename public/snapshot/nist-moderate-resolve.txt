@@ -1,0 +1,1 @@
+Resolved profile to catalog -> apps/workbench/.snapshot-work/nist-moderate-resolved.json

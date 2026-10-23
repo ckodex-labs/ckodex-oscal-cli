@@ -1,0 +1,31 @@
+{
+  "timestamp": "2026-10-23T23:54:28.802938+00:00",
+  "jurisdiction": "US (NIST SP 800-53 Rev 5 / FedRAMP)",
+  "oscal_catalog_uuid": "8b788647-767a-4ecb-ba3a-f2b7f719602a",
+  "sbom_components_count": 3,
+  "evaluated_rules_count": 4,
+  "passed_rules_count": 3,
+  "waived_rules_count": 1,
+  "violations_count": 0,
+  "active_waivers": [
+    {
+      "id": "waiver-41d97a14",
+      "rule_id": "itsg33-boundary-isolation",
+      "reason": "Sprint 45 migration waiver",
+      "scope": "*",
+      "author": "mchorfa",
+      "created_at": "2026-10-23T00:53:37.677054+00:00",
+      "expires_at": "2026-10-30T00:53:37.677054+00:00",
+      "status": "ACTIVE",
+      "fingerprint": "sha256:8d8912ed96b8a2c9c74d20bbea555546195e8795299c34699b8f5147bb5dfb79"
+    }
+  ],
+  "violation_details": [],
+  "merkle_root": "sha256:d3fe897bfe24fb93803ddb1d55cc7a368e01a86deb881769d069bb6b3656aafe",
+  "cas_objects_written": 7,
+  "slsa_provenance_path": "apps/workbench/.snapshot-work/pipeline/slsa-provenance.json",
+  "sarif_report_path": "apps/workbench/.snapshot-work/pipeline/sarif-report.json",
+  "gitlab_report_path": "apps/workbench/.snapshot-work/pipeline/gl-security-report.json",
+  "oscal_assessment_path": "apps/workbench/.snapshot-work/pipeline/oscal-assessment-results.json",
+  "all_passed": true
+}

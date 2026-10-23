@@ -53,6 +53,7 @@ jobs:
           cargo doc --workspace --no-deps
           mkdir -p public/docs/api
           cp -r target/doc/* public/docs/api/
+          echo '<!DOCTYPE html><meta http-equiv="refresh" content="0; url=mizan_oscal/index.html"><title>Redirecting to Mizan Rustdoc</title><p>Redirecting to <a href="mizan_oscal/index.html">Mizan OSCAL Library Documentation</a>...</p>' > public/docs/api/index.html
 
       - name: Generate Badges & Offline Merkle Capsule
         run: |

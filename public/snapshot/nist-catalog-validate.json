@@ -1,0 +1,15 @@
+{
+  "file": "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json",
+  "kind": "catalog",
+  "is_valid": true,
+  "schema_valid": true,
+  "constraints_valid": true,
+  "diagnostics": [
+    {
+      "level": "Warning",
+      "code": "oscal-resource-link-unresolved",
+      "path": "catalog/catalog/groups[16]/controls[23]/parts[2]/parts[0]/parts[4]/links[0]/href",
+      "message": "Link href '#ac-2_smt.a.5' does not match any back-matter resource UUID or document identifier"
+    }
+  ]
+}

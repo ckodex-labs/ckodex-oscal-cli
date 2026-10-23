@@ -1,0 +1,23 @@
+{
+  "file": "examples/sample-ssp.json",
+  "kind": "system-security-plan",
+  "title": "Enterprise Cloud System Security Plan",
+  "version": "1.0.0",
+  "oscal_version": "1.2.3",
+  "uuid": "a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d",
+  "last_modified": "2024-01-01T00:00:00Z",
+  "published": "2024-01-01T00:00:00Z",
+  "stats": {
+    "total_controls": 0,
+    "controls_by_family": {},
+    "total_groups": 0,
+    "total_params": 0,
+    "total_roles": 0,
+    "total_parties": 0,
+    "total_components": 2,
+    "total_findings": 0,
+    "total_observations": 0,
+    "total_poam_items": 0,
+    "total_mappings": 0
+  }
+}

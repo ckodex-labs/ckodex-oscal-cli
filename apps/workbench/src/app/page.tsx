@@ -21,6 +21,7 @@ import { JurisdictionSlsaPanel } from "@/components/generative-ui/jurisdiction-s
 import { CicdSbomPanel } from "@/components/generative-ui/cicd-sbom-panel";
 import { FabricSurface } from "@/components/surfaces/fabric-surface";
 import { InspectorSurface } from "@/components/surfaces/inspector-surface";
+import { LandingPage } from "@/components/landing/landing-page";
 import { ChatPanel } from "@/components/chat/chat-panel";
 import { ShortcutsModal } from "@/components/modals/shortcuts-modal";
 
@@ -42,6 +43,7 @@ export default function WorkbenchPage() {
 }
 
 function Workbench() {
+  const [viewMode, setViewMode] = React.useState<"landing" | "workbench">("landing");
   const [theme, setTheme] = React.useState<ThemeMode>("ledger");
   const [lens, setLens] = React.useState<LensMode>("architect");
   const [surface, setSurface] = React.useState<SurfaceId>("atlas");
@@ -55,11 +57,17 @@ function Workbench() {
   const fixture = React.useMemo(() => createAtlasInitialData(), []);
   const [edgesIso, setEdgesIso] = React.useState<BridgeEdge[]>(fixture.edgesIso);
 
-  // Synchronize surface with URL hash for deep linking and navigation
+  // Synchronize surface and view mode with URL hash for deep linking and navigation
   React.useEffect(() => {
     const handleHash = () => {
       const hash = window.location.hash.replace(/^#/, "").trim().toLowerCase();
-      if (hash && ALL_SURFACES.some((s) => s.id === hash)) {
+      if (!hash || hash === "landing" || hash === "home") {
+        setViewMode("landing");
+      } else if (hash === "workbench") {
+        setViewMode("workbench");
+        setSurface("atlas");
+      } else if (ALL_SURFACES.some((s) => s.id === hash)) {
+        setViewMode("workbench");
         setSurface(hash as SurfaceId);
       }
     };
@@ -70,11 +78,30 @@ function Workbench() {
 
   const handleSurfaceChange = React.useCallback((nextSurface: SurfaceId) => {
     setSurface(nextSurface);
+    setViewMode("workbench");
     if (typeof window !== "undefined") {
       const currentHash = window.location.hash.replace(/^#/, "").trim().toLowerCase();
       if (currentHash !== nextSurface) {
         window.history.replaceState(null, "", `#${nextSurface}`);
       }
+    }
+  }, []);
+
+  const handleLaunchWorkbench = React.useCallback((targetSurface?: string) => {
+    const next = (targetSurface && ALL_SURFACES.some((s) => s.id === targetSurface)
+      ? targetSurface
+      : "atlas") as SurfaceId;
+    setSurface(next);
+    setViewMode("workbench");
+    if (typeof window !== "undefined") {
+      window.location.hash = `#${next}`;
+    }
+  }, []);
+
+  const handleReturnToLanding = React.useCallback(() => {
+    setViewMode("landing");
+    if (typeof window !== "undefined") {
+      window.history.pushState(null, "", window.location.pathname);
     }
   }, []);
 
@@ -95,6 +122,7 @@ function Workbench() {
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (viewMode !== "workbench") return;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setIsCopilotOpen((o) => !o);
@@ -126,12 +154,16 @@ function Workbench() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [handleSurfaceChange]);
+  }, [handleSurfaceChange, viewMode]);
 
   const openInComposer = (id: string) => {
     setSelectedControlId(id);
     handleSurfaceChange("composer");
   };
+
+  if (viewMode === "landing") {
+    return <LandingPage onLaunchWorkbench={handleLaunchWorkbench} />;
+  }
 
   return (
     <>
@@ -147,6 +179,7 @@ function Workbench() {
         isCopilotOpen={isCopilotOpen}
         onToggleCopilot={() => setIsCopilotOpen((o) => !o)}
         mainRef={mainRef}
+        onReturnToLanding={handleReturnToLanding}
         copilot={
           <ChatPanel
             selectedControl={selectedControlId}

@@ -154,6 +154,7 @@ function Masthead({
   onOpenMenu,
   onToggleEvidence,
   evidenceCount,
+  onReturnToLanding,
 }: {
   theme: ThemeMode;
   onThemeChange: (t: ThemeMode) => void;
@@ -165,6 +166,7 @@ function Masthead({
   onOpenMenu: () => void;
   onToggleEvidence: () => void;
   evidenceCount: number;
+  onReturnToLanding?: () => void;
 }) {
   const btn =
     "inline-flex h-8 items-center gap-1.5 rounded-md border border-ck-hairline-strong bg-ck-bg-1 px-2.5 text-xs text-ck-fg-2 hover:text-ck-fg-1 hover:border-ck-fg-3 transition-colors";
@@ -175,6 +177,18 @@ function Masthead({
           <path d="M2 4h12M2 8h12M2 12h12" />
         </svg>
       </button>
+
+      {onReturnToLanding && (
+        <button
+          type="button"
+          onClick={onReturnToLanding}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ck-accent/40 bg-ck-accent/10 px-2.5 text-xs font-medium text-ck-accent hover:bg-ck-accent/20 transition-colors"
+          title="Return to Mizan Product Portal"
+        >
+          <span aria-hidden>&larr;</span>
+          <span className="hidden sm:inline">Portal</span>
+        </button>
+      )}
 
       <div className="flex shrink-0 items-baseline gap-2 md:gap-3">
         <span className="font-serif text-[22px] sm:text-[26px] leading-none tracking-tight text-ck-fg-1 shrink-0">Mizan</span>
@@ -273,12 +287,22 @@ function NavLinks({
   );
 }
 
-function NavFooter() {
+function NavFooter({ onReturnToLanding }: { onReturnToLanding?: () => void }) {
   const { manifest } = useEngine();
   const link = "flex items-center justify-between rounded-md px-2.5 py-1 text-xs text-ck-fg-3 hover:bg-ck-bg-2 hover:text-ck-fg-1";
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
   return (
     <div className="space-y-3 border-t border-ck-hairline pt-3">
+      {onReturnToLanding && (
+        <button
+          type="button"
+          onClick={onReturnToLanding}
+          className="flex w-full items-center justify-between rounded-md bg-ck-bg-0 px-2.5 py-1.5 text-xs font-semibold text-ck-accent hover:bg-ck-bg-2 hover:text-ck-fg-1 border border-ck-hairline-strong transition-colors"
+        >
+          <span>&larr; Portal Home</span>
+          <span aria-hidden>&larr;</span>
+        </button>
+      )}
       <div className="space-y-0.5">
         <a className={link} href={`${basePath}/docs/`} target="_blank" rel="noopener noreferrer">
           Documentation Hub <span aria-hidden className="text-ck-fg-mute">{"\u2197"}</span>
@@ -399,6 +423,7 @@ export function AppShell({
   onToggleCopilot,
   copilot,
   mainRef,
+  onReturnToLanding,
   children,
 }: {
   theme: ThemeMode;
@@ -413,6 +438,7 @@ export function AppShell({
   onToggleCopilot: () => void;
   copilot: React.ReactNode;
   mainRef: React.RefObject<HTMLElement | null>;
+  onReturnToLanding?: () => void;
   children: React.ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = React.useState(false);
@@ -463,6 +489,7 @@ export function AppShell({
         onOpenMenu={() => setMenuOpen(true)}
         onToggleEvidence={() => setDrawerOpen(true)}
         evidenceCount={evidenceCount}
+        onReturnToLanding={onReturnToLanding}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -473,7 +500,7 @@ export function AppShell({
         {/* Desktop: full nav */}
         <nav aria-label="Surfaces" className="hidden w-60 shrink-0 flex-col justify-between overflow-y-auto border-r border-ck-hairline-strong bg-ck-bg-1 p-3 xl:flex">
           <NavLinks active={surface} onSelect={select} compact={false} />
-          <NavFooter />
+          <NavFooter onReturnToLanding={onReturnToLanding} />
         </nav>
 
         <main ref={mainRef} id="main" tabIndex={-1} className="min-w-0 flex-1 overflow-y-auto focus:outline-none">
@@ -531,7 +558,7 @@ export function AppShell({
               <Dialog.Description className="sr-only">Choose a workbench surface</Dialog.Description>
               <NavLinks active={surface} onSelect={select} compact={false} />
             </div>
-            <NavFooter />
+            <NavFooter onReturnToLanding={onReturnToLanding} />
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

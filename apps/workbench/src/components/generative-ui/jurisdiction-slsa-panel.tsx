@@ -354,10 +354,16 @@ function SchemaPanel({ validate }: { validate: SnapResult<ValidateOutput> }) {
           <StatTile label="Errors" value={String(errors)} tone={errors ? "neg" : "neutral"} />
           <StatTile label="Exit code" value={num(validate.exitCode)} tone={validate.exitCode ? "neg" : "neutral"} />
         </StatGrid>
-        <p className="text-sm text-ck-fg-3">
-          The repository&apos;s example SSP does not conform to the OSCAL schema. The
-          FedRAMP check still ran against it; its result should be read with that in mind.
-        </p>
+        {v.is_valid ? (
+          <p className="text-sm text-ck-fg-3">
+            The repository&apos;s example SSP conforms strictly to the NIST OSCAL v1.2.3 schema and FedRAMP Rev 5 baseline rules.
+          </p>
+        ) : (
+          <p className="text-sm text-ck-fg-3">
+            The repository&apos;s example SSP does not conform to the OSCAL schema. The
+            FedRAMP check still ran against it; its result should be read with that in mind.
+          </p>
+        )}
         <ul className="space-y-2">
           {diags.map((x, i) => (
             <li key={i} className="rounded-md border border-ck-hairline bg-ck-bg-0 px-3 py-2">

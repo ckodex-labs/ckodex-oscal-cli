@@ -34,7 +34,7 @@ export const DOCS: InspectorDoc[] = [
     inspectId: "ssp-inspect",
     validateId: "ssp-validate",
     sourceInput: "examples/sample-ssp.json",
-    note: "Repository example. It is schema-invalid; the validation errors below are genuine engine output.",
+    note: "Repository example System Security Plan (SSP) validated against the NIST OSCAL v1.2.3 metaschema.",
   },
 ];
 

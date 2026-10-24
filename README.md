@@ -12,7 +12,8 @@
 </p>
 
 > **Live Interactive Workbench**: [https://ckodex-labs.github.io/ckodex-oscal-cli/](https://ckodex-labs.github.io/ckodex-oscal-cli/)  
-> **Rustdoc API Documentation**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan/index.html](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan/index.html)  
+> **Technical Documentation Hub**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/)  
+> **Rustdoc Library API Reference**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan_oscal/index.html](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan_oscal/index.html)  
 > **Offline Merkle Evidence Capsule**: [https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html](https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html)  
 > **Multi-Platform Binary Releases**: [GitHub Releases v0.1.0](https://github.com/ckodex-labs/ckodex-oscal-cli/releases)
 

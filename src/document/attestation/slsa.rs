@@ -174,7 +174,10 @@ impl SlsaProvenanceBuilder {
         })
     }
 
-    pub fn verify(statement: &Value, artifact_path: Option<&Path>) -> Result<SlsaVerificationReport> {
+    pub fn verify(
+        statement: &Value,
+        artifact_path: Option<&Path>,
+    ) -> Result<SlsaVerificationReport> {
         let stmt_type = statement.get("_type").and_then(Value::as_str);
         if stmt_type != Some("https://in-toto.io/Statement/v1") {
             return Err(AppError::Configuration(
@@ -235,11 +238,15 @@ impl SlsaProvenanceBuilder {
             .and_then(|r| r.get("builder"))
             .and_then(|b| b.get("id"))
             .and_then(Value::as_str)
-            .ok_or_else(|| AppError::Configuration("Missing predicate.runDetails.builder.id".to_string()))?
+            .ok_or_else(|| {
+                AppError::Configuration("Missing predicate.runDetails.builder.id".to_string())
+            })?
             .to_string();
 
         if builder_id.is_empty() {
-            return Err(AppError::Configuration("Empty builder ID in SLSA predicate".to_string()));
+            return Err(AppError::Configuration(
+                "Empty builder ID in SLSA predicate".to_string(),
+            ));
         }
 
         let oscal_ext = predicate
@@ -324,13 +331,15 @@ mod tests {
 
         // 1. Build SLSA v1.2
         let test_digest = "sha256:11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff";
-        let slsa12_stmt =
-            SlsaProvenanceBuilder::new("mizan-container:latest", test_digest)
-                .with_version(SlsaVersion::V1_2)
-                .add_external_parameter("git_commit", json!("a1b2c3d4e5"))
-                .add_dependency("docker.io/library/alpine:latest", "sha256:aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899")
-                .with_oscal_evidence(bundle)
-                .build();
+        let slsa12_stmt = SlsaProvenanceBuilder::new("mizan-container:latest", test_digest)
+            .with_version(SlsaVersion::V1_2)
+            .add_external_parameter("git_commit", json!("a1b2c3d4e5"))
+            .add_dependency(
+                "docker.io/library/alpine:latest",
+                "sha256:aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899",
+            )
+            .with_oscal_evidence(bundle)
+            .build();
 
         assert_eq!(
             slsa12_stmt["predicateType"],

@@ -225,7 +225,10 @@ mod tests {
         let uuid1 = doc1.uuid().expect("uuid1 present");
         let uuid2 = doc2.uuid().expect("uuid2 present");
 
-        assert_eq!(uuid1, uuid2, "UUIDv5 must be strictly deterministic across runs");
+        assert_eq!(
+            uuid1, uuid2,
+            "UUIDv5 must be strictly deterministic across runs"
+        );
         assert_eq!(Uuid::parse_str(uuid1).unwrap().get_version_num(), 5);
     }
 }

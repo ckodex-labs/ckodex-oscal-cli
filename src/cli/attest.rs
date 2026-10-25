@@ -54,7 +54,10 @@ pub(super) fn run_attest(args: &AttestCliArgs, format: OutputFormat) -> Result<(
                 }
             }
         }
-        AttestCliAction::Verify { statement_file, artifact } => {
+        AttestCliAction::Verify {
+            statement_file,
+            artifact,
+        } => {
             let content =
                 std::fs::read_to_string(statement_file).map_err(|e| io_error(statement_file, e))?;
             let statement: serde_json::Value = serde_json::from_str(&content)

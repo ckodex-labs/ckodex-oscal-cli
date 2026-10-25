@@ -54,13 +54,13 @@ pub(super) fn run_attest(args: &AttestCliArgs, format: OutputFormat) -> Result<(
                 }
             }
         }
-        AttestCliAction::Verify { statement_file } => {
+        AttestCliAction::Verify { statement_file, artifact } => {
             let content =
                 std::fs::read_to_string(statement_file).map_err(|e| io_error(statement_file, e))?;
             let statement: serde_json::Value = serde_json::from_str(&content)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
 
-            let report = SlsaProvenanceBuilder::verify(&statement)?;
+            let report = SlsaProvenanceBuilder::verify(&statement, artifact.as_deref())?;
 
             match format {
                 OutputFormat::Json | OutputFormat::Jsonl => {
@@ -90,6 +90,9 @@ pub(super) fn run_attest(args: &AttestCliArgs, format: OutputFormat) -> Result<(
                     );
                     if let Some(root) = &report.merkle_root {
                         println!("  Evidence Merkle Root: {root}");
+                    }
+                    if report.artifact_verified {
+                        println!("  Artifact File:       VERIFIED (SHA-256 exact match)");
                     }
                     println!("  Verdict:             VALID");
                     println!(

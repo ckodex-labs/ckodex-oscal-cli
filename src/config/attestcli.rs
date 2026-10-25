@@ -33,5 +33,8 @@ pub enum AttestCliAction {
     Verify {
         /// Path to SLSA in-toto statement JSON file.
         statement_file: PathBuf,
+        /// Optional path to artifact file to cryptographically verify subject digest against.
+        #[arg(long, short = 'a')]
+        artifact: Option<PathBuf>,
     },
 }

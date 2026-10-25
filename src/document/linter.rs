@@ -9,6 +9,26 @@ use crate::{
     error::{Result, io_error},
 };
 
+/// Canonical NIST OSCAL DNS Namespace for deterministic UUIDv5 generation
+pub const OSCAL_NAMESPACE_UUID: Uuid = Uuid::from_bytes([
+    0x6b, 0xa7, 0xb8, 0x10, 0x9d, 0xad, 0x11, 0xd1, 0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8,
+]);
+
+/// Computes a deterministic UUIDv5 for an OSCAL document based on its kind, title, and version.
+pub fn compute_deterministic_uuidv5(doc: &OscalDocument) -> Uuid {
+    let root_key = doc.kind.root_key();
+    let title = doc
+        .metadata()
+        .and_then(|m| m.get("title").and_then(Value::as_str))
+        .unwrap_or("");
+    let version = doc
+        .metadata()
+        .and_then(|m| m.get("version").and_then(Value::as_str))
+        .unwrap_or("1.0.0");
+    let seed = format!("urn:oscal:{root_key}:{title}:{version}");
+    Uuid::new_v5(&OSCAL_NAMESPACE_UUID, seed.as_bytes())
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct LintIssue {
     pub code: &'static str,
@@ -61,10 +81,13 @@ pub fn lint_document(doc: &mut OscalDocument, auto_fix: bool) -> Result<LintRepo
     }
 
     if let Some(issue) = root_uuid_issue {
-        if auto_fix && let Some(root_obj_mut) = doc.root_object_mut() {
-            root_obj_mut.insert("uuid".to_string(), json!(Uuid::new_v4().to_string()));
-            fixed_count += 1;
-            mutated = true;
+        if auto_fix {
+            let deterministic_uuid = compute_deterministic_uuidv5(doc);
+            if let Some(root_obj_mut) = doc.root_object_mut() {
+                root_obj_mut.insert("uuid".to_string(), json!(deterministic_uuid.to_string()));
+                fixed_count += 1;
+                mutated = true;
+            }
         }
         issues.push(issue);
     }
@@ -174,4 +197,35 @@ fn save_document(doc: &OscalDocument, path: &Path) -> Result<()> {
     };
     fs::write(path, content).map_err(|e| io_error(path, e))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_deterministic_uuidv5_stability() {
+        let json_str = r#"{
+            "system-security-plan": {
+                "metadata": {
+                    "title": "Deterministic Test SSP",
+                    "version": "1.0.0"
+                }
+            }
+        }"#;
+        let mut doc1 = OscalDocument::from_str(json_str, None).expect("parse doc1");
+        let mut doc2 = OscalDocument::from_str(json_str, None).expect("parse doc2");
+
+        let rep1 = lint_document(&mut doc1, true).expect("lint doc1");
+        let rep2 = lint_document(&mut doc2, true).expect("lint doc2");
+
+        assert!(rep1.fixed_count >= 1);
+        assert!(rep2.fixed_count >= 1);
+
+        let uuid1 = doc1.uuid().expect("uuid1 present");
+        let uuid2 = doc2.uuid().expect("uuid2 present");
+
+        assert_eq!(uuid1, uuid2, "UUIDv5 must be strictly deterministic across runs");
+        assert_eq!(Uuid::parse_str(uuid1).unwrap().get_version_num(), 5);
+    }
 }

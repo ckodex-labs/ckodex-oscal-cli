@@ -212,7 +212,7 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, McpError> {
         "verify_slsa_provenance" => {
             let stmt_str = require_str_arg(args, "statement_json")?;
             let stmt: Value = serde_json::from_str(stmt_str).map_err(McpError::Serialization)?;
-            let rep = SlsaProvenanceBuilder::verify(&stmt)?;
+            let rep = SlsaProvenanceBuilder::verify(&stmt, None)?;
             Ok(serde_json::to_string_pretty(&rep)?)
         }
         "query_cas_store" => {

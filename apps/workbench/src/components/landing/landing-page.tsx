@@ -406,13 +406,13 @@ mizan pipeline run \\
               <tbody className="divide-y divide-white/5 font-sans">
                 <tr>
                   <td className="px-6 py-3.5 font-medium text-white">Startup & Execution Latency</td>
-                  <td className="px-6 py-3.5 text-[#8e949c]">2.5s &ndash; 6.0s (Python import overhead)</td>
-                  <td className="px-6 py-3.5 font-mono text-xs text-[#2dd4bf] font-bold">&lt; 10 ms (Native static binary)</td>
+                  <td className="px-6 py-3.5 text-[#8e949c]">2.5s &ndash; 6.0s (Python runtime &amp; import overhead)</td>
+                  <td className="px-6 py-3.5 font-mono text-xs text-[#2dd4bf] font-bold">&lt; 10 ms (Kernel Validation) &middot; ~47 ms (Cold CLI Launch)</td>
                 </tr>
                 <tr>
                   <td className="px-6 py-3.5 font-medium text-white">Memory Footprint</td>
-                  <td className="px-6 py-3.5 text-[#8e949c]">80 MB &ndash; 250 MB</td>
-                  <td className="px-6 py-3.5 font-mono text-xs text-[#2dd4bf] font-bold">&lt; 15 MB</td>
+                  <td className="px-6 py-3.5 text-[#8e949c]">80 MB &ndash; 250 MB (Python interpreter base)</td>
+                  <td className="px-6 py-3.5 font-mono text-xs text-[#2dd4bf] font-bold">&lt; 15 MB (Kernel Working Set) &middot; ~130 MB (Multi-Thread Process RSS)</td>
                 </tr>
                 <tr>
                   <td className="px-6 py-3.5 font-medium text-white">Continuous Gate Suitability</td>

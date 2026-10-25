@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
+use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::{
@@ -42,6 +43,7 @@ pub struct SlsaVerificationReport {
     pub builder_id: String,
     pub has_oscal_evidence: bool,
     pub merkle_root: Option<String>,
+    pub artifact_verified: bool,
 }
 
 pub struct SlsaProvenanceBuilder {
@@ -172,11 +174,11 @@ impl SlsaProvenanceBuilder {
         })
     }
 
-    pub fn verify(statement: &Value) -> Result<SlsaVerificationReport> {
+    pub fn verify(statement: &Value, artifact_path: Option<&Path>) -> Result<SlsaVerificationReport> {
         let stmt_type = statement.get("_type").and_then(Value::as_str);
         if stmt_type != Some("https://in-toto.io/Statement/v1") {
             return Err(AppError::Configuration(
-                "Invalid in-toto statement header".to_string(),
+                "Invalid in-toto statement header: expected _type 'https://in-toto.io/Statement/v1'".to_string(),
             ));
         }
 
@@ -205,14 +207,24 @@ impl SlsaProvenanceBuilder {
         let subject_name = first_subject
             .get("name")
             .and_then(Value::as_str)
-            .unwrap_or("unknown")
+            .ok_or_else(|| AppError::Configuration("Missing subject.name".to_string()))?
             .to_string();
-        let subject_sha256 = first_subject
+        let raw_digest = first_subject
             .get("digest")
             .and_then(|d| d.get("sha256"))
             .and_then(Value::as_str)
-            .unwrap_or("unknown")
+            .ok_or_else(|| AppError::Configuration("Missing subject.digest.sha256".to_string()))?;
+
+        let clean_digest = raw_digest
+            .strip_prefix("sha256:")
+            .unwrap_or(raw_digest)
             .to_string();
+
+        if clean_digest.len() != 64 || !clean_digest.chars().all(|c| c.is_ascii_hexdigit()) {
+            return Err(AppError::Configuration(format!(
+                "Invalid subject sha256 digest format '{clean_digest}': must be 64-character hexadecimal"
+            )));
+        }
 
         let predicate = statement
             .get("predicate")
@@ -223,8 +235,12 @@ impl SlsaProvenanceBuilder {
             .and_then(|r| r.get("builder"))
             .and_then(|b| b.get("id"))
             .and_then(Value::as_str)
-            .unwrap_or("unknown")
+            .ok_or_else(|| AppError::Configuration("Missing predicate.runDetails.builder.id".to_string()))?
             .to_string();
+
+        if builder_id.is_empty() {
+            return Err(AppError::Configuration("Empty builder ID in SLSA predicate".to_string()));
+        }
 
         let oscal_ext = predicate
             .get("buildDefinition")
@@ -237,14 +253,32 @@ impl SlsaProvenanceBuilder {
             .and_then(Value::as_str)
             .map(str::to_string);
 
+        let mut artifact_verified = false;
+        if let Some(artifact) = artifact_path {
+            let bytes = std::fs::read(artifact).map_err(|e| io_error(artifact, e))?;
+            let mut hasher = Sha256::new();
+            hasher.update(&bytes);
+            let computed_digest = hex::encode(hasher.finalize());
+            if !computed_digest.eq_ignore_ascii_case(&clean_digest) {
+                return Err(AppError::Configuration(format!(
+                    "SLSA verification failed: Subject SHA-256 mismatch for artifact '{}'. Declared '{}', computed '{}'",
+                    artifact.display(),
+                    clean_digest,
+                    computed_digest
+                )));
+            }
+            artifact_verified = true;
+        }
+
         Ok(SlsaVerificationReport {
             is_valid: true,
             slsa_version,
             subject_name,
-            subject_sha256,
+            subject_sha256: clean_digest,
             builder_id,
             has_oscal_evidence,
             merkle_root,
+            artifact_verified,
         })
     }
 
@@ -289,11 +323,12 @@ mod tests {
         .unwrap();
 
         // 1. Build SLSA v1.2
+        let test_digest = "sha256:11223344556677889900aabbccddeeff11223344556677889900aabbccddeeff";
         let slsa12_stmt =
-            SlsaProvenanceBuilder::new("mizan-container:latest", "sha256:1122334455667788")
+            SlsaProvenanceBuilder::new("mizan-container:latest", test_digest)
                 .with_version(SlsaVersion::V1_2)
                 .add_external_parameter("git_commit", json!("a1b2c3d4e5"))
-                .add_dependency("docker.io/library/alpine:latest", "sha256:aabbccddeeff")
+                .add_dependency("docker.io/library/alpine:latest", "sha256:aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899")
                 .with_oscal_evidence(bundle)
                 .build();
 
@@ -303,7 +338,7 @@ mod tests {
         );
 
         let rep12 =
-            SlsaProvenanceBuilder::verify(&slsa12_stmt).expect("verification should succeed");
+            SlsaProvenanceBuilder::verify(&slsa12_stmt, None).expect("verification should succeed");
         assert!(rep12.is_valid);
         assert_eq!(rep12.slsa_version, SlsaVersion::V1_2);
         assert!(rep12.has_oscal_evidence);

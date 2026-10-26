@@ -39,6 +39,9 @@ Thumbs.db
 # Local CLI cache & run state
 /.oscal-cli/
 /.mizan/
+.mizan/
+scratch/
+apps/workbench/AGENTS.md
 # Generated Pages Docs
 public/docs/api/*
 !public/docs/api/index.html

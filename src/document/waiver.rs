@@ -242,6 +242,15 @@ pub fn parse_ttl(ttl: &str) -> Result<Duration> {
     if ttl.is_empty() {
         return Err(AppError::Configuration("TTL cannot be empty".to_string()));
     }
+    // Support plain integers as days (e.g. from --duration-days 30)
+    if let Ok(days) = ttl.parse::<i64>() {
+        if days <= 0 {
+            return Err(AppError::Configuration(
+                "TTL duration must be greater than zero".to_string(),
+            ));
+        }
+        return Ok(Duration::days(days));
+    }
     let (num_str, unit) = ttl.split_at(ttl.len() - 1);
     let num: i64 = num_str.parse().map_err(|_| {
         AppError::Configuration(format!(

@@ -33,10 +33,10 @@ mizan export capsule \\
 # Open in any browser: Zero phone-home, 100% offline WebCrypto`,
     pipeline: `# Execute single-step zero-trust compliance pipeline
 mizan pipeline run \\
-  --catalog examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json \\
-  --ssp examples/sample-ssp.json \\
-  --sarif output.sarif \\
-  --attest-slsa provenance.json`,
+  --jurisdiction us \\
+  --sbom examples/inventory-sbom.json \\
+  --workload examples/sample-ssp.json \\
+  --output-dir pipeline-output`,
   };
 
   const copySnippet = () => {
@@ -170,17 +170,20 @@ mizan pipeline run \\
               <button
                 type="button"
                 onClick={copySnippet}
+                aria-label={copied ? "Copied command snippet to clipboard" : "Copy command snippet to clipboard"}
                 className="rounded border border-white/10 bg-white/5 px-2 py-1 font-mono text-[11px] text-[#8e949c] hover:text-white hover:bg-white/10 transition-colors"
               >
                 {copied ? "COPIED" : "COPY"}
               </button>
             </div>
 
-            <div className="flex border-b border-white/10 bg-[#0c101c] font-mono text-xs overflow-x-auto">
+            <div role="tablist" aria-label="Terminal commands showcase" className="flex border-b border-white/10 bg-[#0c101c] font-mono text-xs overflow-x-auto">
               {(["install", "validate", "capsule", "pipeline"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
                   onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 border-r border-white/10 transition-colors ${
                     activeTab === tab

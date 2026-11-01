@@ -385,9 +385,30 @@ pub fn run_local(args: &Cli, command: Command) -> Result<()> {
 }
 
 pub fn run_completions(shell: clap_complete::Shell) -> Result<()> {
-    let mut command = crate::config::Cli::command();
-    let binary_name = command.get_name().to_owned();
-    generate(shell, &mut command, binary_name, &mut std::io::stdout());
+    let command = crate::config::Cli::command();
+    let invoked_as = std::env::args()
+        .next()
+        .and_then(|p| {
+            std::path::Path::new(&p)
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "mizan".to_string());
+
+    let bin_name = if invoked_as.contains("oscal-cli") {
+        "oscal-cli"
+    } else {
+        "mizan"
+    };
+
+    let mut command = command.bin_name(bin_name);
+    generate(
+        shell,
+        &mut command,
+        bin_name.to_string(),
+        &mut std::io::stdout(),
+    );
     Ok(())
 }
 

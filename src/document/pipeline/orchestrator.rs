@@ -91,13 +91,13 @@ impl PipelineOrchestrator {
 
         // 2. Ingest SBOM if provided
         let mut sbom_count = 0;
-        let mut oscal_comp_uuid = String::new();
+        let mut _oscal_comp_uuid = String::new();
         if let Some(sbom_file) = &config.sbom_path
             && sbom_file.exists()
         {
             let (comp_doc, summary) = SbomImporter::import_file(sbom_file)?;
             sbom_count = summary.direct_dependencies;
-            oscal_comp_uuid = summary.oscal_component_uuid;
+            _oscal_comp_uuid = summary.oscal_component_uuid;
             let comp_json = serde_json::to_string_pretty(&comp_doc.value)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             let comp_path = config.output_dir.join("oscal-component-definition.json");
@@ -197,12 +197,24 @@ impl PipelineOrchestrator {
                         active_waivers_used.push(waiver.clone());
                         for f in &res.findings {
                             findings_for_oscal.push(json!({
-                                "rule_id": rule_id,
-                                "status": "WAIVED",
-                                "violation": f,
-                                "waiver_id": waiver.id,
-                                "reason": waiver.reason,
-                                "expires_at": waiver.expires_at,
+                                "uuid": uuid::Uuid::new_v4().to_string(),
+                                "title": format!("Finding for {rule_id}"),
+                                "description": f,
+                                "props": [
+                                    { "name": "rule-id", "value": rule_id },
+                                    { "name": "status", "value": "WAIVED" },
+                                    { "name": "waiver-id", "value": &waiver.id },
+                                    { "name": "reason", "value": &waiver.reason },
+                                    { "name": "expires-at", "value": &waiver.expires_at }
+                                ],
+                                "target": {
+                                    "type": "statement-id",
+                                    "target-id": rule_id,
+                                    "status": {
+                                        "state": "satisfied",
+                                        "reason": "other"
+                                    }
+                                }
                             }));
                             generated_observations.push(ObservationProof {
                                 observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
@@ -217,9 +229,21 @@ impl PipelineOrchestrator {
                         violations_count += 1;
                         for f in &res.findings {
                             findings_for_oscal.push(json!({
-                                "rule_id": rule_id,
-                                "status": "FAILED",
-                                "violation": f,
+                                "uuid": uuid::Uuid::new_v4().to_string(),
+                                "title": format!("Violation for {rule_id}"),
+                                "description": f,
+                                "props": [
+                                    { "name": "rule-id", "value": rule_id },
+                                    { "name": "status", "value": "FAILED" }
+                                ],
+                                "target": {
+                                    "type": "statement-id",
+                                    "target-id": rule_id,
+                                    "status": {
+                                        "state": "not-satisfied",
+                                        "reason": "fail"
+                                    }
+                                }
                             }));
                             generated_observations.push(ObservationProof {
                                 observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
@@ -244,6 +268,23 @@ impl PipelineOrchestrator {
                 Err(e) => {
                     violations_count += 1;
                     let err_msg = e.to_string();
+                    findings_for_oscal.push(json!({
+                        "uuid": uuid::Uuid::new_v4().to_string(),
+                        "title": format!("Evaluation Error for {rule_id}"),
+                        "description": &err_msg,
+                        "props": [
+                            { "name": "rule-id", "value": rule_id },
+                            { "name": "status", "value": "ERROR" }
+                        ],
+                        "target": {
+                            "type": "statement-id",
+                            "target-id": rule_id,
+                            "status": {
+                                "state": "not-satisfied",
+                                "reason": "fail"
+                            }
+                        }
+                    }));
                     generated_observations.push(ObservationProof {
                         observation_id: format!("obs-{}", uuid::Uuid::new_v4()),
                         control_id: rule_id.clone(),
@@ -265,7 +306,26 @@ impl PipelineOrchestrator {
             }
         }
 
-        // 4. Generate OSCAL Assessment Results Document
+        // 4. Generate OSCAL Assessment Results Document strictly compliant with NIST OSCAL v1.2.3
+        let mut result_obj = json!({
+            "uuid": uuid::Uuid::new_v4().to_string(),
+            "title": "Pipeline Continuous Evaluation",
+            "description": format!("Evaluated {} rules against jurisdiction {}", evaluated_count, config.jurisdiction),
+            "start": chrono::Utc::now().to_rfc3339(),
+            "reviewed-controls": {
+                "control-selections": [{
+                    "include-all": {}
+                }]
+            }
+        });
+
+        if !findings_for_oscal.is_empty() {
+            result_obj.as_object_mut().unwrap().insert(
+                "findings".to_string(),
+                serde_json::Value::Array(findings_for_oscal),
+            );
+        }
+
         let assessment_results = json!({
             "assessment-results": {
                 "uuid": uuid::Uuid::new_v4().to_string(),
@@ -275,17 +335,10 @@ impl PipelineOrchestrator {
                     "version": "1.0",
                     "oscal-version": "1.2.3"
                 },
-                "results": [{
-                    "uuid": uuid::Uuid::new_v4().to_string(),
-                    "title": "Pipeline Continuous Evaluation",
-                    "description": format!("Evaluated {} rules against jurisdiction {}", evaluated_count, config.jurisdiction),
-                    "start": chrono::Utc::now().to_rfc3339(),
-                    "findings": findings_for_oscal,
-                    "components": [{
-                        "uuid": if oscal_comp_uuid.is_empty() { uuid::Uuid::new_v4().to_string() } else { oscal_comp_uuid },
-                        "title": config.subject_name
-                    }]
-                }]
+                "import-ap": {
+                    "href": "#assessment-plan-001"
+                },
+                "results": [result_obj]
             }
         });
         let assessment_doc = OscalDocument::from_value(assessment_results.clone(), None)?;

@@ -1,1 +1,1 @@
-[![FedRAMP: Moderate·7 VIOLATIONS](https://shieldcn.dev/badge/FedRAMP-Moderate·7%20VIOLATIONS-red.svg?variant=secondary&wcag=3&logo=shield)](https://github.com/runbase/mizan)
+[![FedRAMP: Moderate·2 VIOLATIONS](https://shieldcn.dev/badge/FedRAMP-Moderate·2%20VIOLATIONS-red.svg?variant=secondary&wcag=3&logo=shield)](https://github.com/runbase/mizan)

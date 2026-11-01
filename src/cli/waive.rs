@@ -53,6 +53,24 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
                 }
                 return Ok(());
             }
+            WaiveCliAction::Create {
+                rule,
+                reason,
+                ttl,
+                scope,
+                author,
+            } => {
+                let reason_str = reason.as_deref().ok_or_else(|| {
+                    AppError::Configuration(
+                        "Missing mandatory --reason argument justifying the derogation lease."
+                            .to_string(),
+                    )
+                })?;
+                let lease =
+                    manager.create_waiver(rule, reason_str, ttl, Some(scope), author.as_deref())?;
+                print_lease(&lease, format)?;
+                return Ok(());
+            }
             WaiveCliAction::Revoke { id } => {
                 let revoked = manager.revoke_waiver(id)?;
                 match format {
@@ -94,9 +112,16 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
         args.author.as_deref(),
     )?;
 
+    print_lease(&lease, format)
+}
+
+fn print_lease(
+    lease: &crate::document::waiver::DerogationLease,
+    format: OutputFormat,
+) -> Result<()> {
     match format {
         OutputFormat::Json => {
-            let json_str = serde_json::to_string_pretty(&lease)
+            let json_str = serde_json::to_string_pretty(lease)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             println!("{json_str}");
         }

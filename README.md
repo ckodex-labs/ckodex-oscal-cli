@@ -35,6 +35,12 @@ It provides complete drop-in parity with NIST `oscal-cli`, augmented with:
 
 ## Quickstart
 
+### Automated One-Line Install (macOS & Linux)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/ckodex-labs/ckodex-oscal-cli/main/install.sh | bash
+```
+
 ### Pre-Built Binaries (Linux, macOS, Windows)
 
 Download the release binary matching your target architecture directly from [GitHub Releases](https://github.com/ckodex-labs/ckodex-oscal-cli/releases):

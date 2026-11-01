@@ -5,8 +5,20 @@ use super::*;
 
 pub(super) fn run_sbom(args: &SbomCliArgs, format: OutputFormat) -> Result<()> {
     match &args.action {
-        SbomCliAction::Import { input, output } => {
-            let (doc, summary) = SbomImporter::import_file(input)?;
+        SbomCliAction::Import {
+            input,
+            input_file,
+            output,
+        } => {
+            let in_path = input
+                .as_deref()
+                .or(input_file.as_deref())
+                .ok_or_else(|| {
+                    AppError::Configuration(
+                        "Missing input SBOM file. Pass as argument or with -i/--input-file. Example: mizan sbom import examples/inventory-sbom.json".to_string(),
+                    )
+                })?;
+            let (doc, summary) = SbomImporter::import_file(in_path)?;
 
             if let Some(out_p) = output {
                 if let Some(parent) = out_p.parent() {
@@ -28,7 +40,7 @@ pub(super) fn run_sbom(args: &SbomCliArgs, format: OutputFormat) -> Result<()> {
                     println!(
                         "────────────────────────────────────────────────────────────────────────"
                     );
-                    println!("  Source SBOM:     {}", input.display());
+                    println!("  Source SBOM:     {}", in_path.display());
                     println!(
                         "  Format:          {} v{}",
                         summary.format, summary.spec_version

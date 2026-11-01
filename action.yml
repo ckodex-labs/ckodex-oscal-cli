@@ -51,6 +51,22 @@ runs:
     - name: Run Mizan Pipeline
       shell: bash
       run: |
+        if ! command -v mizan >/dev/null 2>&1; then
+          if [ -f "${{ github.action_path }}/install.sh" ]; then
+            bash "${{ github.action_path }}/install.sh" || true
+          fi
+        fi
+
+        CMD_PREFIX=()
+        if command -v mizan >/dev/null 2>&1; then
+          CMD_PREFIX=(mizan)
+        elif command -v cargo >/dev/null 2>&1 && [ -f "${{ github.action_path }}/Cargo.toml" ]; then
+          CMD_PREFIX=(cargo run --manifest-path "${{ github.action_path }}/Cargo.toml" --release --bin mizan --)
+        else
+          echo "::error::mizan binary not found on PATH and cargo is not available."
+          exit 1
+        fi
+
         ARGS=(pipeline run -j "${{ inputs.jurisdiction }}" --subject "${{ inputs.subject }}" --digest "${{ inputs.digest }}" -o "${{ inputs.output-dir }}")
         if [ -n "${{ inputs.sbom-file }}" ] && [ -f "${{ inputs.sbom-file }}" ]; then
           ARGS+=(--sbom "${{ inputs.sbom-file }}")
@@ -59,4 +75,4 @@ runs:
           ARGS+=(-w "${{ inputs.workload-file }}")
         fi
         
-        mizan "${ARGS[@]}"
+        "${CMD_PREFIX[@]}" "${ARGS[@]}"

@@ -132,11 +132,12 @@ oscal-cli lint path/to/doc.json
 # Calculate downstream compliance blast radius of modifying a control or component
 mizan blast-radius examples/sample-ssp.json --target ac-1
 
-# Automated quick-fix engine for standard compliance findings
-mizan fix path/to/doc.json --rule require-remarks --apply
+# Automated quick-fix engine for workload manifests (dry-run or direct patch)
+mizan fix --rule cis-k8s-5.2.1 --file deployment.yaml --dry-run
+mizan fix --rule cis-k8s-5.2.1 --file deployment.yaml
 
 # Create time-bounded cryptographic pipeline derogation waiver
-mizan waive create --rule cis-k8s-5.2.1 --resource deployment.yaml --duration-days 30 --justification "Planned migration"
+mizan waive create --rule cis-k8s-5.2.1 --resource deployment.yaml --ttl 30d --justification "Planned migration"
 mizan waive list
 mizan waive revoke <lease-id>
 ```

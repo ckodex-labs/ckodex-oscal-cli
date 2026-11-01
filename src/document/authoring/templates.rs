@@ -132,12 +132,20 @@ fn build_template_json(standard: &str, kind: &str, title: &str) -> Result<Value>
                     }
                 ],
                 "modify": {
-                    "set-parameters": []
+                    "set-parameters": [
+                        {
+                            "param-id": "ac-01_prm_1",
+                            "values": ["at least annually"]
+                        }
+                    ]
                 }
             }
         })),
         "ssp" | "system-security-plan" => {
             let comp_uuid = uuid::Uuid::new_v4().to_string();
+            let info_uuid = uuid::Uuid::new_v4().to_string();
+            let user_uuid = uuid::Uuid::new_v4().to_string();
+            let req_uuid = uuid::Uuid::new_v4().to_string();
             Ok(json!({
                 "system-security-plan": {
                     "uuid": doc_uuid,
@@ -146,15 +154,45 @@ fn build_template_json(standard: &str, kind: &str, title: &str) -> Result<Value>
                         "href": "profile.json"
                     },
                     "system-characteristics": {
+                        "system-ids": [
+                            {
+                                "id": "SYS-001",
+                                "identifier-type": "https://fedramp.gov"
+                            }
+                        ],
                         "system-name": title,
+                        "description": format!("Enterprise system security plan for {title}."),
                         "system-information": {
-                            "information-types": []
+                            "information-types": [
+                                {
+                                    "uuid": info_uuid,
+                                    "title": "Operational System Data",
+                                    "description": "System telemetry, configurations, and application logs.",
+                                    "categorizations": [
+                                        {
+                                            "system": "http://doi.org/10.6028/NIST.SP.800-60v2r1",
+                                            "information-type-ids": ["C.3.5.1"]
+                                        }
+                                    ],
+                                    "confidentiality-impact": { "base": "fips-199-moderate" },
+                                    "integrity-impact": { "base": "fips-199-moderate" },
+                                    "availability-impact": { "base": "fips-199-moderate" }
+                                }
+                            ]
                         },
                         "security-sensitivity-level": if standard.contains("high") { "high" } else { "moderate" },
-                        "status": { "state": "operational" }
+                        "status": { "state": "operational" },
+                        "authorization-boundary": {
+                            "description": "The authorization boundary includes all containerized workloads, ingress proxies, and attached storage."
+                        }
                     },
                     "system-implementation": {
-                        "users": [],
+                        "users": [
+                            {
+                                "uuid": user_uuid,
+                                "role-ids": ["system-admin"]
+                            }
+                        ],
                         "components": [
                             {
                                 "uuid": comp_uuid,
@@ -162,13 +200,21 @@ fn build_template_json(standard: &str, kind: &str, title: &str) -> Result<Value>
                                 "title": title,
                                 "description": "Primary containerized microservice payload",
                                 "status": { "state": "operational" },
-                                "props": []
+                                "props": [
+                                    { "name": "version", "value": "1.0.0" }
+                                ]
                             }
                         ]
                     },
                     "control-implementation": {
                         "description": "Standard baseline control implementation",
-                        "implemented-requirements": []
+                        "implemented-requirements": [
+                            {
+                                "uuid": req_uuid,
+                                "control-id": "ac-1",
+                                "remarks": "Access control policy and procedures are maintained"
+                            }
+                        ]
                     }
                 }
             }))
@@ -185,8 +231,9 @@ fn build_template_json(standard: &str, kind: &str, title: &str) -> Result<Value>
                             "type": "software",
                             "title": title,
                             "description": "Reusable validated OSCAL software component",
-                            "status": { "state": "operational" },
-                            "control-implementations": []
+                            "props": [
+                                { "name": "version", "value": "1.0.0" }
+                            ]
                         }
                     ]
                 }

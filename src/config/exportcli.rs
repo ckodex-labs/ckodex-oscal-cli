@@ -13,33 +13,42 @@ pub struct ExportCliArgs {
 pub enum ExportCliAction {
     /// Export an OSCAL document to OASIS SARIF v2.1.0 report format for GitHub Actions / Azure DevOps.
     Sarif {
-        /// Path to input OSCAL document.
-        #[arg(long, short = 'i')]
-        input: PathBuf,
+        /// Path to input OSCAL document (positional or via -i/--input).
+        #[arg(value_name = "INPUT")]
+        input: Option<PathBuf>,
+        /// Alternative flag for input file path.
+        #[arg(long, short = 'i', value_name = "INPUT_FILE")]
+        input_file: Option<PathBuf>,
         /// Output path for SARIF JSON report.
         #[arg(long, short = 'o')]
-        output: PathBuf,
+        output: Option<PathBuf>,
     },
     /// Export an OSCAL document to GitLab Security Scanner Report JSON format.
     Gitlab {
-        /// Path to input OSCAL document.
-        #[arg(long, short = 'i')]
-        input: PathBuf,
+        /// Path to input OSCAL document (positional or via -i/--input).
+        #[arg(value_name = "INPUT")]
+        input: Option<PathBuf>,
+        /// Alternative flag for input file path.
+        #[arg(long, short = 'i', value_name = "INPUT_FILE")]
+        input_file: Option<PathBuf>,
         /// Output path for GitLab Security Report JSON.
         #[arg(long, short = 'o')]
-        output: PathBuf,
+        output: Option<PathBuf>,
     },
     /// Export a self-contained offline HTML evidence capsule with embedded WebCrypto Merkle verification.
     Capsule {
-        /// Path to input OSCAL assessment results JSON.
-        #[arg(long, short = 'a')]
-        assessment: PathBuf,
+        /// Path to input OSCAL assessment results JSON (positional or via -a/--assessment).
+        #[arg(value_name = "ASSESSMENT")]
+        assessment: Option<PathBuf>,
+        /// Alternative flag for assessment results path.
+        #[arg(long, short = 'a', value_name = "ASSESSMENT_FILE")]
+        assessment_file: Option<PathBuf>,
         /// Optional path to evidence bundle JSON.
         #[arg(long, short = 'b')]
         bundle: Option<PathBuf>,
         /// Output path for standalone capsule HTML file.
         #[arg(long, short = 'o')]
-        output: PathBuf,
+        output: Option<PathBuf>,
     },
     /// Export a shieldcn-compatible SVG badge URL, Markdown, or HTML snippet.
     Badge {

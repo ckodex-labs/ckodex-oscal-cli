@@ -72,7 +72,9 @@ echo ">> [5/6] Building Next.js 16 Workbench static export..."
 if [[ -d "${WORKBENCH_DIR}" ]] && command -v npm &> /dev/null; then
     (
         cd "${WORKBENCH_DIR}"
-        NEXT_OUTPUT_EXPORT=true npm run build
+        CLEAN_NODE_OPTIONS="${NODE_OPTIONS:-}"
+        CLEAN_NODE_OPTIONS="${CLEAN_NODE_OPTIONS//--use-openssl-ca/}"
+        env NODE_OPTIONS="${CLEAN_NODE_OPTIONS}" NEXT_OUTPUT_EXPORT=true npm run build
         cp -r out/* "${PUBLIC_DIR}/"
     )
 fi

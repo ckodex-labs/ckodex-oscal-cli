@@ -22,15 +22,15 @@ fmt:
 # Build all release binaries and artifacts
 build:
     cargo build --release --bins
-    cd apps/workbench && npm run build
+    cd apps/workbench && env NODE_OPTIONS="${NODE_OPTIONS//--use-openssl-ca/}" npm run build
 
 # Start the Mizan Web Workbench in development mode
 workbench:
-    cd apps/workbench && npm run dev
+    cd apps/workbench && env NODE_OPTIONS="${NODE_OPTIONS//--use-openssl-ca/}" npm run dev
 
 # Start the native Mizan Desktop App via Tauri
 tauri:
-    cd apps/workbench && npm run tauri dev
+    cd apps/workbench && env NODE_OPTIONS="${NODE_OPTIONS//--use-openssl-ca/}" npm run tauri dev
 
 # Run the native AI Model Context Protocol (MCP) server
 mcp:
@@ -51,6 +51,14 @@ pipeline jurisdiction="us" out="mizan-pipeline-output":
 # Build the minimal hardened multi-stage Docker container
 docker-build:
     docker build -t mizan:latest .
+
+# Run cargo-deny security vulnerability and license compliance audit
+security-audit:
+    cargo deny check
+
+# Build documentation hub and workbench static pages
+pages:
+    ./scripts/generate_pages.sh
 
 # Audit protocol snapshots against upstream Squarify
 audit:

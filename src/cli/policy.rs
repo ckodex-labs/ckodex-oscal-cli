@@ -77,6 +77,7 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
             policy,
             input,
             query,
+            strict,
         } => {
             let input_str = std::fs::read_to_string(input).map_err(|e| io_error(input, e))?;
             let input_json: serde_json::Value = if input.extension().and_then(|e| e.to_str())
@@ -128,6 +129,15 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
                     );
                 }
             }
+            if *strict && !eval_res.passed {
+                return Err(AppError::Negative {
+                    class: "policy-eval",
+                    status: format!(
+                        "{} policy violation(s) detected for query `{query}`",
+                        eval_res.findings.len()
+                    ),
+                });
+            }
         }
         PolicyAction::Rulepack { action } => match action {
             RulepackAction::List => {
@@ -163,7 +173,11 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
                     }
                 }
             }
-            RulepackAction::Eval { rule, input } => {
+            RulepackAction::Eval {
+                rule,
+                input,
+                strict,
+            } => {
                 let input_str = std::fs::read_to_string(input).map_err(|e| io_error(input, e))?;
                 let input_json: serde_json::Value = if input.extension().and_then(|e| e.to_str())
                     == Some("yaml")
@@ -208,6 +222,15 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
                             "────────────────────────────────────────────────────────────────────────"
                         );
                     }
+                }
+                if *strict && !res.passed {
+                    return Err(AppError::Negative {
+                        class: "policy-rulepack-eval",
+                        status: format!(
+                            "{} violation(s) detected for rule `{rule}`",
+                            res.findings.len()
+                        ),
+                    });
                 }
             }
         },

@@ -16,6 +16,9 @@ pub enum FabricAction {
     Spiffe {
         /// SPIFFE ID to validate (e.g. spiffe://meridian.runbase.io/ns/prod/sa/auditor).
         id: String,
+        /// Exit with non-zero status code when the SPIFFE trust domain does not match.
+        #[arg(long)]
+        strict: bool,
     },
     /// OpenID Connect (OIDC) JWT token claims verification.
     Oidc {
@@ -27,6 +30,9 @@ pub enum FabricAction {
         /// Expected token audience.
         #[arg(long, default_value = "mizan-workbench")]
         audience: String,
+        /// HMAC-SHA256 shared secret for cryptographic signature verification.
+        #[arg(long, env = "MIZAN_OIDC_SECRET", hide_env_values = true)]
+        secret: Option<String>,
     },
     /// Query or inspect the isolated high-assurance multi-tenant DataStore.
     Datastore {

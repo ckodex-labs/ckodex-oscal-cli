@@ -59,8 +59,8 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Build Dagger Pipeline Crate
-        run: cargo check -p mizan-dagger-ci
+      - name: Build & Test Dagger Pipeline Crate
+        run: cargo test -p mizan-dagger-ci
 
   workbench:
     name: Workbench UI & Desktop IPC
@@ -101,6 +101,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libglib2.0-dev libgtk-3-dev
 
-      - name: Check Tauri Desktop Crate
+      - name: Check & Test Tauri Desktop Crate
         working-directory: apps/workbench/src-tauri
-        run: cargo check
+        run: cargo test

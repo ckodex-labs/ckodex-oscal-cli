@@ -351,14 +351,21 @@ impl PipelineOrchestrator {
         cas_written += 1;
 
         // 5. Build Evidence Bundle & Merkle Root from Assessment Doc
+        let evidence_level = if violations_count == 0 {
+            EvidenceLevel::E4AuditPassed
+        } else {
+            EvidenceLevel::E1SchemaValid
+        };
         let mut bundle = EvidenceBundle::create_from_oscal_document(
             &assessment_doc,
-            EvidenceLevel::E4AuditPassed,
+            evidence_level,
             "mizan-orchestrator-engine",
         )?;
         if !generated_observations.is_empty() {
-            bundle.observations.extend(generated_observations);
+            bundle.observations = generated_observations;
+            bundle.recompute_merkle_root();
         }
+        bundle.sign("mizan-orchestrator-engine");
         let merkle_root = bundle.merkle_root.clone();
         let bundle_json = serde_json::to_string_pretty(&bundle)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
@@ -509,6 +516,51 @@ mod tests {
         assert!(report.sarif_report_path.exists());
         assert!(report.gitlab_report_path.exists());
         assert!(report.oscal_assessment_path.exists());
+
+        let bundle = EvidenceBundle::load_from_file(&out_dir.join("evidence-bundle.json")).unwrap();
+        assert_eq!(bundle.evidence_level, EvidenceLevel::E4AuditPassed);
+        assert_eq!(bundle.observations.len(), 2);
+
+        // Adversarial case: privileged pod fails cis-k8s-5.2.1; evidence level must downgrade to E1SchemaValid and not duplicate observations
+        let bad_workload = temp_dir.join("bad-pod.json");
+        fs::write(
+            &bad_workload,
+            serde_json::json!({
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "spec": {
+                    "containers": [{
+                        "name": "bad-api",
+                        "securityContext": {
+                            "privileged": true,
+                            "runAsNonRoot": true,
+                            "readOnlyRootFilesystem": true
+                        }
+                    }]
+                }
+            })
+            .to_string(),
+        )
+        .unwrap();
+        let bad_out = temp_dir.join("bad-artifacts");
+        let bad_cfg = PipelineConfig {
+            jurisdiction: Jurisdiction::UsNist800_53Rev5,
+            sbom_path: None,
+            workload_path: Some(bad_workload),
+            rule_ids: vec!["cis-k8s-5.2.1".to_string(), "cis-k8s-5.2.6".to_string()],
+            output_dir: bad_out.clone(),
+            subject_name: "bad-api:v1.0.0".to_string(),
+            subject_digest:
+                "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                    .to_string(),
+        };
+        let bad_rep = PipelineOrchestrator::run(bad_cfg).expect("pipeline runs on bad workload");
+        assert!(!bad_rep.all_passed);
+        assert!(bad_rep.violations_count > 0);
+        let bad_bundle =
+            EvidenceBundle::load_from_file(&bad_out.join("evidence-bundle.json")).unwrap();
+        assert_eq!(bad_bundle.evidence_level, EvidenceLevel::E1SchemaValid);
+        assert_eq!(bad_bundle.observations.len(), 2);
 
         let _ = fs::remove_dir_all(temp_dir);
     }

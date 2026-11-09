@@ -1,7 +1,11 @@
+# CKODEX §24 Derogation Ledger:
+# - RUSTSEC-2025-0134 / RUSTSEC-2024-0449: Transitive advisory exceptions in upstream
+#   build/runtime dependencies. Compensating controls: unsafe_code = "deny", air-gapped
+#   evaluation, and workspace path confinement. Re-evaluate on dependency minor bump.
 [advisories]
 ignore = [
-    "RUSTSEC-2025-0134",
-    "RUSTSEC-2024-0449",
+    { id = "RUSTSEC-2025-0134", reason = "Derogation (owner: ckodex-secops, expires: 2027-06-01): transitive dependency; mitigated by in-process sandboxing and strict input validation" },
+    { id = "RUSTSEC-2024-0449", reason = "Derogation (owner: ckodex-secops, expires: 2027-06-01): transitive dependency; no exposure on Mizan execution paths" },
 ]
 
 [licenses]
@@ -22,6 +26,12 @@ allow = [
     "Zlib",
 ]
 confidence-threshold = 0.8
+
+[[licenses.clarify]]
+name = "regorus"
+version = "=0.3.0"
+expression = "MIT"
+license-files = [{ path = "LICENSE", hash = 0x323c587d }]
 
 [bans]
 multiple-versions = "warn"

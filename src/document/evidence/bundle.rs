@@ -1,5 +1,7 @@
+use ring::signature::{ED25519, Ed25519KeyPair, KeyPair, UnparsedPublicKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{fs, path::Path};
 
 use crate::{
@@ -25,6 +27,8 @@ pub struct SignatureInfo {
     pub key_id: String,
     pub algorithm: String,
     pub signature_hex: String,
+    #[serde(default)]
+    pub public_key_hex: String,
     pub signed_by: String,
 }
 
@@ -95,16 +99,54 @@ impl EvidenceBundle {
                 for res in results {
                     if let Some(findings) = res.get("findings").and_then(Value::as_array) {
                         for f in findings {
-                            let fid = f.get("id").and_then(Value::as_str).unwrap_or("finding");
-                            let ctrl = f
-                                .get("related-controls")
-                                .and_then(Value::as_array)
-                                .and_then(|a| a.first())
+                            let fid = f
+                                .get("uuid")
                                 .and_then(Value::as_str)
+                                .or_else(|| f.get("id").and_then(Value::as_str))
+                                .unwrap_or("finding");
+                            let ctrl = f
+                                .get("target")
+                                .and_then(|t| t.get("target-id"))
+                                .and_then(Value::as_str)
+                                .or_else(|| {
+                                    f.get("related-controls")
+                                        .and_then(Value::as_array)
+                                        .and_then(|a| a.first())
+                                        .and_then(Value::as_str)
+                                })
+                                .or_else(|| {
+                                    f.get("props").and_then(Value::as_array).and_then(|props| {
+                                        props.iter().find_map(|p| {
+                                            if p.get("name").and_then(Value::as_str)
+                                                == Some("rule-id")
+                                            {
+                                                p.get("value").and_then(Value::as_str)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    })
+                                })
                                 .unwrap_or("ac-1");
                             let status = f
-                                .get("status")
+                                .get("target")
+                                .and_then(|t| t.get("status"))
+                                .and_then(|s| s.get("state"))
                                 .and_then(Value::as_str)
+                                .or_else(|| {
+                                    f.get("props").and_then(Value::as_array).and_then(|props| {
+                                        props.iter().find_map(|p| {
+                                            if p.get("name").and_then(Value::as_str)
+                                                == Some("status")
+                                            {
+                                                p.get("value").and_then(Value::as_str)
+                                            } else {
+                                                None
+                                            }
+                                        })
+                                    })
+                                })
+                                .or_else(|| f.get("status").and_then(Value::as_str))
                                 .unwrap_or("not-satisfied");
 
                             let proof_digest = CasStore::compute_digest(f.to_string().as_bytes());
@@ -140,22 +182,68 @@ impl EvidenceBundle {
         })
     }
 
-    pub fn sign(&mut self, signer_identity: &str) {
-        let sig_payload = format!(
-            "{}:{}:{}",
-            self.bundle_id, self.document_digest, self.merkle_root
-        );
-        let signature_hex = CasStore::compute_digest(sig_payload.as_bytes());
-
-        self.signature = Some(SignatureInfo {
-            key_id: format!("urn:mizan:key:{signer_identity}"),
-            algorithm: "Ed25519-HMAC-SHA256".to_string(),
-            signature_hex,
-            signed_by: signer_identity.to_string(),
-        });
+    /// Recomputes `merkle_root` from the current `observations` leaf digests.
+    pub fn recompute_merkle_root(&mut self) {
+        let leaf_digests: Vec<String> = self
+            .observations
+            .iter()
+            .map(|o| o.proof_digest.clone())
+            .collect();
+        self.merkle_root = compute_merkle_root(&leaf_digests);
     }
 
-    pub fn verify(&self) -> EvidenceVerificationReport {
+    fn canonical_signing_payload(&self, signer_identity: &str) -> String {
+        format!(
+            "mizan-evidence-v1:{}:{}:{}:{}",
+            self.bundle_id, self.document_digest, self.merkle_root, signer_identity
+        )
+    }
+
+    /// Signs the evidence bundle with an explicit 32-byte Ed25519 private seed (RFC 8032).
+    pub fn sign_with_seed(&mut self, signer_identity: &str, seed: &[u8; 32]) -> Result<()> {
+        let key_pair = Ed25519KeyPair::from_seed_unchecked(seed).map_err(|_| {
+            AppError::Configuration("Failed to initialize Ed25519 keypair from seed".to_string())
+        })?;
+        let payload = self.canonical_signing_payload(signer_identity);
+        let sig = key_pair.sign(payload.as_bytes());
+        let pk_hex = hex::encode(key_pair.public_key().as_ref());
+        let sig_hex = hex::encode(sig.as_ref());
+
+        self.signature = Some(SignatureInfo {
+            key_id: format!("urn:mizan:ed25519:{signer_identity}:{}", &pk_hex[..16]),
+            algorithm: "Ed25519".to_string(),
+            signature_hex: sig_hex,
+            public_key_hex: pk_hex,
+            signed_by: signer_identity.to_string(),
+        });
+        Ok(())
+    }
+
+    /// Signs the evidence bundle using `MIZAN_SIGNING_KEY_HEX` (64-char hex Ed25519 seed)
+    /// when present in the environment, or an identity-derived Ed25519 keypair for local attestation.
+    pub fn sign(&mut self, signer_identity: &str) {
+        let seed = if let Ok(hex_seed) = std::env::var("MIZAN_SIGNING_KEY_HEX")
+            && let Ok(bytes) = hex::decode(hex_seed.trim())
+            && let Ok(arr) = <[u8; 32]>::try_from(bytes.as_slice())
+        {
+            arr
+        } else {
+            let mut hasher = Sha256::new();
+            hasher.update(b"urn:mizan:ed25519:identity-seed:v1:");
+            hasher.update(signer_identity.as_bytes());
+            let digest = hasher.finalize();
+            let mut arr = [0u8; 32];
+            arr.copy_from_slice(&digest);
+            arr
+        };
+
+        let _ = self.sign_with_seed(signer_identity, &seed);
+    }
+
+    pub fn verify_with_public_key(
+        &self,
+        expected_pub_key_hex: Option<&str>,
+    ) -> EvidenceVerificationReport {
         let leaf_digests: Vec<String> = self
             .observations
             .iter()
@@ -164,15 +252,36 @@ impl EvidenceBundle {
         let expected_merkle = compute_merkle_root(&leaf_digests);
 
         let merkle_valid = expected_merkle == self.merkle_root;
+        let pinned_key = expected_pub_key_hex
+            .map(str::trim)
+            .filter(|s| !s.is_empty());
+
         let sig_valid = if let Some(sig) = &self.signature {
-            let sig_payload = format!(
-                "{}:{}:{}",
-                self.bundle_id, self.document_digest, self.merkle_root
-            );
-            let expected_sig = CasStore::compute_digest(sig_payload.as_bytes());
-            sig.signature_hex == expected_sig
+            let key_hex_to_use = pinned_key.unwrap_or(&sig.public_key_hex);
+            let key_matches_pinned = pinned_key.is_none_or(|pinned| {
+                sig.public_key_hex.is_empty() || sig.public_key_hex.eq_ignore_ascii_case(pinned)
+            });
+            if key_matches_pinned
+                && sig.algorithm == "Ed25519"
+                && let Ok(pk_bytes) = hex::decode(key_hex_to_use)
+                && let Ok(sig_bytes) = hex::decode(&sig.signature_hex)
+                && pk_bytes.len() == 32
+                && sig_bytes.len() == 64
+            {
+                let payload = self.canonical_signing_payload(&sig.signed_by);
+                let public_key = UnparsedPublicKey::new(&ED25519, pk_bytes);
+                public_key.verify(payload.as_bytes(), &sig_bytes).is_ok()
+            } else {
+                false
+            }
         } else {
             false
+        };
+
+        let is_valid = if pinned_key.is_some() {
+            merkle_valid && sig_valid
+        } else {
+            merkle_valid && (self.signature.is_none() || sig_valid)
         };
 
         EvidenceVerificationReport {
@@ -180,10 +289,33 @@ impl EvidenceBundle {
             evidence_level: self.evidence_level,
             document_uuid: self.document_uuid.clone(),
             observations_count: self.observations.len(),
-            is_valid: merkle_valid && (self.signature.is_none() || sig_valid),
+            is_valid,
             merkle_root: self.merkle_root.clone(),
             signature_verified: sig_valid,
         }
+    }
+
+    pub fn verify_strict(
+        &self,
+        expected_pub_key_hex: Option<&str>,
+    ) -> Result<EvidenceVerificationReport> {
+        let report = self.verify_with_public_key(expected_pub_key_hex);
+        if !report.is_valid {
+            return Err(AppError::Incoherent {
+                kind: crate::error::IncoherenceKind::EvidenceConflict,
+                detail: "Evidence bundle cryptographic integrity or signature verification failed"
+                    .to_string(),
+            });
+        }
+        Ok(report)
+    }
+
+    pub fn verify(&self) -> EvidenceVerificationReport {
+        let env_key = std::env::var("MIZAN_VERIFY_PUBLIC_KEY_HEX")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty());
+        self.verify_with_public_key(env_key.as_deref())
     }
 
     pub fn save_to_file(&self, path: &Path) -> Result<()> {
@@ -235,11 +367,84 @@ mod tests {
         assert_eq!(bundle.observations.len(), 2);
         assert!(bundle.merkle_root.starts_with("sha256:"));
 
+        // Unsigned bundle fails when a pinned public key is required
+        assert!(
+            bundle
+                .verify_strict(Some("00".repeat(32).as_str()))
+                .is_err()
+        );
+
         bundle.sign("compliance-officer-01");
         let rep = bundle.verify();
 
         assert!(rep.is_valid);
         assert!(rep.signature_verified);
         assert_eq!(rep.observations_count, 2);
+
+        // Pinned public key verification succeeds with matching key and fails with wrong key
+        let actual_pk = bundle.signature.as_ref().unwrap().public_key_hex.clone();
+        assert!(bundle.verify_strict(Some(&actual_pk)).is_ok());
+        assert!(bundle.verify_strict(Some(&"ff".repeat(32))).is_err());
+
+        // Adversarial anti-test: tampering with signed_by or signature_hex invalidates Ed25519 verification
+        let mut forged = bundle.clone();
+        forged.signature.as_mut().unwrap().signed_by = "attacker-identity".to_string();
+        let forged_rep = forged.verify();
+        assert!(!forged_rep.signature_verified);
+        assert!(!forged_rep.is_valid);
+
+        // Adversarial anti-test: unkeyed SHA-256 digest masquerading as signature is rejected
+        let mut fake_hash_sig = bundle.clone();
+        fake_hash_sig.signature.as_mut().unwrap().signature_hex =
+            CasStore::compute_digest(b"fake-unkeyed-digest");
+        let fake_rep = fake_hash_sig.verify();
+        assert!(!fake_rep.signature_verified);
+        assert!(!fake_rep.is_valid);
+    }
+
+    #[test]
+    fn test_evidence_bundle_oscal_v123_assessment_results_findings() {
+        let sample_ar = r##"{
+            "assessment-results": {
+                "uuid": "ar-1111",
+                "metadata": {
+                    "title": "OSCAL v1.2.3 Assessment Results",
+                    "last-modified": "2026-08-28T00:00:00Z",
+                    "version": "1.0.0",
+                    "oscal-version": "1.2.3"
+                },
+                "import-ap": { "href": "#ap-1" },
+                "results": [{
+                    "uuid": "res-1",
+                    "title": "Run 1",
+                    "description": "Continuous scan",
+                    "start": "2026-08-28T00:00:00Z",
+                    "findings": [{
+                        "uuid": "finding-uuid-001",
+                        "title": "Violation for cis-k8s-5.2.1",
+                        "description": "Privileged container detected",
+                        "target": {
+                            "type": "statement-id",
+                            "target-id": "cis-k8s-5.2.1",
+                            "status": {
+                                "state": "not-satisfied",
+                                "reason": "fail"
+                            }
+                        }
+                    }]
+                }]
+            }
+        }"##;
+        let doc = OscalDocument::from_str(sample_ar, None).unwrap();
+        let bundle = EvidenceBundle::create_from_oscal_document(
+            &doc,
+            EvidenceLevel::E1SchemaValid,
+            "mizan-test",
+        )
+        .unwrap();
+        assert_eq!(bundle.observations.len(), 1);
+        assert_eq!(bundle.observations[0].observation_id, "finding-uuid-001");
+        assert_eq!(bundle.observations[0].control_id, "cis-k8s-5.2.1");
+        assert_eq!(bundle.observations[0].status, "not-satisfied");
     }
 }

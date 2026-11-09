@@ -106,10 +106,13 @@ function resolveBinary() {
     : join(homedir(), ".cache", "cargo-target");
   const candidates = [
     join(REPO, "target", "release", "mizan"),
+    join(REPO, "target", "debug", "mizan"),
     join(targetRoot, "release", "mizan"),
     join(targetRoot, "debug", "mizan"),
   ];
-  const hit = candidates.find(isExecutableFile);
+  const existing = candidates.filter(isExecutableFile);
+  existing.sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  const hit = existing[0];
   if (!hit) {
     die(
       `no mizan binary found. Set MIZAN_BIN or build with 'cargo build --release --bin mizan'. Tried:\n  ${candidates.join("\n  ")}`,
@@ -436,6 +439,23 @@ if (sbom.bomFormat === "CycloneDX") {
 }
 
 run("fsm-status", "Compliance FSM status at its initial state", [...J, "fsm", "status"]);
+
+run("utcp-manual", "Generate UTCP v1.0.1 manual", [
+  ...J,
+  "utcp",
+  "manual",
+  "--transport",
+  "http",
+  "--base-url",
+  "http://localhost:3000",
+]);
+run("utcp-config", "Generate unified .utcp_config.json", [
+  ...J,
+  "utcp",
+  "config",
+  "--base-url",
+  "http://localhost:3000",
+]);
 
 const pipeDir = w("pipeline");
 run("pipeline-run", "End-to-end pipeline (US jurisdiction, inventory SBOM, all built-in rules)", [

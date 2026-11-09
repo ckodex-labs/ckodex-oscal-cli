@@ -5,7 +5,7 @@ pub(super) fn run_fix(args: &FixCliArgs, format: OutputFormat) -> Result<()> {
     let report = FixEngine::fix_rule(&args.rule, &args.file, args.dry_run)?;
 
     match format {
-        OutputFormat::Json => {
+        OutputFormat::Json | OutputFormat::Jsonl => {
             let json_str = serde_json::to_string_pretty(&report)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             println!("{json_str}");

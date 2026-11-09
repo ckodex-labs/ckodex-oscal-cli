@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
 import path from "path";
 
 export const dynamic = "force-static";
@@ -35,6 +36,9 @@ const ALLOWED: string[][] = [
   ["policy", "rulepack", "list"],
   ["fsm", "status"],
   ["waive", "list"],
+  ["utcp", "manual"],
+  ["utcp", "config"],
+  ["utcp", "search"],
   ["doctor"],
 ];
 
@@ -42,6 +46,82 @@ const FORBIDDEN_FLAGS = new Set(["-o", "--output", "--write", "--fix", "--apply"
 
 function isAllowed(argv: string[]): boolean {
   return ALLOWED.some((prefix) => prefix.every((tok, i) => argv[i] === tok));
+}
+
+function looksLikeFilePath(val: string): boolean {
+  const lower = val.toLowerCase();
+  if (
+    val.includes("/") ||
+    val.includes("\\") ||
+    val.includes("..") ||
+    lower.endsWith(".json") ||
+    lower.endsWith(".yaml") ||
+    lower.endsWith(".yml") ||
+    lower.endsWith(".xml") ||
+    lower.endsWith(".rego") ||
+    lower.endsWith(".md")
+  ) {
+    return true;
+  }
+  try {
+    const candidate = path.resolve(PROJECT_ROOT, val);
+    return fs.lstatSync(candidate).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
+function resolveSafePath(rawPath: string): string | null {
+  if (!rawPath || rawPath.includes("\0")) {
+    return null;
+  }
+  const resolved = path.resolve(PROJECT_ROOT, rawPath);
+  if (
+    resolved !== PROJECT_ROOT &&
+    !resolved.startsWith(PROJECT_ROOT + path.sep)
+  ) {
+    return null;
+  }
+  const rel = path.relative(PROJECT_ROOT, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    return null;
+  }
+  let repoReal = PROJECT_ROOT;
+  try {
+    if (fs.existsSync(PROJECT_ROOT)) {
+      repoReal = fs.realpathSync(PROJECT_ROOT);
+    }
+  } catch {
+    return null;
+  }
+  let current = PROJECT_ROOT;
+  const parts = rel.split(path.sep).filter(Boolean);
+  for (const part of parts) {
+    current = path.join(/*turbopackIgnore: true*/ current, part);
+    let stat: fs.Stats | undefined;
+    try {
+      stat = fs.lstatSync(/*turbopackIgnore: true*/ current);
+    } catch {
+      stat = undefined;
+    }
+    if (stat) {
+      if (stat.isSymbolicLink()) {
+        return null;
+      }
+      try {
+        const realCurrent = fs.realpathSync(/*turbopackIgnore: true*/ current);
+        if (
+          realCurrent !== repoReal &&
+          !realCurrent.startsWith(repoReal + path.sep)
+        ) {
+          return null;
+        }
+      } catch {
+        return null;
+      }
+    }
+  }
+  return resolved;
 }
 
 /** Health probe used by the UI to decide whether LIVE mode is available. */
@@ -81,16 +161,27 @@ export async function POST(req: NextRequest) {
   if (!isAllowed(args)) {
     return fail(403, `Command '${args.slice(0, 3).join(" ")}' is not on the read-only allowlist`);
   }
-  if (args.some((a) => FORBIDDEN_FLAGS.has(a) || a.startsWith("--output="))) {
+  if (
+    args.some((a) => {
+      const flagName = a.includes("=") ? a.slice(0, a.indexOf("=")) : a;
+      return FORBIDDEN_FLAGS.has(flagName) || a.startsWith("-o");
+    })
+  ) {
     return fail(403, "Output/write flags are not permitted through the bridge");
   }
   for (const a of args) {
-    if (a.startsWith("-")) continue;
-    if (a.includes("/") || a.endsWith(".json") || a.endsWith(".yaml")) {
-      const resolved = path.resolve(PROJECT_ROOT, a);
-      if (!resolved.startsWith(PROJECT_ROOT + path.sep)) {
-        return fail(403, `Path '${a}' is outside the repository`);
+    if (a.startsWith("-")) {
+      const eqIdx = a.indexOf("=");
+      if (eqIdx !== -1) {
+        const val = a.slice(eqIdx + 1);
+        if (looksLikeFilePath(val) && !resolveSafePath(val)) {
+          return fail(403, `Path '${val}' is outside the repository`);
+        }
       }
+      continue;
+    }
+    if (looksLikeFilePath(a) && !resolveSafePath(a)) {
+      return fail(403, `Path '${a}' is outside the repository`);
     }
   }
 

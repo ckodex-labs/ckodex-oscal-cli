@@ -12,8 +12,8 @@ use crate::{
         MappingCliAction, ModelAction, ModelKind, OutputFormat, PipelineAction, PipelineCliArgs,
         PoamCliAction, PolicyAction, PolicyCliArgs, ProfileCliAction, ReconcileArgs, ReleaseAction,
         ResolveArgs, RulepackAction, SbomCliAction, SbomCliArgs, SearchArgs, SnapshotAction,
-        SplitArgs, SspCliAction, SyncArgs, TemplateArgs, TxCliAction, TxCliArgs, ValidateArgs,
-        WaiveCliAction, WaiveCliArgs, capture_root_for_args,
+        SplitArgs, SspCliAction, SyncArgs, TemplateArgs, TxCliAction, TxCliArgs, UtcpCliAction,
+        UtcpCliArgs, ValidateArgs, WaiveCliAction, WaiveCliArgs, capture_root_for_args,
     },
     document::{
         BuiltinRulepack, CapsuleExporter, CasStore, ComplianceDaemon, ComplianceFederator,
@@ -104,6 +104,7 @@ pub async fn run(config: AppConfig, command: Command) -> Result<()> {
         | Command::Policy(_)
         | Command::Fedramp(_)
         | Command::Mcp
+        | Command::Utcp(_)
         | Command::Sync(_)
         | Command::Audit(_)
         | Command::Fsm(_)
@@ -267,6 +268,7 @@ pub fn run_local(args: &Cli, command: Command) -> Result<()> {
         Command::Policy(policy_args) => policy::run_policy(&policy_args, args.format),
         Command::Fedramp(fedramp_args) => fedramp::run_fedramp(&fedramp_args, args.format),
         Command::Mcp => run_mcp_server(),
+        Command::Utcp(utcp_args) => utcp::run_utcp(&utcp_args, args.format),
         Command::Sync(sync_args) => sync::run_sync(&sync_args, args.format),
         Command::Audit(audit_args) => audit::run_audit(&audit_args, args.format),
         Command::Fsm(fsm_args) => fsm::run_fsm(&fsm_args, args.format),
@@ -431,6 +433,7 @@ pub fn is_local_command(command: &Command) -> bool {
         | Command::Policy(_)
         | Command::Fedramp(_)
         | Command::Mcp
+        | Command::Utcp(_)
         | Command::Sync(_)
         | Command::Audit(_)
         | Command::Fsm(_)
@@ -519,6 +522,7 @@ pub mod sync;
 pub mod template;
 pub mod transparency_write;
 pub mod tx;
+pub mod utcp;
 pub mod validate;
 pub mod waive;
 

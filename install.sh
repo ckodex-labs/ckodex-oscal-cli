@@ -64,6 +64,7 @@ fi
 # 3. Download Release Asset or Fallback to Cargo
 TAR_NAME="mizan-${VERSION}-${TARGET}.tar.gz"
 DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TAR_NAME}"
+SHA_URL="${DOWNLOAD_URL}.sha256"
 TMP_DIR="$(mktemp -d -t mizan-install-XXXXXX)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
@@ -74,6 +75,37 @@ if curl -fsSL "${DOWNLOAD_URL}" -o "${TMP_DIR}/${TAR_NAME}" 2>/dev/null; then
 fi
 
 if [[ "${DOWNLOADED}" == "true" ]]; then
+    log_info "Fetching SHA-256 provenance checksum..."
+    if ! curl -fsSL "${SHA_URL}" -o "${TMP_DIR}/${TAR_NAME}.sha256" 2>/dev/null; then
+        log_error "Failed to fetch mandatory SHA-256 checksum sidecar from ${SHA_URL}."
+        exit 1
+    fi
+
+    EXPECTED_SHA="$(awk '{print $1}' "${TMP_DIR}/${TAR_NAME}.sha256" | tr -d '\r\n ')"
+    if [[ ! "${EXPECTED_SHA}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+        log_error "Malformed SHA-256 digest in sidecar: ${EXPECTED_SHA}"
+        exit 1
+    fi
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        ACTUAL_SHA="$(sha256sum "${TMP_DIR}/${TAR_NAME}" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+        ACTUAL_SHA="$(shasum -a 256 "${TMP_DIR}/${TAR_NAME}" | awk '{print $1}')"
+    else
+        log_error "Neither sha256sum nor shasum is available to verify archive integrity."
+        exit 1
+    fi
+
+    EXPECTED_LOWER="$(printf '%s' "${EXPECTED_SHA}" | tr '[:upper:]' '[:lower:]')"
+    ACTUAL_LOWER="$(printf '%s' "${ACTUAL_SHA}" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${ACTUAL_LOWER}" != "${EXPECTED_LOWER}" ]]; then
+        log_error "SHA-256 integrity verification FAILED for ${TAR_NAME}!"
+        log_error "  Expected: ${EXPECTED_SHA}"
+        log_error "  Computed: ${ACTUAL_SHA}"
+        exit 1
+    fi
+    log_ok "Verified SHA-256 digest: sha256:${ACTUAL_SHA:0:16}…${ACTUAL_SHA:48:16}"
+
     log_info "Extracting binary..."
     tar -xzf "${TMP_DIR}/${TAR_NAME}" -C "${TMP_DIR}"
     

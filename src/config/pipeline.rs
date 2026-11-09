@@ -31,5 +31,8 @@ pub enum PipelineAction {
         /// Output directory to store generated OSCAL, SLSA, SARIF, and GitLab artifacts.
         #[arg(long, short = 'o', default_value = "mizan-pipeline-output")]
         output_dir: PathBuf,
+        /// Exit with non-zero status code when unwaived compliance violations are detected.
+        #[arg(long)]
+        strict: bool,
     },
 }

@@ -38,6 +38,9 @@ pub enum PolicyAction {
         /// Rego package or query to evaluate (e.g. data.oscal.k8s or oscal.ac_2).
         #[arg(long, default_value = "data")]
         query: String,
+        /// Exit with non-zero status code when policy violations are detected.
+        #[arg(long)]
+        strict: bool,
     },
     /// Manage built-in Rego compliance rulepacks (CIS K8s Benchmarks, FedRAMP, ITSG-33).
     Rulepack {
@@ -58,5 +61,8 @@ pub enum RulepackAction {
         /// Path to input JSON or YAML workload file.
         #[arg(long, short = 'i')]
         input: PathBuf,
+        /// Exit with non-zero status code when rulepack violations are detected.
+        #[arg(long)]
+        strict: bool,
     },
 }

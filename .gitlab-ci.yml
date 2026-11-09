@@ -1,7 +1,7 @@
 # ==============================================================================
 # Mizan · High-Assurance GitLab CI/CD Pipeline & Pages Portal
 # ==============================================================================
-image: rust:1.85-bookworm
+image: rust:1.88-bookworm
 
 stages:
   - test
@@ -28,6 +28,7 @@ cache:
 test:rust-core:
   stage: test
   before_script:
+    - apt-get update && apt-get install -y --no-install-recommends protobuf-compiler
     - rustup component add rustfmt clippy
   script:
     - cargo fmt --all -- --check
@@ -59,6 +60,8 @@ test:dagger-pipeline:
 # ------------------------------------------------------------------------------
 pages:
   stage: deploy
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq protobuf-compiler nodejs npm
   script:
     - chmod +x scripts/generate_pages.sh
     - ./scripts/generate_pages.sh

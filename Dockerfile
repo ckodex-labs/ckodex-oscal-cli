@@ -4,14 +4,14 @@
 # ------------------------------------------------------------------------------
 
 # Stage 1: Build & Static Linkage
-FROM rust:alpine AS builder
+FROM rust:1.88-alpine AS builder
 
-RUN apk add --no-cache musl-dev protobuf-dev protoc git
+RUN apk add --no-cache musl-dev protobuf-dev protoc git build-base linux-headers
 
 WORKDIR /usr/src/mizan
 
 # Copy workspace manifests
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml Cargo.lock proto.lock ./
 COPY ci ./ci
 COPY proto ./proto
 COPY schemas ./schemas
@@ -19,7 +19,7 @@ COPY build.rs ./
 COPY src ./src
 
 # Build statically linked release binaries
-RUN cargo build --release --bin mizan --bin oscal-cli
+RUN cargo build --release --locked --bin mizan --bin oscal-cli
 
 # Stage 2: Minimal Distroless Runtime Surface
 FROM gcr.io/distroless/static-debian12:nonroot

@@ -469,6 +469,31 @@ fn test_cli_evidence_bundle_and_verify() {
     assert!(verify_stdout.contains("\"is_valid\": true"));
     assert!(verify_stdout.contains("\"signature_verified\": true"));
 
+    // Tamper with signed_by and verify that verify-bundle exits non-zero
+    let mut bundle_val: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&bundle_file).unwrap()).unwrap();
+    bundle_val["signature"]["signed_by"] = serde_json::json!("tampered-signer");
+    fs::write(
+        &bundle_file,
+        serde_json::to_string_pretty(&bundle_val).unwrap(),
+    )
+    .unwrap();
+
+    let tampered_verify = mizan_cmd()
+        .args([
+            "evidence",
+            "verify-bundle",
+            bundle_file.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute evidence verify-bundle on tampered bundle");
+    assert!(
+        !tampered_verify.status.success(),
+        "verify-bundle must exit non-zero when bundle integrity fails"
+    );
+
     let _ = fs::remove_dir_all(temporary_directory);
 }
 
@@ -876,6 +901,195 @@ fn test_cli_federate_from_security_report() {
     assert!(content.contains("CI Security Triage POA&M"));
     assert!(content.contains("CVE-2026-9999"));
     assert!(content.contains("plan-of-action-and-milestones"));
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_cli_strict_gates_fail_closed_on_violations() {
+    let temp_dir = create_test_directory("strict_gates_test");
+    let bad_pod_file = temp_dir.join("bad_pod.json");
+    fs::write(
+        &bad_pod_file,
+        r#"{
+            "spec": {
+                "containers": [
+                    {
+                        "name": "privileged-root",
+                        "securityContext": {
+                            "privileged": true
+                        }
+                    }
+                ]
+            }
+        }"#,
+    )
+    .unwrap();
+
+    // 1. `policy rulepack eval --strict` exits non-zero when violations exist
+    let strict_eval = mizan_cmd()
+        .args([
+            "policy",
+            "rulepack",
+            "eval",
+            "-r",
+            "cis-k8s-5.2.1",
+            "-i",
+            bad_pod_file.to_str().unwrap(),
+            "--strict",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute policy rulepack eval --strict");
+    assert!(
+        !strict_eval.status.success(),
+        "policy rulepack eval --strict must fail closed on violations"
+    );
+
+    // 2. `pipeline run --strict` exits non-zero when workload has unwaived violations
+    let pipe_out_dir = temp_dir.join("strict-pipe-out");
+    let strict_pipe = mizan_cmd()
+        .args([
+            "pipeline",
+            "run",
+            "-j",
+            "us",
+            "-w",
+            bad_pod_file.to_str().unwrap(),
+            "--rule",
+            "cis-k8s-5.2.1",
+            "-o",
+            pipe_out_dir.to_str().unwrap(),
+            "--strict",
+        ])
+        .output()
+        .expect("failed to execute pipeline run --strict");
+    assert!(
+        !strict_pipe.status.success(),
+        "pipeline run --strict must fail closed when unwaived violations are detected"
+    );
+
+    // 3. `fabric spiffe --strict` exits non-zero when trust domain mismatches default
+    let strict_spiffe = mizan_cmd()
+        .args([
+            "fabric",
+            "spiffe",
+            "spiffe://untrusted-external.example.com/ns/prod/sa/rogue",
+            "--strict",
+        ])
+        .output()
+        .expect("failed to execute fabric spiffe --strict");
+    assert!(
+        !strict_spiffe.status.success(),
+        "fabric spiffe --strict must fail closed on trust domain mismatch"
+    );
+
+    let _ = fs::remove_dir_all(temp_dir);
+}
+
+#[test]
+fn test_cli_utcp_manual_validate_call_and_multi_sdk() {
+    let temp_dir = create_test_directory("utcp_test");
+    let manual_file = temp_dir.join("mizan.tool.json");
+    let config_file = temp_dir.join(".utcp_config.json");
+
+    // 1. Generate UTCP v1.0.1 manual
+    let manual_out = mizan_cmd()
+        .args([
+            "utcp",
+            "manual",
+            "--transport",
+            "http",
+            "--base-url",
+            "http://localhost:3000",
+            "-o",
+            manual_file.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute utcp manual");
+    assert!(manual_out.status.success());
+    assert!(manual_file.exists());
+    let manual_json = fs::read_to_string(&manual_file).unwrap();
+    assert!(manual_json.contains("\"utcp_version\": \"1.0.1\""));
+    assert!(manual_json.contains("https://github.com/universal-tool-calling-protocol/rs-utcp"));
+    assert!(
+        manual_json.contains("https://github.com/universal-tool-calling-protocol/typescript-utcp")
+    );
+    assert!(manual_json.contains("https://github.com/universal-tool-calling-protocol/go-utcp"));
+    assert!(manual_json.contains("https://github.com/universal-tool-calling-protocol/python-utcp"));
+    assert!(manual_json.contains("https://github.com/universal-tool-calling-protocol/utcp-mcp"));
+
+    // 2. Validate generated UTCP manual (--strict)
+    let val_out = mizan_cmd()
+        .args([
+            "utcp",
+            "validate",
+            manual_file.to_str().unwrap(),
+            "--strict",
+            "--format",
+            "json",
+        ])
+        .output()
+        .expect("failed to execute utcp validate");
+    assert!(val_out.status.success());
+    let val_stdout = String::from_utf8_lossy(&val_out.stdout);
+    assert!(val_stdout.contains("\"is_valid\": true"));
+
+    // 3. Generate unified .utcp_config.json
+    let cfg_out = mizan_cmd()
+        .args(["utcp", "config", "-o", config_file.to_str().unwrap()])
+        .output()
+        .expect("failed to execute utcp config");
+    assert!(cfg_out.status.success());
+    assert!(config_file.exists());
+    let cfg_json = fs::read_to_string(&config_file).unwrap();
+    assert!(cfg_json.contains("\"manual_call_templates\""));
+    assert!(cfg_json.contains("\"tool_repository\""));
+    assert!(cfg_json.contains("\"tag_and_description_word_match\""));
+
+    // 4. Execute direct UTCP tool call (both bare and provider-prefixed) and verify cryptographic receipt
+    let call_out = mizan_cmd()
+        .args(["utcp", "call", "fabric_status", "--args", "{}"])
+        .output()
+        .expect("failed to execute utcp call");
+    assert!(call_out.status.success());
+    let call_stdout = String::from_utf8_lossy(&call_out.stdout);
+    assert!(call_stdout.contains("\"status\": \"VERIFIED\""));
+    assert!(call_stdout.contains("\"receipt_id\": \"sha256:"));
+
+    let prefixed_call_out = mizan_cmd()
+        .args(["utcp", "call", "mizan_oscal.fabric_status", "--args", "{}"])
+        .output()
+        .expect("failed to execute prefixed utcp call");
+    assert!(prefixed_call_out.status.success());
+    let prefixed_stdout = String::from_utf8_lossy(&prefixed_call_out.stdout);
+    assert!(prefixed_stdout.contains("\"tool_name\": \"fabric_status\""));
+    assert!(prefixed_stdout.contains("\"status\": \"VERIFIED\""));
+
+    // 5. Search UTCP tools via CLI
+    let search_out = mizan_cmd()
+        .args([
+            "utcp", "search", "fedramp", "--limit", "5", "--format", "json",
+        ])
+        .output()
+        .expect("failed to execute utcp search");
+    assert!(search_out.status.success());
+    let search_stdout = String::from_utf8_lossy(&search_out.stdout);
+    assert!(search_stdout.contains("\"validate_fedramp\""));
+
+    // 6. Generate SDK snippets for Rust, TypeScript, Go, Python, and MCP bridge
+    for lang in ["rust", "typescript", "go", "python", "mcp"] {
+        let sdk_out = mizan_cmd()
+            .args(["utcp", "sdk", "--lang", lang])
+            .output()
+            .expect("failed to execute utcp sdk");
+        assert!(sdk_out.status.success(), "utcp sdk --lang {lang} failed");
+        let sdk_stdout = String::from_utf8_lossy(&sdk_out.stdout);
+        assert!(sdk_stdout.contains("universal-tool-calling-protocol"));
+    }
 
     let _ = fs::remove_dir_all(temp_dir);
 }

@@ -13,6 +13,7 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
             subject,
             digest,
             output_dir,
+            strict,
         } => {
             let jur = Jurisdiction::from_str_name(jurisdiction).ok_or_else(|| {
                 AppError::Configuration(format!(
@@ -32,7 +33,7 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
             let report = PipelineOrchestrator::run(cfg)?;
 
             match format {
-                OutputFormat::Json => {
+                OutputFormat::Json | OutputFormat::Jsonl => {
                     let json_str = serde_json::to_string_pretty(&report)
                         .map_err(|e| AppError::Configuration(e.to_string()))?;
                     println!("{json_str}");
@@ -105,6 +106,15 @@ pub(super) fn run_pipeline(args: &PipelineCliArgs, format: OutputFormat) -> Resu
                         println!();
                     }
                 }
+            }
+            if *strict && !report.all_passed {
+                return Err(AppError::Negative {
+                    class: "pipeline-run",
+                    status: format!(
+                        "{} unwaived compliance violation(s) detected",
+                        report.violations_count
+                    ),
+                });
             }
             Ok(())
         }

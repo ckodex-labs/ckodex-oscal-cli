@@ -268,6 +268,8 @@ pub enum Command {
     Fedramp(FedrampCliArgs),
     /// Run the native AI Model Context Protocol (MCP) server over stdio.
     Mcp,
+    /// Universal Tool Calling Protocol (UTCP v1.0.1) manual, config, validation, direct calls, and SDK codegen.
+    Utcp(UtcpCliArgs),
     /// Perform a 3-way GitOps AST merge across base, upstream, and local documents.
     Sync(SyncArgs),
     /// Audit a live Kubernetes cluster or workload manifests using in-process Regorus policies.
@@ -396,6 +398,7 @@ pub mod sspcli;
 pub mod sync;
 pub mod template;
 pub mod txcli;
+pub mod utcpcli;
 pub mod validate;
 pub mod waivecli;
 
@@ -482,6 +485,7 @@ pub use self::sync::SyncArgs;
 pub use self::template::TemplateArgs;
 pub use self::txcli::TxCliAction;
 pub use self::txcli::TxCliArgs;
+pub use self::utcpcli::{UtcpCliAction, UtcpCliArgs};
 pub use self::validate::ValidateArgs;
 pub use self::waivecli::{WaiveCliAction, WaiveCliArgs};
 

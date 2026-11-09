@@ -332,6 +332,32 @@ pub fn tools_list() -> Value {
                     },
                     "required": ["report_file"]
                 }
+            },
+            {
+                "name": "export_utcp_manual",
+                "description": "Generate the Universal Tool Calling Protocol (UTCP v1.0.1) manual for Mizan across CLI, HTTP, gRPC, or MCP transports (read-only)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "transport": { "type": "string", "enum": ["cli", "http", "grpc", "mcp", "sse", "text"], "default": "http", "description": "Target UTCP call_template_type / provider_type" },
+                        "base_url": { "type": "string", "default": "http://localhost:3000", "description": "Base URL for HTTP/gRPC endpoints" },
+                        "output_file": { "type": "string", "description": "Optional workspace-confined output file path to write the UTCP manual JSON" }
+                    }
+                }
+            },
+            {
+                "name": "search_utcp_tools",
+                "description": "Search Mizan UTCP tools by keyword, tag, or description and inspect tool call templates (read-only)",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": { "type": "string", "description": "Search query matching tool name, tags, or description" },
+                        "limit": { "type": "integer", "default": 10, "description": "Maximum number of tools to return" },
+                        "transport": { "type": "string", "enum": ["cli", "http", "grpc", "mcp", "sse", "text"], "default": "http" },
+                        "base_url": { "type": "string", "default": "http://localhost:3000" }
+                    },
+                    "required": ["query"]
+                }
             }
         ]
     })

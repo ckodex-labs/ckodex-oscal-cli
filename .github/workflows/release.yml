@@ -13,6 +13,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 jobs:
   build-binaries:
@@ -121,7 +123,6 @@ jobs:
   publish:
     name: Publish Release Assets & Cryptographic Manifest
     needs: build-binaries
-    if: always() && !cancelled()
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -149,13 +150,21 @@ jobs:
           echo "=== SHA256SUMS.txt ==="
           cat SHA256SUMS.txt
 
+      - name: Attest Build Provenance (SLSA / Sigstore)
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            release-artifacts/*.tar.gz
+            release-artifacts/*.zip
+            release-artifacts/SHA256SUMS.txt
+
       - name: Upload Assets to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd release-artifacts
           gh release view "${RELEASE_TAG}" || gh release create "${RELEASE_TAG}" --title "Mizan ${RELEASE_TAG}" --generate-notes
-          for f in *.tar.gz *.zip SHA256SUMS.txt; do
+          for f in *.tar.gz *.zip *.sha256 SHA256SUMS.txt; do
             if [ -f "$f" ]; then
               echo "Uploading $f to release ${RELEASE_TAG}..."
               gh release upload "${RELEASE_TAG}" "$f" --clobber
@@ -165,7 +174,6 @@ jobs:
   build-oci:
     name: Build & Publish OCI Container
     needs: publish
-    if: always() && !cancelled()
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -183,6 +191,9 @@ jobs:
             echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
           fi
 
+      - name: Set up QEMU for Multi-Arch Builds
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -194,10 +205,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push OCI Image
+        id: push-oci
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/amd64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ env.RELEASE_TAG }}

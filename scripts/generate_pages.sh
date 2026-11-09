@@ -22,7 +22,7 @@ mkdir -p "${PUBLIC_DIR}/docs/api"
 echo ">> [1/6] Building Mizan release binary..."
 cargo build --release --bin mizan
 MIZAN_BIN="${ROOT_DIR}/target/release/mizan"
-if [[ ! -f "${MIZAN_BIN}" ]]; then
+if [[ -f "${HOME}/.cache/cargo-target/release/mizan" ]] && [[ ! -f "${MIZAN_BIN}" || "${HOME}/.cache/cargo-target/release/mizan" -nt "${MIZAN_BIN}" ]]; then
     MIZAN_BIN="${HOME}/.cache/cargo-target/release/mizan"
 fi
 
@@ -67,16 +67,56 @@ echo ">> [4/6] Exporting Offline Cryptographic Evidence Capsule..."
     -a <(echo '{"assessment-results":{"uuid":"mizan-portal-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}') \
     -o "${PUBLIC_DIR}/capsule.html"
 
+# Generate static UTCP manual snapshot for offline / Pages fallback
+mkdir -p "${WORKBENCH_DIR}/public/snapshot"
+mkdir -p "${PUBLIC_DIR}/snapshot"
+"${MIZAN_BIN}" utcp manual --transport http --base-url "http://localhost:3000" --format json \
+    -o "${WORKBENCH_DIR}/public/snapshot/utcp-manual.json"
+cp "${WORKBENCH_DIR}/public/snapshot/utcp-manual.json" "${PUBLIC_DIR}/snapshot/utcp-manual.json"
+
+restore_workbench_api() {
+    if [[ -d "/tmp/mizan_api_backup" ]]; then
+        rm -rf "${WORKBENCH_DIR}/src/app/api"
+        mv "/tmp/mizan_api_backup" "${WORKBENCH_DIR}/src/app/api"
+    fi
+}
+trap restore_workbench_api EXIT INT TERM
+
 # 5. Build Next.js 16 Workbench Static Export
 echo ">> [5/6] Building Next.js 16 Workbench static export..."
 if [[ -d "${WORKBENCH_DIR}" ]] && command -v npm &> /dev/null; then
+    rm -rf "/tmp/mizan_api_backup"
+    if [[ -d "${WORKBENCH_DIR}/src/app/api" ]]; then
+        mv "${WORKBENCH_DIR}/src/app/api" "/tmp/mizan_api_backup"
+    fi
     (
         cd "${WORKBENCH_DIR}"
         CLEAN_NODE_OPTIONS="${NODE_OPTIONS:-}"
         CLEAN_NODE_OPTIONS="${CLEAN_NODE_OPTIONS//--use-openssl-ca/}"
         env NODE_OPTIONS="${CLEAN_NODE_OPTIONS}" NEXT_OUTPUT_EXPORT=true npm run build
+        touch out/.gitkeep
         cp -r out/* "${PUBLIC_DIR}/"
     )
+    restore_workbench_api
+else
+    echo "[WARN] npm is unavailable; generating fallback static portal index..."
+    mkdir -p "${PUBLIC_DIR}/_next"
+    cat > "${PUBLIC_DIR}/index.html" <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Mizan · OSCAL Compliance Kernel &amp; Workbench</title>
+</head>
+<body>
+  <h1>Mizan · High-Assurance OSCAL Compliance Kernel</h1>
+  <ul>
+    <li><a href="capsule.html">Offline Cryptographic Evidence Capsule</a></li>
+    <li><a href="docs/api/mizan_oscal/index.html">Rust API Documentation</a></li>
+  </ul>
+</body>
+</html>
+EOF
 fi
 touch "${PUBLIC_DIR}/.nojekyll"
 

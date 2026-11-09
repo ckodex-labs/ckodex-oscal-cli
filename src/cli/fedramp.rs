@@ -4,8 +4,12 @@
 use super::*;
 
 pub(super) fn run_fedramp(args: &FedrampCliArgs, format: OutputFormat) -> Result<()> {
-    let (file_path, baseline_str) = match &args.action {
-        FedrampAction::Validate { file, baseline } => (file.as_path(), baseline.as_str()),
+    let (file_path, baseline_str, strict) = match &args.action {
+        FedrampAction::Validate {
+            file,
+            baseline,
+            strict,
+        } => (file.as_path(), baseline.as_str(), *strict),
     };
 
     let doc = OscalDocument::from_file(file_path)?;
@@ -51,6 +55,15 @@ pub(super) fn run_fedramp(args: &FedrampCliArgs, format: OutputFormat) -> Result
                 println!("\nAll FedRAMP PMO baseline rules passed.");
             }
         }
+    }
+    if strict && !report.is_compliant {
+        return Err(AppError::Negative {
+            class: "fedramp-validate",
+            status: format!(
+                "{} PMO rule violation(s) detected against {} baseline",
+                report.findings_count, report.baseline
+            ),
+        });
     }
     Ok(())
 }

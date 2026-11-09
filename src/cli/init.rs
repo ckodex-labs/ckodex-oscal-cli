@@ -5,7 +5,7 @@ pub(super) fn run_init(args: &InitCliArgs, format: OutputFormat) -> Result<()> {
     let report = RepoInitializer::init_from_repo(&args.from_repo, args.output.as_deref())?;
 
     match format {
-        OutputFormat::Json => {
+        OutputFormat::Json | OutputFormat::Jsonl => {
             let json_str = serde_json::to_string_pretty(&report)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             println!("{json_str}");

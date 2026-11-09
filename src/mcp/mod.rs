@@ -5,7 +5,7 @@ use std::io::{self, BufRead, Write};
 mod protocol;
 mod tools;
 
-pub use protocol::{McpError, error_response, success_response};
+pub use protocol::{McpError, error_response, success_response, tools_list};
 pub use tools::execute_tool;
 
 pub fn run_mcp_server() -> Result<()> {
@@ -75,13 +75,112 @@ fn handle_mcp_request(req: &Value) -> std::result::Result<Option<Value>, McpErro
         "initialize" => {
             let result = json!({
                 "protocolVersion": "2024-11-05",
-                "capabilities": { "tools": {} },
+                "capabilities": {
+                    "tools": {},
+                    "utcp": {
+                        "utcpVersion": crate::utcp::UTCP_SPEC_VERSION,
+                        "manualVersion": crate::utcp::UTCP_MANUAL_VERSION,
+                        "bridge": "utcp-mcp"
+                    }
+                },
                 "serverInfo": { "name": "mizan-mcp", "version": env!("CARGO_PKG_VERSION") }
             });
             Ok(Some(success_response(id, result)))
         }
         "notifications/initialized" => Ok(None),
         "tools/list" => Ok(Some(success_response(id, protocol::tools_list()))),
+        "utcp/manual" => {
+            let params = req.get("params").unwrap_or(&Value::Null);
+            let transport_str = params
+                .get("transport")
+                .and_then(Value::as_str)
+                .unwrap_or("mcp");
+            let base_url = params
+                .get("base_url")
+                .and_then(Value::as_str)
+                .unwrap_or("http://localhost:3000");
+            let transport = crate::utcp::UtcpTransportType::from_str_name(transport_str)
+                .unwrap_or(crate::utcp::UtcpTransportType::Mcp);
+            let manual = crate::utcp::UtcpManual::build_mizan_manual(transport, base_url);
+            let manual_val = serde_json::to_value(manual)?;
+            Ok(Some(success_response(id, manual_val)))
+        }
+        "utcp/call" => {
+            let params = req.get("params").unwrap_or(&Value::Null);
+            let name = params.get("name").and_then(Value::as_str).ok_or_else(|| {
+                McpError::InvalidRequest("utcp/call requires params.name".to_string())
+            })?;
+            let args = params
+                .get("arguments")
+                .or_else(|| params.get("inputs"))
+                .unwrap_or(&Value::Null);
+            match crate::utcp::execute_utcp_tool(name, args) {
+                Ok(receipt) => {
+                    let receipt_val = serde_json::to_value(receipt)?;
+                    Ok(Some(success_response(id, receipt_val)))
+                }
+                Err(e) => Ok(Some(error_response(Some(id), -32000, e.to_string()))),
+            }
+        }
+        "utcp/search" => {
+            let params = req.get("params").unwrap_or(&Value::Null);
+            let query = params
+                .get("query")
+                .or_else(|| params.get("q"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let limit = params.get("limit").and_then(Value::as_u64).unwrap_or(10) as usize;
+            let transport_str = params
+                .get("transport")
+                .and_then(Value::as_str)
+                .unwrap_or("mcp");
+            let base_url = params
+                .get("base_url")
+                .and_then(Value::as_str)
+                .unwrap_or("http://localhost:3000");
+            let transport = crate::utcp::UtcpTransportType::from_str_name(transport_str)
+                .unwrap_or(crate::utcp::UtcpTransportType::Mcp);
+            let manual = crate::utcp::UtcpManual::build_mizan_manual(transport, base_url);
+            let tools = manual.search_tools(query, limit);
+            let res = json!({
+                "query": query,
+                "count": tools.len(),
+                "tools": tools
+            });
+            Ok(Some(success_response(id, res)))
+        }
+        "utcp/tool_info" => {
+            let params = req.get("params").unwrap_or(&Value::Null);
+            let name = params
+                .get("name")
+                .or_else(|| params.get("tool"))
+                .and_then(Value::as_str)
+                .ok_or_else(|| {
+                    McpError::InvalidRequest("utcp/tool_info requires params.name".to_string())
+                })?;
+            let transport_str = params
+                .get("transport")
+                .and_then(Value::as_str)
+                .unwrap_or("mcp");
+            let base_url = params
+                .get("base_url")
+                .and_then(Value::as_str)
+                .unwrap_or("http://localhost:3000");
+            let transport = crate::utcp::UtcpTransportType::from_str_name(transport_str)
+                .unwrap_or(crate::utcp::UtcpTransportType::Mcp);
+            let manual = crate::utcp::UtcpManual::build_mizan_manual(transport, base_url);
+            match manual.tool_info(name) {
+                Some(tool) => {
+                    let tool_val = serde_json::to_value(tool)?;
+                    Ok(Some(success_response(id, tool_val)))
+                }
+                None => Ok(Some(error_response(
+                    Some(id),
+                    -32602,
+                    format!("UTCP tool not found: {name}"),
+                ))),
+            }
+        }
         "tools/call" => {
             let params = req.get("params").unwrap_or(&Value::Null);
             let name = params.get("name").and_then(Value::as_str).ok_or_else(|| {
@@ -146,6 +245,60 @@ mod tests {
         assert!(tool_names.contains(&"import_sbom_cyclonedx"));
         assert!(tool_names.contains(&"evaluate_policy_rulepack"));
         assert!(tool_names.contains(&"ingest_security_report_to_poam"));
+        assert!(tool_names.contains(&"export_utcp_manual"));
+        assert!(tool_names.contains(&"search_utcp_tools"));
+
+        let utcp_manual_req = json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "utcp/manual",
+            "params": { "transport": "http" }
+        });
+        let utcp_manual_resp = handle_mcp_request(&utcp_manual_req)
+            .unwrap()
+            .expect("should handle utcp/manual");
+        assert_eq!(utcp_manual_resp["result"]["utcp_version"], "1.0.1");
+        assert!(
+            utcp_manual_resp["result"]["tools"]
+                .as_array()
+                .unwrap()
+                .len()
+                >= 20
+        );
+
+        let utcp_call_req = json!({
+            "jsonrpc": "2.0",
+            "id": 4,
+            "method": "utcp/call",
+            "params": { "name": "fabric_status", "inputs": {} }
+        });
+        let utcp_call_resp = handle_mcp_request(&utcp_call_req)
+            .unwrap()
+            .expect("should handle utcp/call");
+        assert_eq!(utcp_call_resp["result"]["status"], "VERIFIED");
+        assert_eq!(utcp_call_resp["result"]["output"]["status"], "OPERATIONAL");
+
+        let utcp_search_req = json!({
+            "jsonrpc": "2.0",
+            "id": 5,
+            "method": "utcp/search",
+            "params": { "query": "fedramp", "limit": 5 }
+        });
+        let utcp_search_resp = handle_mcp_request(&utcp_search_req)
+            .unwrap()
+            .expect("should handle utcp/search");
+        assert!(utcp_search_resp["result"]["count"].as_u64().unwrap() >= 1);
+
+        let utcp_info_req = json!({
+            "jsonrpc": "2.0",
+            "id": 6,
+            "method": "utcp/tool_info",
+            "params": { "name": "fabric_status" }
+        });
+        let utcp_info_resp = handle_mcp_request(&utcp_info_req)
+            .unwrap()
+            .expect("should handle utcp/tool_info");
+        assert_eq!(utcp_info_resp["result"]["name"], "fabric_status");
     }
 
     #[test]

@@ -47,12 +47,35 @@ pub struct JwtHeader {
     pub kid: Option<String>,
 }
 
+fn deserialize_string_or_vec<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrVec {
+        Single(String),
+        Multiple(Vec<String>),
+    }
+    match Option::<StringOrVec>::deserialize(deserializer)? {
+        None => Ok(Vec::new()),
+        Some(StringOrVec::Single(s)) => {
+            if s.is_empty() {
+                Ok(Vec::new())
+            } else {
+                Ok(vec![s])
+            }
+        }
+        Some(StringOrVec::Multiple(v)) => Ok(v),
+    }
+}
+
 /// Standard OIDC Claims with Multi-Tenant Extensions
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct OidcClaims {
     pub iss: String,
     pub sub: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_string_or_vec")]
     pub aud: Vec<String>,
     pub exp: i64,
     pub iat: i64,
@@ -184,9 +207,12 @@ impl OidcTokenValidator {
             if !constant_time_eq(&signature_bytes, &expected_hmac) {
                 return Err(OidcError::InvalidSignature);
             }
-        } else if self.config.strict_mode && signature_segment.is_empty() && alg != "NONE" {
-            return Err(OidcError::MissingSignature);
-        } else if !self.config.strict_mode && alg == "NONE" && !signature_segment.is_empty() {
+        } else if self.config.strict_mode {
+            if signature_segment.is_empty() {
+                return Err(OidcError::MissingSignature);
+            }
+            return Err(OidcError::MissingVerificationKey(header.alg));
+        } else if alg == "NONE" && !signature_segment.is_empty() {
             return Err(OidcError::InvalidSignature);
         }
 
@@ -209,7 +235,7 @@ impl OidcTokenValidator {
         }
 
         // 7. Audience check
-        if !claims.aud.is_empty() && !claims.aud.contains(&self.config.audience) {
+        if !self.config.audience.is_empty() && !claims.aud.contains(&self.config.audience) {
             return Err(OidcError::AudienceMismatch {
                 expected: self.config.audience.clone(),
                 actual: claims.aud.clone(),
@@ -517,5 +543,69 @@ mod tests {
         let token = OidcTokenValidator::sign_hs256(&claims, secret).expect("token");
         let err = validator.decode_and_validate(&token, 1750000000);
         assert!(matches!(err, Err(OidcError::TokenExpired(_, _))));
+    }
+
+    #[test]
+    fn test_oidc_strict_mode_requires_verification_key() {
+        let config = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench");
+        let validator = OidcTokenValidator::new(config);
+
+        let claims = OidcClaims {
+            iss: "https://auth.runbase.io".to_string(),
+            sub: "user_unverified".to_string(),
+            aud: vec!["mizan-workbench".to_string()],
+            exp: 2000000000,
+            iat: 1700000000,
+            email: None,
+            tenant_id: Some("tenant-corp".to_string()),
+            groups: vec![],
+            roles: vec!["Admin".to_string()],
+            name: None,
+        };
+
+        let forged = OidcTokenValidator::sign_hs256(&claims, b"arbitrary-untrusted-key")
+            .expect("sign forged token");
+        let err = validator.decode_and_validate(&forged, 1750000000);
+        assert!(matches!(err, Err(OidcError::MissingVerificationKey(_))));
+    }
+
+    #[test]
+    fn test_oidc_single_string_aud_and_empty_aud_rejection() {
+        let secret = b"secret-key-32-bytes-for-tests-ok";
+        let config = OidcProviderConfig::new("https://auth.runbase.io", "mizan-workbench")
+            .with_shared_secret(secret);
+        let validator = OidcTokenValidator::new(config);
+
+        // 1. Single JSON string "aud": "mizan-workbench" must deserialize and validate
+        let header_b64 = base64_url_encode(br#"{"alg":"HS256","typ":"JWT"}"#);
+        let payload_b64 = base64_url_encode(
+            br#"{"iss":"https://auth.runbase.io","sub":"user_single_aud","aud":"mizan-workbench","exp":2000000000,"iat":1700000000}"#,
+        );
+        let signing_input = format!("{header_b64}.{payload_b64}");
+        let sig_b64 = base64_url_encode(&hmac_sha256(secret, signing_input.as_bytes()));
+        let single_aud_token = format!("{signing_input}.{sig_b64}");
+
+        let validated = validator
+            .decode_and_validate(&single_aud_token, 1750000000)
+            .expect("single-string aud should validate");
+        assert_eq!(validated.aud, vec!["mizan-workbench".to_string()]);
+
+        // 2. Empty aud must be rejected when config.audience is non-empty
+        let empty_aud_claims = OidcClaims {
+            iss: "https://auth.runbase.io".to_string(),
+            sub: "user_no_aud".to_string(),
+            aud: vec![],
+            exp: 2000000000,
+            iat: 1700000000,
+            email: None,
+            tenant_id: None,
+            groups: vec![],
+            roles: vec![],
+            name: None,
+        };
+        let empty_aud_token =
+            OidcTokenValidator::sign_hs256(&empty_aud_claims, secret).expect("sign empty aud");
+        let err = validator.decode_and_validate(&empty_aud_token, 1750000000);
+        assert!(matches!(err, Err(OidcError::AudienceMismatch { .. })));
     }
 }

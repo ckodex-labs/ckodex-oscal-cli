@@ -8,7 +8,7 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
         match action {
             WaiveCliAction::List => {
                 match format {
-                    OutputFormat::Json => {
+                    OutputFormat::Json | OutputFormat::Jsonl => {
                         let json_str = serde_json::to_string_pretty(&manager.list())
                             .map_err(|e| AppError::Configuration(e.to_string()))?;
                         println!("{json_str}");
@@ -74,7 +74,7 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
             WaiveCliAction::Revoke { id } => {
                 let revoked = manager.revoke_waiver(id)?;
                 match format {
-                    OutputFormat::Json => {
+                    OutputFormat::Json | OutputFormat::Jsonl => {
                         let json_str = serde_json::to_string_pretty(&revoked)
                             .map_err(|e| AppError::Configuration(e.to_string()))?;
                         println!("{json_str}");
@@ -120,7 +120,7 @@ fn print_lease(
     format: OutputFormat,
 ) -> Result<()> {
     match format {
-        OutputFormat::Json => {
+        OutputFormat::Json | OutputFormat::Jsonl => {
             let json_str = serde_json::to_string_pretty(lease)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             println!("{json_str}");

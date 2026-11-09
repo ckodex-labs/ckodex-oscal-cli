@@ -12,6 +12,7 @@ mod policy;
 pub mod proto;
 pub mod transport;
 mod tui;
+pub mod utcp;
 pub mod valence;
 
 pub(crate) const PROTO_DESCRIPTOR_SET: &[u8] =
@@ -22,11 +23,11 @@ pub(crate) const OSCAL_SCHEMA_MANIFEST_SHA256: &str = env!("OSCAL_SCHEMA_MANIFES
 pub(crate) const OSCAL_SCHEMA_SOURCE_COMMIT: &str = env!("OSCAL_SCHEMA_SOURCE_COMMIT");
 pub(crate) const OSCAL_SCHEMA_RELEASE_ZIP_SHA256: &str = env!("OSCAL_SCHEMA_RELEASE_ZIP_SHA256");
 
-/// Run the read-only OSCAL observer application.
+/// Run the Mizan OSCAL compliance kernel and observer application.
 ///
-/// The application modules and generated protobuf bindings remain private so
-/// the library surface cannot be used to reach mutation-capable generated
-/// clients. The supported product surface is the executable itself.
+/// Transport operations are governed by `policy::Gate` (`--read-only` denies all
+/// `Create`, `Update`, and `Delete` RPC classes with an explicit `Anti` policy
+/// violation) and by `fabric::RbacEngine` on embedded gRPC server endpoints.
 pub async fn run() {
     if let Err(error) = run_inner().await {
         eprintln!("error: {}", output::terminal_text(&error.to_string()));

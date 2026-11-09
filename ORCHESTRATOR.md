@@ -4,10 +4,12 @@
 
 - The orchestrator decides; implementation units execute; evidence records. A
   unit does not both decide and verify its own completion.
-- The client is an observer. It may read, search, verify observational
-  evidence/closures, traverse, capture,
-  and render. It must not create, update, delete, ingest, upload, sync,
-  publish, propose, resolve, generate, or project graph state.
+- In read-only observer mode (`--read-only` / `ReadOnlyClient`), the client may
+  read, search, verify observational evidence/closures, traverse, capture, and
+  render, while `policy::Gate` denies all mutating RPCs (`Create`, `Update`,
+  `Delete`) as explicit `Anti` violations. When operating as the governed Mizan
+  compliance kernel (`CrudClient` / `MizanServerState`), mutations are gated by
+  explicit policy and `fabric::RbacEngine` tenant authorization.
 - The vendored `proto/oscal` tree is the default immutable protocol snapshot.
   The neighboring OSCALify checkout is an optional read-only source for explicit
   protocol review or refresh. No source, generated file, database,

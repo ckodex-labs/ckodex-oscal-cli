@@ -52,7 +52,12 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
 
     let rust_base = client
         .container()
-        .from("rust:1.85-bookworm")
+        .from("rust:1.88-bookworm")
+        .with_exec(vec![
+            "sh",
+            "-c",
+            "apt-get update && apt-get install -y --no-install-recommends protobuf-compiler && rm -rf /var/lib/apt/lists/*",
+        ])
         .with_directory("/workspace", project_dir.clone())
         .with_workdir("/workspace")
         .with_mounted_cache(
@@ -190,4 +195,30 @@ async fn run_pipeline(client: dagger_sdk::Query, action: CiAction) -> Result<()>
     println!("===============================================");
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cli_args_default_to_all() {
+        let parsed = Args::try_parse_from(["mizan-dagger-ci"]).expect("default args parse");
+        assert_eq!(parsed.action, CiAction::All);
+    }
+
+    #[test]
+    fn test_cli_args_parse_explicit_stages() {
+        for (arg, expected) in [
+            ("lint", CiAction::Lint),
+            ("test", CiAction::Test),
+            ("build", CiAction::Build),
+            ("workbench", CiAction::Workbench),
+            ("badge", CiAction::Badge),
+            ("all", CiAction::All),
+        ] {
+            let parsed = Args::try_parse_from(["mizan-dagger-ci", arg]).expect("stage arg parse");
+            assert_eq!(parsed.action, expected);
+        }
+    }
 }

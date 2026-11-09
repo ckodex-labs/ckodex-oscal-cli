@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "tsc --noEmit",
     "snapshot": "node scripts/gen-snapshot.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\""
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "tauri": "tauri"
   },
   "dependencies": {
     "@ai-sdk/openai": "^1.1.9",

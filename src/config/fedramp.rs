@@ -12,5 +12,8 @@ pub enum FedrampAction {
         /// FedRAMP baseline level (low, moderate, high).
         #[arg(long, default_value = "moderate")]
         baseline: String,
+        /// Exit with non-zero status code when FedRAMP PMO compliance violations are detected.
+        #[arg(long)]
+        strict: bool,
     },
 }

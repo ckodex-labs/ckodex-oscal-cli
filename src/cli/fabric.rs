@@ -135,29 +135,36 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                     .get_tenant(&tid)
                     .map_err(|e| AppError::Configuration(e.to_string()))?;
 
-                println!("Tenant Inspection · {}", tenant.tenant_id.as_str());
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                println!("  Display Name:       {}", tenant.display_name);
-                println!("  Tier:               {}", tenant.tier);
-                println!(
-                    "  Max Quota:          {} GB",
-                    tenant.max_storage_bytes / (1024 * 1024 * 1024)
-                );
-                println!(
-                    "  Used Quota:         {} Bytes",
-                    tenant.current_storage_bytes
-                );
-                println!("  Default Baseline:   {}", tenant.default_jurisdiction);
-                println!("  Created:            {}", tenant.created_at);
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
+                match format {
+                    OutputFormat::Json | OutputFormat::Jsonl => {
+                        println!("{}", serde_json::to_string_pretty(&tenant).unwrap());
+                    }
+                    _ => {
+                        println!("Tenant Inspection · {}", tenant.tenant_id.as_str());
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
+                        println!("  Display Name:       {}", tenant.display_name);
+                        println!("  Tier:               {}", tenant.tier);
+                        println!(
+                            "  Max Quota:          {} GB",
+                            tenant.max_storage_bytes / (1024 * 1024 * 1024)
+                        );
+                        println!(
+                            "  Used Quota:         {} Bytes",
+                            tenant.current_storage_bytes
+                        );
+                        println!("  Default Baseline:   {}", tenant.default_jurisdiction);
+                        println!("  Created:            {}", tenant.created_at);
+                        println!(
+                            "────────────────────────────────────────────────────────────────────────"
+                        );
+                    }
+                }
                 Ok(())
             }
         },
-        FabricAction::Spiffe { id } => {
+        FabricAction::Spiffe { id, strict } => {
             let spiffe_id: SpiffeId = id
                 .parse()
                 .map_err(|e| AppError::Configuration(format!("{:?}", e)))?;
@@ -210,14 +217,26 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                     );
                 }
             }
+            if *strict && !is_valid {
+                return Err(AppError::Negative {
+                    class: "fabric-spiffe",
+                    status: format!(
+                        "SPIFFE ID `{spiffe_id}` does not match configured trust domain"
+                    ),
+                });
+            }
             Ok(())
         }
         FabricAction::Oidc {
             token,
             issuer,
             audience,
+            secret,
         } => {
-            let config = OidcProviderConfig::new(issuer, audience);
+            let mut config = OidcProviderConfig::new(issuer, audience);
+            if let Some(sec) = secret {
+                config = config.with_shared_secret(sec.as_bytes());
+            }
             let validator = OidcTokenValidator::new(config);
             let now = chrono::Utc::now().timestamp();
 
@@ -225,69 +244,172 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                 .decode_and_validate(token, now)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
 
-            println!("OpenID Connect (OIDC) Claims Decoded & Validated");
-            println!("────────────────────────────────────────────────────────────────────────");
-            println!("  Subject (sub):      {}", claims.sub);
-            println!("  Issuer (iss):       {}", claims.iss);
-            println!(
-                "  Email:              {}",
-                claims.email.as_deref().unwrap_or("—")
-            );
-            println!(
-                "  Tenant ID:          {}",
-                claims.tenant_id.as_deref().unwrap_or("default")
-            );
-            println!("  Roles:              {:?}", claims.roles);
-            println!("  Groups:             {:?}", claims.groups);
-            println!("  Expires At:         {}", claims.exp);
-            println!("  Status:             VALID & ACTIVE");
-            println!("────────────────────────────────────────────────────────────────────────");
+            match format {
+                OutputFormat::Json | OutputFormat::Jsonl => {
+                    let json = serde_json::json!({
+                        "sub": claims.sub,
+                        "iss": claims.iss,
+                        "aud": claims.aud,
+                        "exp": claims.exp,
+                        "iat": claims.iat,
+                        "email": claims.email,
+                        "tenant_id": claims.tenant_id.as_deref().unwrap_or("default"),
+                        "roles": claims.roles,
+                        "groups": claims.groups,
+                        "status": "VALID"
+                    });
+                    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                }
+                _ => {
+                    println!("OpenID Connect (OIDC) Claims Decoded & Validated");
+                    println!(
+                        "────────────────────────────────────────────────────────────────────────"
+                    );
+                    println!("  Subject (sub):      {}", claims.sub);
+                    println!("  Issuer (iss):       {}", claims.iss);
+                    println!(
+                        "  Email:              {}",
+                        claims.email.as_deref().unwrap_or("—")
+                    );
+                    println!(
+                        "  Tenant ID:          {}",
+                        claims.tenant_id.as_deref().unwrap_or("default")
+                    );
+                    println!("  Roles:              {:?}", claims.roles);
+                    println!("  Groups:             {:?}", claims.groups);
+                    println!("  Expires At:         {}", claims.exp);
+                    println!("  Status:             VALID & ACTIVE");
+                    println!(
+                        "────────────────────────────────────────────────────────────────────────"
+                    );
+                }
+            }
             Ok(())
         }
-        FabricAction::Datastore { action } => match action {
-            FabricDatastoreAction::Stats => {
-                println!("Mizan High-Assurance Isolated DataStore Partition Statistics");
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                println!("  Active Partitions:  2 (default, meridian-corp)");
-                println!("  Isolation Engine:   Cryptographic TenantContext Boundaries");
-                println!("  Storage Encryption: AES-256-GCM / SHA-256 CAS backing");
-                println!("  Audit Mode:         Append-Only Cryptographic Receipts");
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                Ok(())
+        FabricAction::Datastore { action } => {
+            let datastore = crate::fabric::FabricDataStore::new_persistent(
+                std::path::PathBuf::from(".mizan/datastore"),
+            )
+            .unwrap_or_else(|_| engine.datastore.clone());
+
+            match action {
+                FabricDatastoreAction::Stats => {
+                    let tenants = engine.tenant_manager.list_tenants();
+                    let tenant_ids: Vec<&str> =
+                        tenants.iter().map(|t| t.tenant_id.as_str()).collect();
+                    let mut total_docs = 0usize;
+                    let mut total_audit_entries = 0usize;
+                    for t in &tenants {
+                        let ctx = crate::fabric::TenantContext::new(
+                            t.tenant_id.clone(),
+                            crate::fabric::UserId::new("cli-stats"),
+                        );
+                        if let Ok(docs) = datastore.list_documents(&ctx, None) {
+                            total_docs += docs.len();
+                        }
+                        if let Ok(audits) = datastore.get_audit_logs(&ctx) {
+                            total_audit_entries += audits.len();
+                        }
+                    }
+
+                    match format {
+                        OutputFormat::Json | OutputFormat::Jsonl => {
+                            let json = serde_json::json!({
+                                "active_partitions": tenants.len(),
+                                "partitions": tenant_ids,
+                                "stored_documents_count": total_docs,
+                                "audit_log_entries_count": total_audit_entries,
+                                "storage_dir": datastore.storage_dir().map(|p| p.display().to_string()),
+                                "isolation_engine": "Cryptographic TenantContext Boundaries",
+                                "storage_encryption": "AES-256-GCM / SHA-256 CAS backing",
+                                "audit_mode": "Append-Only Cryptographic Receipts"
+                            });
+                            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                        }
+                        _ => {
+                            println!(
+                                "Mizan High-Assurance Isolated DataStore Partition Statistics"
+                            );
+                            println!(
+                                "────────────────────────────────────────────────────────────────────────"
+                            );
+                            println!(
+                                "  Active Partitions:  {} ({})",
+                                tenants.len(),
+                                tenant_ids.join(", ")
+                            );
+                            println!("  Stored Documents:   {}", total_docs);
+                            println!("  Audit Log Entries:  {}", total_audit_entries);
+                            println!(
+                                "  Isolation Engine:   Cryptographic TenantContext Boundaries"
+                            );
+                            println!("  Storage Encryption: AES-256-GCM / SHA-256 CAS backing");
+                            println!("  Audit Mode:         Append-Only Cryptographic Receipts");
+                            println!(
+                                "────────────────────────────────────────────────────────────────────────"
+                            );
+                        }
+                    }
+                    Ok(())
+                }
+                FabricDatastoreAction::List { tenant, namespace } => {
+                    let tid = TenantId::new(tenant)
+                        .map_err(|e| AppError::Configuration(e.to_string()))?;
+                    let ctx = crate::fabric::TenantContext::new(
+                        tid,
+                        crate::fabric::UserId::new("cli-inspector"),
+                    );
+                    let docs = datastore
+                        .list_documents(&ctx, namespace.as_deref())
+                        .map_err(|e| AppError::Configuration(e.to_string()))?;
+
+                    match format {
+                        OutputFormat::Json | OutputFormat::Jsonl => {
+                            println!("{}", serde_json::to_string_pretty(&docs).unwrap());
+                        }
+                        _ => {
+                            println!(
+                                "Stored Documents in DataStore for Tenant: {} (Namespace: {}, Total: {})",
+                                tenant,
+                                namespace.as_deref().unwrap_or("ALL"),
+                                docs.len()
+                            );
+                            println!(
+                                "────────────────────────────────────────────────────────────────────────"
+                            );
+                            println!(
+                                "{:<24} {:<16} {:<10} {:<12}",
+                                "DOCUMENT ID", "RESOURCE TYPE", "VERSION", "DIGEST"
+                            );
+                            println!(
+                                "────────────────────────────────────────────────────────────────────────"
+                            );
+                            if docs.is_empty() {
+                                println!("(no documents stored in partition)");
+                            } else {
+                                for doc in &docs {
+                                    let short_digest = if doc.sha256_digest.len() > 8 {
+                                        format!("sha256:{}…", &doc.sha256_digest[..8])
+                                    } else {
+                                        format!("sha256:{}", doc.sha256_digest)
+                                    };
+                                    println!(
+                                        "{:<24} {:<16} {:<10} {:<12}",
+                                        doc.document_id,
+                                        doc.resource_type,
+                                        doc.version,
+                                        short_digest
+                                    );
+                                }
+                            }
+                            println!(
+                                "────────────────────────────────────────────────────────────────────────"
+                            );
+                        }
+                    }
+                    Ok(())
+                }
             }
-            FabricDatastoreAction::List { tenant, namespace } => {
-                println!(
-                    "Stored Documents in DataStore for Tenant: {} (Namespace: {})",
-                    tenant,
-                    namespace.as_deref().unwrap_or("ALL")
-                );
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                println!(
-                    "{:<24} {:<16} {:<10} {:<12}",
-                    "DOCUMENT ID", "RESOURCE TYPE", "VERSION", "DIGEST"
-                );
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                println!(
-                    "{:<24} {:<16} {:<10} {:<12}",
-                    "ssp-prod-01", "ssp", "1", "sha256:71ae…"
-                );
-                println!(
-                    "{:<24} {:<16} {:<10} {:<12}",
-                    "cat-nist-800-53", "catalog", "1", "sha256:be41…"
-                );
-                println!(
-                    "────────────────────────────────────────────────────────────────────────"
-                );
-                Ok(())
-            }
-        },
+        }
     }
 }

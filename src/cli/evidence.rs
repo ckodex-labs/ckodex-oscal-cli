@@ -104,6 +104,15 @@ pub(super) fn run_evidence_local(
                     );
                 }
             }
+            if !report.is_valid {
+                return Err(AppError::Incoherent {
+                    kind: crate::error::IncoherenceKind::EvidenceConflict,
+                    detail: format!(
+                        "Evidence bundle `{}` failed cryptographic integrity verification",
+                        report.bundle_id
+                    ),
+                });
+            }
         }
         _ => {
             return Err(AppError::Configuration(

@@ -19,21 +19,37 @@ const PROJECT_ROOT = path.resolve(process.cwd(), "../..");
 
 function getMizanBinary(): { bin: string; argsPrefix: string[] } {
   const customBin = process.env.MIZAN_BIN;
-  if (customBin && fs.existsSync(customBin)) {
+  if (customBin && fs.existsSync(/*turbopackIgnore: true*/ customBin)) {
     return { bin: customBin, argsPrefix: [] };
   }
 
   const homeDir = process.env.HOME || process.env.USERPROFILE || "";
+  const candidates: string[] = [];
   if (homeDir) {
-    const cacheBin = path.join(homeDir, ".cache/cargo-target/debug/mizan");
-    if (fs.existsSync(cacheBin)) {
-      return { bin: cacheBin, argsPrefix: [] };
-    }
+    candidates.push(
+      path.join(/*turbopackIgnore: true*/ homeDir, ".cache/cargo-target/release/mizan"),
+      path.join(/*turbopackIgnore: true*/ homeDir, ".cache/cargo-target/debug/mizan"),
+    );
   }
+  candidates.push(
+    path.resolve(/*turbopackIgnore: true*/ PROJECT_ROOT, "target/release/mizan"),
+    path.resolve(/*turbopackIgnore: true*/ PROJECT_ROOT, "target/debug/mizan"),
+  );
 
-  const localBin = path.resolve(PROJECT_ROOT, "target/debug/mizan");
-  if (fs.existsSync(localBin)) {
-    return { bin: localBin, argsPrefix: [] };
+  const existing = candidates.filter((p) => {
+    try {
+      return fs.statSync(/*turbopackIgnore: true*/ p).isFile();
+    } catch {
+      return false;
+    }
+  });
+  if (existing.length > 0) {
+    existing.sort(
+      (a, b) =>
+        fs.statSync(/*turbopackIgnore: true*/ b).mtimeMs -
+        fs.statSync(/*turbopackIgnore: true*/ a).mtimeMs,
+    );
+    return { bin: existing[0], argsPrefix: [] };
   }
 
   return {

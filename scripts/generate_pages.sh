@@ -64,11 +64,14 @@ echo ">> [3/6] Generating shieldcn-zig Badges (APCA WCAG 3.0)..."
 # 4. Generate Standalone Offline Evidence Capsule
 echo ">> [4/6] Exporting Offline Cryptographic Evidence Capsule..."
 CAPSULE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mizan-portal-capsule.XXXXXX")"
-CAPSULE_TMP="${CAPSULE_DIR}/assessment.json"
 trap 'rm -rf "${CAPSULE_DIR}"' EXIT INT TERM
-printf '%s\n' '{"assessment-results":{"uuid":"mizan-portal-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}' > "${CAPSULE_TMP}"
+"${MIZAN_BIN}" pipeline run \
+    -j us \
+    --sbom "${ROOT_DIR}/examples/inventory-sbom.json" \
+    -o "${CAPSULE_DIR}"
 "${MIZAN_BIN}" export capsule \
-    -a "${CAPSULE_TMP}" \
+    -a "${CAPSULE_DIR}/oscal-assessment-results.json" \
+    -b "${CAPSULE_DIR}/evidence-bundle.json" \
     -o "${PUBLIC_DIR}/capsule.html"
 rm -rf "${CAPSULE_DIR}"
 

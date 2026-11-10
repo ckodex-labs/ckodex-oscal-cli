@@ -154,3 +154,22 @@ mizan export badge --label "FedRAMP" --message "Moderate COMPLIANT" --color gree
 mizan export badge --from-document examples/sample-catalog.json --variant secondary --wcag 3
 ```
 
+---
+
+### 10. Agentic Protocols: MCP & Universal Tool Calling Protocol (`mizan mcp`, `mizan utcp`)
+```bash
+# Start native JSON-RPC 2.0 Model Context Protocol (MCP) server over stdio (24 tools)
+mizan mcp
+
+# Generate UTCP v1.0.1 manual (cli, http, grpc, mcp, sse, text) and .utcp_config.json
+mizan utcp manual --transport cli -o utcp-manual.json
+mizan utcp config -o .utcp_config.json
+mizan utcp validate utcp-manual.json
+
+# Search tools, invoke with SHA-256 execution receipts, and emit official SDK snippets
+mizan utcp search --query "blast radius"
+mizan utcp call --tool inspect_document --input '{"file":"examples/sample-ssp.json"}'
+mizan utcp sdk --lang typescript
+```
+
+

@@ -49,3 +49,6 @@ Or configure in your agent IDE's MCP config:
 | `execute_compliance_pipeline` | Run end-to-end zero-trust pipeline (SBOM -> Rego -> OSCAL -> SLSA -> SARIF/GitLab) | `jurisdiction`, `sbom_file`, `workload_file`, `output_dir`, `subject_name` |
 | `fabric_status` | Inspect Root Fabric health, active tenants, trust domain, and DataStore partitions | None |
 | `fabric_validate_spiffe` | Validate a SPIFFE Workload ID URI | `spiffe_id` (string) |
+| `ingest_security_report_to_poam` | Ingest a SARIF v2.1.0 or GitLab Security scan report into an OSCAL POA&M | `report_file`, `poam_file`, `system_name` |
+| `export_utcp_manual` | Generate the Universal Tool Calling Protocol (UTCP v1.0.1) manual across CLI/HTTP/gRPC/MCP/SSE/Text | `transport`, `base_url` |
+| `search_utcp_tools` | Search Mizan UTCP tools by keyword, tag, or description and inspect call templates | `query`, `limit` |

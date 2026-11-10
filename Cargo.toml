@@ -6,8 +6,14 @@ rust-version = "1.88"
 description = "Mizan · High-Assurance OSCAL Compliance Kernel & Workbench (CLI, TUI, Tauri GUI)"
 license = "Apache-2.0"
 repository = "https://github.com/ckodex-labs/ckodex-oscal-cli"
+homepage = "https://ckodex-labs.github.io/ckodex-oscal-cli/"
+documentation = "https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan_oscal/index.html"
+readme = "README.md"
+keywords = ["oscal", "compliance", "nist", "slsa", "security"]
+categories = ["command-line-utilities", "development-tools", "cryptography"]
 
 [workspace]
+default-members = ["."]
 members = [
     ".",
     "ci",

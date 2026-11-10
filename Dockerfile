@@ -26,7 +26,9 @@ FROM gcr.io/distroless/static-debian12:nonroot
 
 LABEL org.opencontainers.image.title="Mizan Compliance Kernel" \
       org.opencontainers.image.description="High-Assurance OSCAL Compliance Engine, SLSA v1.2 Attestation & Policy Kernel" \
-      org.opencontainers.image.vendor="Runbase / CKODEX" \
+      org.opencontainers.image.source="https://github.com/ckodex-labs/ckodex-oscal-cli" \
+      org.opencontainers.image.url="https://ckodex-labs.github.io/ckodex-oscal-cli/" \
+      org.opencontainers.image.vendor="CKODEX Labs" \
       org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /workspace

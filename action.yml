@@ -51,11 +51,13 @@ runs:
     - name: Run Mizan Pipeline
       shell: bash
       run: |
+        export PATH="$HOME/.local/bin:$PATH"
         if ! command -v mizan >/dev/null 2>&1; then
           if [ -f "${{ github.action_path }}/install.sh" ]; then
             bash "${{ github.action_path }}/install.sh" || true
           fi
         fi
+        export PATH="$HOME/.local/bin:$PATH"
 
         CMD_PREFIX=()
         if command -v mizan >/dev/null 2>&1; then

@@ -53,7 +53,10 @@ log_info "Detected Platform: ${OS} (${ARCH}) -> Target: ${TARGET}"
 log_info "Target Version:   ${VERSION}"
 
 # 2. Determine Installation Directory
-if [[ -w "/usr/local/bin" ]]; then
+if [[ -n "${MIZAN_INSTALL_DIR:-}" ]]; then
+    mkdir -p "${MIZAN_INSTALL_DIR}"
+    INSTALL_DIR="${MIZAN_INSTALL_DIR}"
+elif [[ -w "/usr/local/bin" ]]; then
     INSTALL_DIR="/usr/local/bin"
 elif [[ -d "$HOME/.local/bin" ]] || mkdir -p "$HOME/.local/bin" 2>/dev/null; then
     INSTALL_DIR="$HOME/.local/bin"
@@ -119,7 +122,9 @@ else
     log_warn "Pre-built binary archive not reachable at ${DOWNLOAD_URL}."
     if command -v cargo >/dev/null 2>&1; then
         log_info "Cargo detected. Building and installing Mizan from source via cargo..."
-        cargo install --git "https://github.com/${REPO}" --bin mizan --locked
+        if ! cargo install --git "https://github.com/${REPO}" --tag "${VERSION}" mizan-oscal --locked; then
+            cargo install --git "https://github.com/${REPO}" mizan-oscal --locked
+        fi
         log_ok "Successfully compiled and installed mizan with Cargo!"
         exit 0
     else

@@ -63,6 +63,23 @@ curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v1.0
 tar -xzf mizan-v1.0.0-x86_64-apple-darwin.tar.gz && sudo mv mizan-v1.0.0-x86_64-apple-darwin/mizan /usr/local/bin/
 ```
 
+### Container Image (Docker / Podman — Multi-Arch `linux/amd64` & `linux/arm64`)
+
+```bash
+docker run --rm -v "$PWD:/workspace" ghcr.io/ckodex-labs/ckodex-oscal-cli:v1.0.0 validate examples/sample-ssp.json
+```
+
+### GitHub Actions Integration
+
+```yaml
+- name: Run Mizan Zero-Trust Compliance Pipeline
+  uses: ckodex-labs/ckodex-oscal-cli@v1.0.0
+  with:
+    jurisdiction: us
+    sbom-file: examples/inventory-sbom.json
+    output-dir: mizan-pipeline-output
+```
+
 ### Build from Source
 
 ```bash
@@ -90,7 +107,7 @@ cargo run --bin mizan -- convert examples/sample-catalog.json --to=csv -o matrix
 cargo run --bin mizan -- blast-radius examples/sample-ssp.json --target ac-1
 
 # 4. Export a standalone offline cryptographic evidence capsule
-cargo run --bin mizan -- export capsule -a <(echo '{"assessment-results":{"uuid":"demo","metadata":{"title":"Audit Proof"}}}') -o capsule.html
+cargo run --bin mizan -- export capsule -a examples/sample-assessment-results.json -o capsule.html
 
 # 5. Launch the Next.js 16 Turbopack Workbench
 cd apps/workbench && npm install && npm run dev
@@ -189,6 +206,23 @@ mizan export badge --label "FedRAMP" --message "Moderate COMPLIANT" --color gree
 mizan export badge --from-document examples/sample-catalog.json --variant secondary --wcag 3
 ```
 
+### 5. Agentic Protocols: MCP Server (24 Tools) & UTCP v1.0.1
+
+```bash
+# Launch native Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio
+mizan mcp
+
+# Generate Universal Tool Calling Protocol (UTCP v1.0.1) manual & unified client config
+mizan utcp manual --transport cli -o utcp-manual.json
+mizan utcp config -o .utcp_config.json
+mizan utcp validate utcp-manual.json
+
+# Search UTCP tools, invoke directly with SHA-256 execution receipts, or generate SDK clients
+mizan utcp search --query "fedramp slsa"
+mizan utcp call --tool inspect_document --input '{"file":"examples/sample-ssp.json"}'
+mizan utcp sdk --lang rust
+```
+
 ---
 
 ## High-Assurance Dagger Rust SDK CI/CD
@@ -201,7 +235,7 @@ cargo run -p mizan-dagger-ci -- all
 
 # Run individual pipeline stages:
 cargo run -p mizan-dagger-ci -- lint       # Clippy (-D warnings) & Rustfmt checks
-cargo run -p mizan-dagger-ci -- test       # 199 workspace invariant tests
+cargo run -p mizan-dagger-ci -- test       # 232 workspace invariant tests (+ 2 Tauri IPC)
 cargo run -p mizan-dagger-ci -- build      # Fat-LTO release binaries
 cargo run -p mizan-dagger-ci -- workbench  # Next.js 16 Turbopack production build
 cargo run -p mizan-dagger-ci -- badge      # APCA WCAG 3.0 shieldcn-zig badge production

@@ -81,10 +81,13 @@ jobs:
             --output public/badges/badge-fedramp.md
 
           CAPSULE_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/mizan-pages-capsule.XXXXXX")"
-          CAPSULE_TMP="${CAPSULE_DIR}/assessment.json"
-          printf '%s\n' '{"assessment-results":{"uuid":"mizan-gh-pages-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}' > "${CAPSULE_TMP}"
+          target/release/mizan pipeline run \
+            -j us \
+            --sbom examples/inventory-sbom.json \
+            -o "${CAPSULE_DIR}"
           target/release/mizan export capsule \
-            -a "${CAPSULE_TMP}" \
+            -a "${CAPSULE_DIR}/oscal-assessment-results.json" \
+            -b "${CAPSULE_DIR}/evidence-bundle.json" \
             -o public/capsule.html
           rm -rf "${CAPSULE_DIR}"
 

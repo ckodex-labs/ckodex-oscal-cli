@@ -157,18 +157,54 @@ jobs:
             release-artifacts/*.zip
             release-artifacts/SHA256SUMS.txt
 
-      - name: Upload Assets to GitHub Release
+      - name: Upload & Publish Assets to GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd release-artifacts
-          gh release view "${RELEASE_TAG}" || gh release create "${RELEASE_TAG}" --title "Mizan ${RELEASE_TAG}" --generate-notes
+          PRERELEASE_FLAG=()
+          LATEST_FLAG=(--latest)
+          case "${RELEASE_TAG}" in
+            *-*)
+              PRERELEASE_FLAG=(--prerelease)
+              LATEST_FLAG=()
+              ;;
+          esac
+          RELEASE_TITLE="Mizan ${RELEASE_TAG} · High-Assurance OSCAL Compliance Kernel & Workbench"
+          if ! gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release create "${RELEASE_TAG}" \
+              --verify-tag \
+              --title "${RELEASE_TITLE}" \
+              --generate-notes \
+              "${PRERELEASE_FLAG[@]}" \
+              "${LATEST_FLAG[@]}"
+          fi
           for f in *.tar.gz *.zip *.sha256 SHA256SUMS.txt; do
             if [ -f "$f" ]; then
               echo "Uploading $f to release ${RELEASE_TAG}..."
               gh release upload "${RELEASE_TAG}" "$f" --clobber
             fi
           done
+          # Guarantee the release is published (never stuck in Draft after re-tagging)
+          gh release edit "${RELEASE_TAG}" \
+            --draft=false \
+            --tag "${RELEASE_TAG}" \
+            --title "${RELEASE_TITLE}" \
+            "${LATEST_FLAG[@]}"
+
+      - name: Verify Unauthenticated Public Download Reachability
+        shell: bash
+        run: |
+          URL="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/SHA256SUMS.txt"
+          for attempt in 1 2 3 4 5; do
+            if curl -fsSL "${URL}" | grep -q "mizan-${RELEASE_TAG}"; then
+              echo "Verified public unauthenticated release asset access at ${URL}"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::Public unauthenticated download failed for ${URL} (is release still Draft?)"
+          exit 1
 
   build-oci:
     name: Build OCI (${{ matrix.platform }})

@@ -2806,7 +2806,7 @@ dependencies = [
 
 [[package]]
 name = "mizan-desktop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "mizan-oscal",
  "serde",
@@ -2818,7 +2818,7 @@ dependencies = [
 
 [[package]]
 name = "mizan-oscal"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "clap",

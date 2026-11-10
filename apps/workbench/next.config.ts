@@ -1,18 +1,24 @@
 import type { NextConfig } from "next";
 
 const isExport = process.env.NEXT_OUTPUT_EXPORT === "true";
+const exportBasePath =
+  process.env.NEXT_EXPORT_BASE_PATH !== undefined
+    ? process.env.NEXT_EXPORT_BASE_PATH
+    : isExport
+      ? "/ckodex-oscal-cli"
+      : "";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["lucide-react"],
   devIndicators: false,
   env: {
-    NEXT_PUBLIC_BASE_PATH: isExport ? "/ckodex-oscal-cli" : "",
+    NEXT_PUBLIC_BASE_PATH: exportBasePath,
   },
   ...(isExport
     ? {
         output: "export",
-        basePath: "/ckodex-oscal-cli",
+        ...(exportBasePath ? { basePath: exportBasePath } : {}),
         trailingSlash: true,
       }
     : {}),

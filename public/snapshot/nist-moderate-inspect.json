@@ -4,9 +4,9 @@
   "title": "[Resolved] Electronic (OSCAL) Version of NIST Special Publication 800-53 Revision 5.2.0 MODERATE IMPACT BASELINE",
   "version": "1.0.0-resolved",
   "oscal_version": "1.2.3",
-  "uuid": "aa4d08a7-e942-4fd1-b7d8-aaa2bc7fb3d5",
-  "last_modified": "2026-11-10T19:33:55.470967+00:00",
-  "published": "2026-11-10T19:33:55.470967+00:00",
+  "uuid": "fd632152-53a9-447c-b7a2-44a4abcc9d29",
+  "last_modified": "2026-11-10T20:16:02.644568+00:00",
+  "published": "2026-11-10T20:16:02.644568+00:00",
   "stats": {
     "total_controls": 287,
     "controls_by_family": {

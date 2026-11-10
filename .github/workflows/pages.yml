@@ -80,9 +80,13 @@ jobs:
             --wcag 3 \
             --output public/badges/badge-fedramp.md
 
+          CAPSULE_DIR="$(mktemp -d "${RUNNER_TEMP:-/tmp}/mizan-pages-capsule.XXXXXX")"
+          CAPSULE_TMP="${CAPSULE_DIR}/assessment.json"
+          printf '%s\n' '{"assessment-results":{"uuid":"mizan-gh-pages-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}' > "${CAPSULE_TMP}"
           target/release/mizan export capsule \
-            -a <(echo '{"assessment-results":{"uuid":"mizan-gh-pages-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}') \
+            -a "${CAPSULE_TMP}" \
             -o public/capsule.html
+          rm -rf "${CAPSULE_DIR}"
 
       - name: Install Workbench Dependencies
         working-directory: apps/workbench
@@ -90,9 +94,7 @@ jobs:
 
       - name: Build & Export Next.js 16 Workbench
         working-directory: apps/workbench
-        env:
-          NEXT_OUTPUT_EXPORT: "true"
-        run: npm run build
+        run: npm run build:export
 
       - name: Merge Workbench into Public Distribution
         run: |

@@ -4,10 +4,10 @@
   <a href="https://github.com/MChorfa/shieldcn-zig"><img src="https://shieldcn.dev/badge/badge%20engine-shieldcn--zig-2dd4bf.svg?variant=secondary&wcag=3" alt="Badge Engine: shieldcn-zig" /></a>
   <img src="https://shieldcn.dev/badge/rust-2024%20edition-black.svg?variant=secondary&wcag=3&logo=rust" alt="Rust 2024 Edition" />
   <img src="https://shieldcn.dev/badge/oscal-v1.2.3%20metaschema-blue.svg?variant=secondary&wcag=3" alt="OSCAL v1.2.3 Metaschema" />
-  <img src="https://shieldcn.dev/badge/next.js-v16.3.6%20turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16 Turbopack" />
+  <img src="https://shieldcn.dev/badge/next.js-v16.4.6%20turbopack-blue.svg?variant=secondary&wcag=3&logo=nextdotjs" alt="Next.js 16 Turbopack" />
   <img src="https://shieldcn.dev/badge/provenance-slsa%20v1.2%20%26%20v1.0-emerald.svg?variant=secondary&wcag=3" alt="SLSA v1.2 & v1.0 Provenance Generator" />
   <img src="https://shieldcn.dev/badge/catalog-NIST%20SP%20800--53%20r5%20official-green.svg?variant=secondary&wcag=3&logo=shield" alt="Official NIST SP 800-53 r5 catalog" />
-  <img src="https://shieldcn.dev/badge/tests-199%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 199 passed" />
+  <img src="https://shieldcn.dev/badge/tests-234%20passed-green.svg?variant=secondary&wcag=3" alt="Tests: 234 passed" />
   <img src="https://shieldcn.dev/badge/license-Apache--2.0-gray.svg?variant=secondary&wcag=3" alt="License: Apache-2.0" />
 </p>
 
@@ -247,7 +247,7 @@ Mizan includes production-grade NIST OSCAL v1.2.3 component definitions, threat 
 
 ## Verification & Test Evidence
 
-- **Rust Workspace**: `199 passed; 0 failed` across 163 unit tests and 36 integration tests (`cargo test --workspace`).
+- **Rust Workspace & Desktop IPC**: `234 passed; 0 failed` across 191 kernel unit tests, 39 integration tests, 2 Dagger CI tests, and 2 Tauri IPC tests (`cargo test --workspace --locked`).
 - **Linter & Style**: `cargo clippy --workspace --all-targets -- -D warnings` -> **0 warnings, 0 errors**.
 - **Workbench**: Next.js 16 static export. Every panel states its data source: SNAPSHOT (real `mizan` output captured at build time by `apps/workbench/scripts/gen-snapshot.mjs`, with command and stdout digest), LIVE (local engine under `next dev`), FIXTURE (illustrative), or LOCAL (this browser session, unsigned).
 - **GitHub Pages Portal**: Automated build and deployment in `.github/workflows/pages.yml` hosting the Workbench, evidence capsule, and API references.

@@ -63,9 +63,14 @@ echo ">> [3/6] Generating shieldcn-zig Badges (APCA WCAG 3.0)..."
 
 # 4. Generate Standalone Offline Evidence Capsule
 echo ">> [4/6] Exporting Offline Cryptographic Evidence Capsule..."
+CAPSULE_DIR="$(mktemp -d "${TMPDIR:-/tmp}/mizan-portal-capsule.XXXXXX")"
+CAPSULE_TMP="${CAPSULE_DIR}/assessment.json"
+trap 'rm -rf "${CAPSULE_DIR}"' EXIT INT TERM
+printf '%s\n' '{"assessment-results":{"uuid":"mizan-portal-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}' > "${CAPSULE_TMP}"
 "${MIZAN_BIN}" export capsule \
-    -a <(echo '{"assessment-results":{"uuid":"mizan-portal-001","metadata":{"title":"Mizan Continuous Assurance Report","version":"1.0.0","remarks":"Verified by Mizan Zero-Trust Cryptographic Evidence Fabric"}}}') \
+    -a "${CAPSULE_TMP}" \
     -o "${PUBLIC_DIR}/capsule.html"
+rm -rf "${CAPSULE_DIR}"
 
 # Generate static UTCP manual snapshot for offline / Pages fallback
 mkdir -p "${WORKBENCH_DIR}/public/snapshot"
@@ -74,30 +79,14 @@ mkdir -p "${PUBLIC_DIR}/snapshot"
     -o "${WORKBENCH_DIR}/public/snapshot/utcp-manual.json"
 cp "${WORKBENCH_DIR}/public/snapshot/utcp-manual.json" "${PUBLIC_DIR}/snapshot/utcp-manual.json"
 
-restore_workbench_api() {
-    if [[ -d "/tmp/mizan_api_backup" ]]; then
-        rm -rf "${WORKBENCH_DIR}/src/app/api"
-        mv "/tmp/mizan_api_backup" "${WORKBENCH_DIR}/src/app/api"
-    fi
-}
-trap restore_workbench_api EXIT INT TERM
-
 # 5. Build Next.js 16 Workbench Static Export
 echo ">> [5/6] Building Next.js 16 Workbench static export..."
 if [[ -d "${WORKBENCH_DIR}" ]] && command -v npm &> /dev/null; then
-    rm -rf "/tmp/mizan_api_backup"
-    if [[ -d "${WORKBENCH_DIR}/src/app/api" ]]; then
-        mv "${WORKBENCH_DIR}/src/app/api" "/tmp/mizan_api_backup"
-    fi
     (
         cd "${WORKBENCH_DIR}"
-        CLEAN_NODE_OPTIONS="${NODE_OPTIONS:-}"
-        CLEAN_NODE_OPTIONS="${CLEAN_NODE_OPTIONS//--use-openssl-ca/}"
-        env NODE_OPTIONS="${CLEAN_NODE_OPTIONS}" NEXT_OUTPUT_EXPORT=true npm run build
-        touch out/.gitkeep
+        npm run build:export
         cp -r out/* "${PUBLIC_DIR}/"
     )
-    restore_workbench_api
 else
     echo "[WARN] npm is unavailable; generating fallback static portal index..."
     mkdir -p "${PUBLIC_DIR}/_next"

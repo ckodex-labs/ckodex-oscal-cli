@@ -19,7 +19,7 @@ curl -sSL https://raw.githubusercontent.com/ckodex-labs/ckodex-oscal-cli/main/in
 
 # Verify zero-dependency binary
 mizan --version
-# oscal-cli 0.1.0 (NIST OSCAL v1.2.3)`,
+# oscal-cli 1.0.0 (NIST OSCAL v1.2.3)`,
     validate: `# Strict validation against official NIST metaschemas (< 10ms)
 mizan validate examples/sample-ssp.json --strict
 
@@ -165,7 +165,7 @@ mizan pipeline run \\
                 <span className="h-3 w-3 rounded-full bg-[#ef4444]/60"></span>
                 <span className="h-3 w-3 rounded-full bg-[#f59e0b]/60"></span>
                 <span className="h-3 w-3 rounded-full bg-[#10b981]/60"></span>
-                <span className="ml-2 font-mono text-xs text-[#8e949c]">mizan-terminal // v0.1.0</span>
+                <span className="ml-2 font-mono text-xs text-[#8e949c]">mizan-terminal // v1.0.0</span>
               </div>
               <button
                 type="button"

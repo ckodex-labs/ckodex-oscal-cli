@@ -1,15 +1,16 @@
 use serde::Serialize;
 use serde_json::{Map, Value, json};
-use std::{collections::BTreeMap, fs, path::Path};
+use std::{collections::BTreeMap, path::Path};
 
 use crate::{
     document::{
         authoring::split_document,
+        io_safe::atomic_write_bytes,
         parser::OscalDocument,
         schema::DocumentKind,
         validator::{ValidationOptions, validate_document},
     },
-    error::{AppError, Result, io_error},
+    error::{AppError, Result},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
@@ -265,7 +266,7 @@ pub fn sync_and_merge(
     if let Some(out_p) = output_path {
         let formatted = serde_json::to_string_pretty(&merged_doc.value)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
-        fs::write(out_p, &formatted).map_err(|e| io_error(out_p, e))?;
+        atomic_write_bytes(out_p, formatted.as_bytes())?;
     }
 
     if let Some(split_dir) = split_output_dir {

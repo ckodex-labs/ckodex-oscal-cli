@@ -6,7 +6,7 @@
 set -euo pipefail
 
 REPO="ckodex-labs/ckodex-oscal-cli"
-DEFAULT_VERSION="v0.1.0"
+DEFAULT_VERSION="v1.0.0"
 VERSION="${MIZAN_VERSION:-${DEFAULT_VERSION}}"
 
 # Terminal styling

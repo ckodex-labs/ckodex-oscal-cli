@@ -279,7 +279,7 @@ manifest = {
     "client": {
         "name": "oscal-cli",
         "root": str(client_root),
-        "version": "0.1.0",
+        "version": "1.0.0",
         "read_only": True,
     },
     "protocol": {

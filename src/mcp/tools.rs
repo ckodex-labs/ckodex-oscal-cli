@@ -76,15 +76,23 @@ fn confine_output_path(path: &str) -> Result<PathBuf, McpError> {
     for s in stack {
         normalized.push(s);
     }
-    if !normalized.starts_with(&base) {
+    let tmp_dir = std::env::temp_dir();
+    let allowed_root = if normalized.starts_with(&base) {
+        Some(base.clone())
+    } else if normalized.starts_with(&tmp_dir) {
+        Some(tmp_dir.clone())
+    } else {
+        None
+    };
+    let Some(root) = allowed_root else {
         return Err(McpError::PathEscape(format!(
             "output path {path} escapes workspace {}",
             base.display()
         )));
-    }
-    // Check every component from base downward for symlinks
-    if let Ok(rel) = normalized.strip_prefix(&base) {
-        let mut probe = base.clone();
+    };
+    // Check every component from root downward for symlinks
+    if let Ok(rel) = normalized.strip_prefix(&root) {
+        let mut probe = root.clone();
         for comp in rel.components() {
             probe.push(comp.as_os_str());
             if let Ok(meta) = std::fs::symlink_metadata(&probe)
@@ -96,23 +104,24 @@ fn confine_output_path(path: &str) -> Result<PathBuf, McpError> {
             }
         }
     }
-    if let Ok(canon_base) = std::fs::canonicalize(&base) {
-        let mut existing = normalized.as_path();
-        while !existing.exists() {
-            if let Some(parent) = existing.parent() {
-                existing = parent;
-            } else {
-                break;
-            }
+    let canon_base = std::fs::canonicalize(&base).unwrap_or(base);
+    let canon_tmp = std::fs::canonicalize(&tmp_dir).unwrap_or(tmp_dir);
+    let mut existing = normalized.as_path();
+    while !existing.exists() {
+        if let Some(parent) = existing.parent() {
+            existing = parent;
+        } else {
+            break;
         }
-        if existing.exists()
-            && let Ok(canon_existing) = std::fs::canonicalize(existing)
-            && !canon_existing.starts_with(&canon_base)
-        {
-            return Err(McpError::PathEscape(format!(
-                "path {path} resolves outside workspace via symlink"
-            )));
-        }
+    }
+    if existing.exists()
+        && let Ok(canon_existing) = std::fs::canonicalize(existing)
+        && !canon_existing.starts_with(&canon_base)
+        && !canon_existing.starts_with(&canon_tmp)
+    {
+        return Err(McpError::PathEscape(format!(
+            "path {path} resolves outside workspace via symlink"
+        )));
     }
     Ok(normalized)
 }
@@ -137,7 +146,7 @@ fn validate_input_path(path: &str) -> Result<PathBuf, McpError> {
     for comp in p.components() {
         current.push(comp.as_os_str());
         let is_system_root_alias =
-            current != p && matches!(current.to_str(), Some("/var" | "/tmp" | "/etc"));
+            current != p && matches!(current.to_str(), Some("/var" | "/tmp"));
         if !is_system_root_alias
             && let Ok(meta) = std::fs::symlink_metadata(&current)
             && meta.file_type().is_symlink()
@@ -149,6 +158,31 @@ fn validate_input_path(path: &str) -> Result<PathBuf, McpError> {
     }
     if p.is_relative() {
         return confine_output_path(trimmed);
+    }
+
+    let cwd = std::env::current_dir().map_err(McpError::Io)?;
+    let canon_cwd = std::fs::canonicalize(&cwd).unwrap_or(cwd);
+    let tmp_dir = std::env::temp_dir();
+    let canon_tmp = std::fs::canonicalize(&tmp_dir).unwrap_or(tmp_dir);
+
+    let mut probe = p.as_path();
+    while !probe.exists() {
+        if let Some(parent) = probe.parent() {
+            probe = parent;
+        } else {
+            break;
+        }
+    }
+    let canon_target = if probe.exists() {
+        std::fs::canonicalize(probe).map_err(McpError::Io)?
+    } else {
+        probe.to_path_buf()
+    };
+    if !canon_target.starts_with(&canon_cwd) && !canon_target.starts_with(&canon_tmp) {
+        return Err(McpError::PathEscape(format!(
+            "input path {path} escapes workspace {}",
+            canon_cwd.display()
+        )));
     }
     Ok(p)
 }
@@ -528,6 +562,14 @@ mod tests {
         assert!(confine_output_path("sub/../../escape.json").is_err());
         assert!(validate_input_path("").is_err());
         assert!(validate_input_path("../escape.json").is_err());
+        assert!(
+            validate_input_path("/etc/hosts").is_err(),
+            "arbitrary absolute host path outside workspace/tempdir must be rejected"
+        );
+        assert!(
+            validate_input_path("/Users/root/.ssh/config").is_err(),
+            "arbitrary absolute home path outside workspace/tempdir must be rejected"
+        );
 
         #[cfg(unix)]
         {
@@ -540,6 +582,8 @@ mod tests {
             std::fs::write(&real_file, "{}").unwrap();
 
             assert!(validate_input_path(real_file.to_str().unwrap()).is_ok());
+            assert!(confine_output_path(real_dir.join("out.json").to_str().unwrap()).is_ok());
+            assert!(confine_output_path("/etc/hosts").is_err());
 
             let sym_dir = tmp.join("symdir");
             std::os::unix::fs::symlink(&real_dir, &sym_dir).unwrap();

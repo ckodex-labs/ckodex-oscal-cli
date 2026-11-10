@@ -2,7 +2,7 @@ use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::{
     path::{Path, PathBuf},
-    sync::mpsc::channel,
+    sync::mpsc::{TrySendError, sync_channel},
     time::Duration,
 };
 
@@ -111,7 +111,20 @@ impl ComplianceDaemon {
         &self.cas
     }
 
+    pub fn validate_watched_file(&self, path: &Path) -> Result<()> {
+        if let Ok(meta) = std::fs::symlink_metadata(path)
+            && meta.file_type().is_symlink()
+        {
+            return Err(AppError::Configuration(format!(
+                "Symlinked watch path is forbidden: {}",
+                path.display()
+            )));
+        }
+        Ok(())
+    }
+
     pub fn scan_and_reconcile(&mut self) -> Result<DaemonCycleReport> {
+        self.validate_watched_file(&self.config.watch_dir)?;
         let mut files_scanned = 0;
         let mut valid_documents = 0;
         let mut invalid_documents = 0;
@@ -279,20 +292,29 @@ impl ComplianceDaemon {
     ) -> Result<DaemonCycleReport> {
         use std::sync::{atomic::Ordering, mpsc::RecvTimeoutError};
 
-        let (tx, rx) = channel();
+        self.validate_watched_file(&self.config.watch_dir)?;
+
+        let (tx, rx) = sync_channel(1024);
         let debounce_ms = self.config.bounded_debounce_ms();
         let debounce = Duration::from_millis(debounce_ms);
         let quiet_window = Duration::from_millis(debounce_ms.min(100));
         let poll_interval = Duration::from_millis(debounce_ms.clamp(50, 500));
 
         let mut watcher: RecommendedWatcher = Watcher::new(
-            tx,
+            move |event| {
+                if let Err(TrySendError::Full(_)) = tx.try_send(event) {
+                    tracing::warn!(
+                        "File watcher event channel full; dropping event during debounce burst"
+                    );
+                }
+            },
             notify::Config::default().with_poll_interval(poll_interval),
         )
         .map_err(|e| AppError::Configuration(format!("Failed to create watcher: {e}")))?;
 
         let mut watch_attached = false;
         if self.config.watch_dir.exists() {
+            self.validate_watched_file(&self.config.watch_dir)?;
             match watcher.watch(&self.config.watch_dir, RecursiveMode::Recursive) {
                 Ok(()) => watch_attached = true,
                 Err(e) => {
@@ -404,6 +426,7 @@ impl ComplianceDaemon {
                     }
                     if !watch_attached
                         && self.config.watch_dir.exists()
+                        && self.validate_watched_file(&self.config.watch_dir).is_ok()
                         && watcher
                             .watch(&self.config.watch_dir, RecursiveMode::Recursive)
                             .is_ok()
@@ -475,20 +498,12 @@ fn walkdir_bounded(dir: &Path, depth: usize, files: &mut Vec<PathBuf>) {
     if depth > MAX_WALK_DEPTH {
         return;
     }
-    let meta = if depth == 0 {
-        let Ok(m) = std::fs::metadata(dir) else {
-            return;
-        };
-        m
-    } else {
-        let Ok(m) = std::fs::symlink_metadata(dir) else {
-            return;
-        };
-        if m.file_type().is_symlink() {
-            return;
-        }
-        m
+    let Ok(meta) = std::fs::symlink_metadata(dir) else {
+        return;
     };
+    if meta.file_type().is_symlink() {
+        return;
+    }
     if meta.file_type().is_dir() {
         match std::fs::read_dir(dir) {
             Ok(entries) => {
@@ -760,6 +775,30 @@ mod tests {
             FsmRuntime::new(ComplianceState::Approved, EvidenceLevel::E3FedrampPassed);
         let rep_deg = daemon.scan_and_reconcile().unwrap();
         assert_eq!(rep_deg.current_fsm_state, ComplianceState::Degraded);
+
+        // 4. Symlinked root watch_dir must be rejected before watching
+        #[cfg(unix)]
+        {
+            let sym_root = temp_dir.join("sym_watch_root");
+            std::os::unix::fs::symlink(&watch_dir, &sym_root).unwrap();
+            let mut sym_daemon = ComplianceDaemon::new(DaemonConfig {
+                watch_dir: sym_root.clone(),
+                debounce_ms: 50,
+                auto_fsm: true,
+            });
+            assert!(
+                sym_daemon.validate_watched_file(&sym_root).is_err(),
+                "symlinked root watch path must be rejected by validate_watched_file"
+            );
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            assert!(
+                rt.block_on(sym_daemon.run_continuous(Some(1))).is_err(),
+                "symlinked root watch path must be rejected by run_continuous before notify::Watcher::watch"
+            );
+        }
 
         let _ = std::fs::remove_dir_all(temp_dir);
     }

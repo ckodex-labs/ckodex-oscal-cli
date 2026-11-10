@@ -507,6 +507,17 @@ impl FabricDataStore {
 
         Ok(stored)
     }
+
+    /// Returns a snapshot of all stored `(TenantId, Namespace, DocumentId, StoredDocument)`
+    /// entries for warm-loading in-memory server projections on startup.
+    pub(crate) fn snapshot_all_documents(&self) -> Vec<(TenantId, String, String, StoredDocument)> {
+        let Ok(docs) = self.documents.read() else {
+            return Vec::new();
+        };
+        docs.iter()
+            .map(|((t, ns, id), doc)| (t.clone(), ns.clone(), id.clone(), doc.clone()))
+            .collect()
+    }
 }
 
 #[cfg(test)]

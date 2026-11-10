@@ -31,6 +31,7 @@ pub(super) fn run_daemon(args: &DaemonCliArgs, format: OutputFormat) -> Result<(
     let bound_addr = prebound_server.as_ref().map(|(_, addr)| *addr);
     let watch_dir_display = config.watch_dir.display().to_string();
     let mut daemon = ComplianceDaemon::new(config);
+    daemon.validate_watched_file(&args.dir)?;
     let effective_debounce_ms = daemon.config().debounce_ms;
 
     if !matches!(format, OutputFormat::Json | OutputFormat::Jsonl) {

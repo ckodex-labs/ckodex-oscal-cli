@@ -2,13 +2,12 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::{
     collections::{BTreeMap, HashMap},
-    fs,
     path::Path,
 };
 
 use crate::{
-    document::parser::OscalDocument,
-    error::{AppError, Result, io_error},
+    document::{io_safe::atomic_write_bytes, parser::OscalDocument},
+    error::{AppError, Result},
 };
 
 #[derive(Clone, Debug, Serialize)]
@@ -117,7 +116,7 @@ pub fn deduplicate_document(
     })?;
 
     if let Some(out_p) = output_path {
-        fs::write(out_p, &serialized).map_err(|e| io_error(out_p, e))?;
+        atomic_write_bytes(out_p, serialized.as_bytes())?;
     }
 
     let new_doc = OscalDocument::from_str(&serialized, output_path.map(Path::to_path_buf))?;

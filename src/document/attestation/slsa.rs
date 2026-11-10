@@ -4,8 +4,11 @@ use sha2::{Digest, Sha256};
 use std::path::Path;
 
 use crate::{
-    document::evidence::EvidenceBundle,
-    error::{AppError, Result, io_error},
+    document::{
+        evidence::EvidenceBundle,
+        io_safe::{MAX_OSCAL_FILE_BYTES, atomic_write_bytes, read_bounded_regular_file},
+    },
+    error::{AppError, Result},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -68,7 +71,11 @@ impl SlsaProvenanceBuilder {
             version: SlsaVersion::V1_2,
             subject_name: subject_name.to_string(),
             subject_digest: clean_digest,
-            builder_id: "https://mizan.dev/compliance-kernel/v0.1.0".to_string(),
+            builder_id: concat!(
+                "https://mizan.dev/compliance-kernel/v",
+                env!("CARGO_PKG_VERSION")
+            )
+            .to_string(),
             invocation_id: format!("mizan-run-{}", uuid::Uuid::new_v4()),
             external_parameters: Map::new(),
             resolved_dependencies: Vec::new(),
@@ -262,7 +269,7 @@ impl SlsaProvenanceBuilder {
 
         let mut artifact_verified = false;
         if let Some(artifact) = artifact_path {
-            let bytes = std::fs::read(artifact).map_err(|e| io_error(artifact, e))?;
+            let bytes = read_bounded_regular_file(artifact, MAX_OSCAL_FILE_BYTES)?;
             let mut hasher = Sha256::new();
             hasher.update(&bytes);
             let computed_digest = hex::encode(hasher.finalize());
@@ -290,12 +297,9 @@ impl SlsaProvenanceBuilder {
     }
 
     pub fn save_to_file(statement: &Value, path: &Path) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
         let json_str = serde_json::to_string_pretty(statement)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
-        std::fs::write(path, json_str).map_err(|e| io_error(path, e))
+        atomic_write_bytes(path, json_str.as_bytes())
     }
 }
 
@@ -350,6 +354,13 @@ mod tests {
             SlsaProvenanceBuilder::verify(&slsa12_stmt, None).expect("verification should succeed");
         assert!(rep12.is_valid);
         assert_eq!(rep12.slsa_version, SlsaVersion::V1_2);
+        assert_eq!(
+            rep12.builder_id,
+            concat!(
+                "https://mizan.dev/compliance-kernel/v",
+                env!("CARGO_PKG_VERSION")
+            )
+        );
         assert!(rep12.has_oscal_evidence);
         assert!(rep12.merkle_root.is_some());
     }

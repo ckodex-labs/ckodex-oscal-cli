@@ -1,5 +1,3 @@
-use std::fs;
-
 use tonic::{
     Request,
     metadata::MetadataValue,
@@ -8,6 +6,7 @@ use tonic::{
 
 use crate::{
     config::AppConfig,
+    document::io_safe::read_bounded_regular_file,
     error::{AppError, Result, redact_endpoint},
     health::{HealthCheckRequest, HealthCheckResponse},
     proto::oscal::{common::v1::Uuid, services::v1 as svc},
@@ -23,6 +22,7 @@ pub use server::{
 };
 
 pub(crate) const MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_TLS_PEM_BYTES: u64 = 4 * 1024 * 1024;
 
 pub async fn connect_channel(config: &AppConfig) -> Result<Channel> {
     let mut endpoint = Endpoint::from_shared(config.endpoint.clone())
@@ -57,14 +57,12 @@ pub async fn connect_channel(config: &AppConfig) -> Result<Channel> {
             .domain_name(domain)
             .with_webpki_roots();
         if let Some(path) = &config.ca_cert {
-            let bytes = fs::read(path).map_err(|error| crate::error::io_error(path, error))?;
+            let bytes = read_bounded_regular_file(path, MAX_TLS_PEM_BYTES)?;
             tls = tls.ca_certificate(Certificate::from_pem(bytes));
         }
         if let (Some(cert_path), Some(key_path)) = (&config.client_cert, &config.client_key) {
-            let cert =
-                fs::read(cert_path).map_err(|error| crate::error::io_error(cert_path, error))?;
-            let key =
-                fs::read(key_path).map_err(|error| crate::error::io_error(key_path, error))?;
+            let cert = read_bounded_regular_file(cert_path, MAX_TLS_PEM_BYTES)?;
+            let key = read_bounded_regular_file(key_path, MAX_TLS_PEM_BYTES)?;
             tls = tls.identity(Identity::from_pem(cert, key));
         }
         endpoint = endpoint

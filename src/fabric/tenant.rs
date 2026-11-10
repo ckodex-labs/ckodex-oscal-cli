@@ -236,18 +236,32 @@ impl TenantManager {
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("tenants.json");
-            let bak_path = path.with_file_name(format!("{base_name}.corrupt.bak"));
+            let ts = chrono::Utc::now().timestamp_millis();
+            let bak_path = path.with_file_name(format!("{base_name}.corrupt.{ts}.bak"));
             tracing::warn!(
                 "Corrupt tenant registry at '{}'; preserving backup at '{}'",
                 path.display(),
                 bak_path.display()
             );
-            let _ = std::fs::rename(path, &bak_path);
+            if let Err(err) = std::fs::rename(path, &bak_path) {
+                tracing::warn!(
+                    path = %path.display(),
+                    backup = %bak_path.display(),
+                    error = %err,
+                    "Failed to rename corrupt tenant registry to backup"
+                );
+            }
         }
 
         let mut mgr = Self::new();
         mgr.storage_path = Some(path.to_path_buf());
-        let _ = mgr.save();
+        if let Err(err) = mgr.save() {
+            tracing::warn!(
+                path = %path.display(),
+                error = %err,
+                "Failed to persist default tenant registry"
+            );
+        }
         mgr
     }
 
@@ -265,9 +279,15 @@ impl TenantManager {
         )
     }
 
-    pub fn register_tenant(&mut self, metadata: TenantMetadata) {
+    pub fn try_register_tenant(&mut self, metadata: TenantMetadata) -> std::io::Result<()> {
         self.tenants.insert(metadata.tenant_id.clone(), metadata);
-        let _ = self.save();
+        self.save()
+    }
+
+    pub fn register_tenant(&mut self, metadata: TenantMetadata) {
+        if let Err(err) = self.try_register_tenant(metadata) {
+            tracing::warn!(error = %err, "Failed to save tenant registry after register_tenant");
+        }
     }
 
     pub fn get_tenant(&self, tenant_id: &TenantId) -> Result<&TenantMetadata, TenantError> {
@@ -316,9 +336,32 @@ mod tests {
         let tenants_file = tmp_dir.join("tenants.json");
         std::fs::write(&tenants_file, "{broken-json").unwrap();
 
-        let recovered = TenantManager::load_from_path_or_default(&tenants_file);
+        let mut recovered = TenantManager::load_from_path_or_default(&tenants_file);
         assert!(recovered.list_tenants().len() >= 2);
-        assert!(tmp_dir.join("tenants.json.corrupt.bak").exists());
+        let has_timestamped_bak = std::fs::read_dir(&tmp_dir)
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|entry| {
+                let name = entry.file_name().to_string_lossy().to_string();
+                name.starts_with("tenants.json.corrupt.") && name.ends_with(".bak")
+            });
+        assert!(
+            has_timestamped_bak,
+            "expected timestamped backup tenants.json.corrupt.<ts>.bak"
+        );
+
+        let extra_meta = TenantMetadata {
+            tenant_id: TenantId::new("tenant-gamma").unwrap(),
+            display_name: "Gamma Tenant".to_string(),
+            tier: "Enterprise".to_string(),
+            max_storage_bytes: 1024 * 1024,
+            current_storage_bytes: 0,
+            default_jurisdiction: "us".to_string(),
+            created_at: "2026-11-10T00:00:00Z".to_string(),
+        };
+        recovered
+            .try_register_tenant(extra_meta)
+            .expect("try_register_tenant should persist cleanly");
 
         let _ = std::fs::remove_dir_all(tmp_dir);
     }

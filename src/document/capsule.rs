@@ -101,50 +101,10 @@ impl CapsuleExporter {
     }
 }
 
+const MAX_CAPSULE_INPUT_BYTES: u64 = crate::document::io_safe::MAX_OSCAL_FILE_BYTES;
+
 fn read_bounded_capsule_utf8(path: &Path) -> Result<String> {
-    use std::io::Read;
-    let max_bytes = crate::document::io_safe::MAX_OSCAL_FILE_BYTES;
-    let file = std::fs::File::open(path).map_err(|e| crate::error::io_error(path, e))?;
-    let meta = file
-        .metadata()
-        .map_err(|e| crate::error::io_error(path, e))?;
-    if meta.is_dir() {
-        return Err(crate::error::io_error(
-            path,
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "capsule input path is a directory",
-            ),
-        ));
-    }
-    if meta.is_file() && meta.len() > max_bytes {
-        return Err(crate::error::io_error(
-            path,
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("capsule input exceeds {max_bytes} byte limit"),
-            ),
-        ));
-    }
-    let mut buf = Vec::new();
-    file.take(max_bytes.saturating_add(1))
-        .read_to_end(&mut buf)
-        .map_err(|e| crate::error::io_error(path, e))?;
-    if (buf.len() as u64) > max_bytes {
-        return Err(crate::error::io_error(
-            path,
-            std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("capsule input exceeds {max_bytes} byte limit"),
-            ),
-        ));
-    }
-    String::from_utf8(buf).map_err(|e| {
-        crate::error::io_error(
-            path,
-            std::io::Error::new(std::io::ErrorKind::InvalidData, e),
-        )
-    })
+    crate::document::io_safe::read_bounded_utf8_file(path, MAX_CAPSULE_INPUT_BYTES)
 }
 
 fn escape_html(raw: &str) -> String {
@@ -612,6 +572,32 @@ mod tests {
             parsed_bundle["observations"][0]["control_id"],
             "cis-k8s-5.2.1</script><!-- comment -->"
         );
+
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_export_capsule_rejects_non_regular_files() {
+        let temp_dir =
+            std::env::temp_dir().join(format!("mizan-capsule-nonreg-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&temp_dir).unwrap();
+        let html_out = temp_dir.join("capsule.html");
+
+        assert!(
+            CapsuleExporter::export_capsule(&temp_dir, None, &html_out).is_err(),
+            "directory input must be rejected"
+        );
+
+        #[cfg(unix)]
+        {
+            let dev_zero = Path::new("/dev/zero");
+            if dev_zero.exists() {
+                assert!(
+                    CapsuleExporter::export_capsule(dev_zero, None, &html_out).is_err(),
+                    "character device /dev/zero must be rejected"
+                );
+            }
+        }
 
         let _ = fs::remove_dir_all(temp_dir);
     }

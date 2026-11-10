@@ -33,7 +33,7 @@ fn validate_ipc_path(raw: &str) -> Result<PathBuf, String> {
     for comp in path.components() {
         current.push(comp.as_os_str());
         let is_system_root_alias =
-            current != path && matches!(current.to_str(), Some("/var" | "/tmp" | "/etc"));
+            current != path && matches!(current.to_str(), Some("/var" | "/tmp"));
         if !is_system_root_alias
             && let Ok(meta) = std::fs::symlink_metadata(&current)
             && meta.file_type().is_symlink()
@@ -42,27 +42,33 @@ fn validate_ipc_path(raw: &str) -> Result<PathBuf, String> {
         }
     }
 
-    if path.is_relative()
-        && let Ok(cwd) = std::env::current_dir()
-        && let Ok(canon_cwd) = std::fs::canonicalize(&cwd)
-    {
-        let joined = cwd.join(&path);
-        let mut probe = joined.as_path();
-        while !probe.exists() {
-            if let Some(parent) = probe.parent() {
-                probe = parent;
-            } else {
-                break;
-            }
+    let cwd = std::env::current_dir().map_err(|e| format!("Failed to resolve cwd: {e}"))?;
+    let canon_cwd = std::fs::canonicalize(&cwd).unwrap_or_else(|_| cwd.clone());
+    let tmp_dir = std::env::temp_dir();
+    let canon_tmp = std::fs::canonicalize(&tmp_dir).unwrap_or(tmp_dir);
+
+    let joined = if path.is_relative() {
+        cwd.join(&path)
+    } else {
+        path.clone()
+    };
+    let mut probe = joined.as_path();
+    while !probe.exists() {
+        if let Some(parent) = probe.parent() {
+            probe = parent;
+        } else {
+            break;
         }
-        if probe.exists()
-            && let Ok(canon_target) = std::fs::canonicalize(probe)
-            && !canon_target.starts_with(&canon_cwd)
-        {
-            return Err(format!(
-                "IPC relative path escapes workspace directory: {trimmed}"
-            ));
-        }
+    }
+    let canon_target = if probe.exists() {
+        std::fs::canonicalize(probe).map_err(|e| format!("Failed to canonicalize IPC path: {e}"))?
+    } else {
+        probe.to_path_buf()
+    };
+    if !canon_target.starts_with(&canon_cwd) && !canon_target.starts_with(&canon_tmp) {
+        return Err(format!(
+            "IPC path escapes workspace directory: {trimmed}"
+        ));
     }
 
     Ok(path)
@@ -291,6 +297,14 @@ mod tests {
         assert!(validate_ipc_path("bad\0path.json").is_err());
         assert!(validate_ipc_path("../secret.json").is_err());
         assert!(validate_ipc_path("sub/../../secret.json").is_err());
+        assert!(
+            validate_ipc_path("/etc/hosts").is_err(),
+            "arbitrary absolute host path outside workspace/tempdir must be rejected"
+        );
+        assert!(
+            validate_ipc_path("/Users/root/.ssh/config").is_err(),
+            "arbitrary absolute home path outside workspace/tempdir must be rejected"
+        );
 
         #[cfg(unix)]
         {

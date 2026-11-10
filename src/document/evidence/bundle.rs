@@ -2,14 +2,17 @@ use ring::signature::{ED25519, Ed25519KeyPair, KeyPair, UnparsedPublicKey};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
-use std::{fs, path::Path};
+use std::path::Path;
 
 use crate::{
     document::{
-        cas::CasStore, evidence::merkle::compute_merkle_root, fsm::state::EvidenceLevel,
+        cas::CasStore,
+        evidence::merkle::compute_merkle_root,
+        fsm::state::EvidenceLevel,
+        io_safe::{MAX_OSCAL_FILE_BYTES, atomic_write_bytes, read_bounded_utf8_file},
         parser::OscalDocument,
     },
-    error::{AppError, Result, io_error},
+    error::{AppError, Result},
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -319,16 +322,13 @@ impl EvidenceBundle {
     }
 
     pub fn save_to_file(&self, path: &Path) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
         let json_str = serde_json::to_string_pretty(self)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
-        fs::write(path, json_str).map_err(|e| io_error(path, e))
+        atomic_write_bytes(path, json_str.as_bytes())
     }
 
     pub fn load_from_file(path: &Path) -> Result<Self> {
-        let content = fs::read_to_string(path).map_err(|e| io_error(path, e))?;
+        let content = read_bounded_utf8_file(path, MAX_OSCAL_FILE_BYTES)?;
         serde_json::from_str(&content).map_err(|e| AppError::Configuration(e.to_string()))
     }
 }

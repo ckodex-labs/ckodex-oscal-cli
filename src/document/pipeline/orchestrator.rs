@@ -77,8 +77,7 @@ impl PipelineOrchestrator {
         let catalog_json_str = serde_json::to_string_pretty(&catalog_doc.value)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let catalog_path = config.output_dir.join("oscal-catalog.json");
-        fs::write(&catalog_path, &catalog_json_str)
-            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&catalog_path, catalog_json_str.as_bytes())?;
         cas.put_str(&catalog_json_str)?;
         cas_written += 1;
 
@@ -101,8 +100,7 @@ impl PipelineOrchestrator {
             let comp_json = serde_json::to_string_pretty(&comp_doc.value)
                 .map_err(|e| AppError::Configuration(e.to_string()))?;
             let comp_path = config.output_dir.join("oscal-component-definition.json");
-            fs::write(&comp_path, &comp_json)
-                .map_err(|e| AppError::Configuration(e.to_string()))?;
+            crate::document::io_safe::atomic_write_bytes(&comp_path, comp_json.as_bytes())?;
             cas.put_str(&comp_json)?;
             cas_written += 1;
         }
@@ -110,7 +108,11 @@ impl PipelineOrchestrator {
         // 3. Evaluate Policies against Workload
         let workload_val = if let Some(workload_file) = &config.workload_path {
             if workload_file.exists() {
-                let content = fs::read_to_string(workload_file).map_err(|e| {
+                let content = crate::document::io_safe::read_bounded_utf8_file(
+                    workload_file,
+                    crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+                )
+                .map_err(|e| {
                     AppError::Configuration(format!("Failed to read workload file: {e}"))
                 })?;
                 serde_json::from_str::<Value>(&content)
@@ -347,8 +349,7 @@ impl PipelineOrchestrator {
         let assessment_json = serde_json::to_string_pretty(&assessment_results)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let assessment_path = config.output_dir.join("oscal-assessment-results.json");
-        fs::write(&assessment_path, &assessment_json)
-            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&assessment_path, assessment_json.as_bytes())?;
         cas.put_str(&assessment_json)?;
         cas_written += 1;
 
@@ -372,8 +373,7 @@ impl PipelineOrchestrator {
         let bundle_json = serde_json::to_string_pretty(&bundle)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let evidence_path = config.output_dir.join("evidence-bundle.json");
-        fs::write(&evidence_path, &bundle_json)
-            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&evidence_path, bundle_json.as_bytes())?;
         cas.put_str(&bundle_json)?;
         cas_written += 1;
 
@@ -385,7 +385,7 @@ impl PipelineOrchestrator {
         let slsa_json = serde_json::to_string_pretty(&slsa_statement)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let slsa_path = config.output_dir.join("slsa-provenance.json");
-        fs::write(&slsa_path, &slsa_json).map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&slsa_path, slsa_json.as_bytes())?;
         cas.put_str(&slsa_json)?;
         cas_written += 1;
 
@@ -395,7 +395,7 @@ impl PipelineOrchestrator {
         let sarif_json = serde_json::to_string_pretty(&sarif_report)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let sarif_path = config.output_dir.join("sarif-report.json");
-        fs::write(&sarif_path, &sarif_json).map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&sarif_path, sarif_json.as_bytes())?;
         cas.put_str(&sarif_json)?;
         cas_written += 1;
 
@@ -404,8 +404,7 @@ impl PipelineOrchestrator {
         let gitlab_json = serde_json::to_string_pretty(&gitlab_report)
             .map_err(|e| AppError::Configuration(e.to_string()))?;
         let gitlab_path = config.output_dir.join("gl-security-report.json");
-        fs::write(&gitlab_path, &gitlab_json)
-            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&gitlab_path, gitlab_json.as_bytes())?;
         cas.put_str(&gitlab_json)?;
         cas_written += 1;
 

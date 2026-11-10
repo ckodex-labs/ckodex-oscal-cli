@@ -15,7 +15,7 @@
 > **Technical Documentation Hub**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/)  
 > **Rustdoc Library API Reference**: [https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan_oscal/index.html](https://ckodex-labs.github.io/ckodex-oscal-cli/docs/api/mizan_oscal/index.html)  
 > **Offline Merkle Evidence Capsule**: [https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html](https://ckodex-labs.github.io/ckodex-oscal-cli/capsule.html)  
-> **Multi-Platform Binary Releases**: [GitHub Releases v0.1.0](https://github.com/ckodex-labs/ckodex-oscal-cli/releases)
+> **Multi-Platform Binary Releases**: [GitHub Releases v1.0.0](https://github.com/ckodex-labs/ckodex-oscal-cli/releases)
 
 ---
 
@@ -47,20 +47,20 @@ Download the release binary matching your target architecture directly from [Git
 
 ```bash
 # Linux x86_64 (glibc)
-curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-x86_64-unknown-linux-gnu.tar.gz
-tar -xzf mizan-v0.1.0-x86_64-unknown-linux-gnu.tar.gz && sudo mv mizan-v0.1.0-x86_64-unknown-linux-gnu/mizan /usr/local/bin/
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v1.0.0/mizan-v1.0.0-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf mizan-v1.0.0-x86_64-unknown-linux-gnu.tar.gz && sudo mv mizan-v1.0.0-x86_64-unknown-linux-gnu/mizan /usr/local/bin/
 
 # Linux ARM64
-curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-aarch64-unknown-linux-gnu.tar.gz
-tar -xzf mizan-v0.1.0-aarch64-unknown-linux-gnu.tar.gz && sudo mv mizan-v0.1.0-aarch64-unknown-linux-gnu/mizan /usr/local/bin/
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v1.0.0/mizan-v1.0.0-aarch64-unknown-linux-gnu.tar.gz
+tar -xzf mizan-v1.0.0-aarch64-unknown-linux-gnu.tar.gz && sudo mv mizan-v1.0.0-aarch64-unknown-linux-gnu/mizan /usr/local/bin/
 
 # macOS Apple Silicon (ARM64)
-curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-aarch64-apple-darwin.tar.gz
-tar -xzf mizan-v0.1.0-aarch64-apple-darwin.tar.gz && sudo mv mizan-v0.1.0-aarch64-apple-darwin/mizan /usr/local/bin/
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v1.0.0/mizan-v1.0.0-aarch64-apple-darwin.tar.gz
+tar -xzf mizan-v1.0.0-aarch64-apple-darwin.tar.gz && sudo mv mizan-v1.0.0-aarch64-apple-darwin/mizan /usr/local/bin/
 
 # macOS Intel (x86_64)
-curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v0.1.0/mizan-v0.1.0-x86_64-apple-darwin.tar.gz
-tar -xzf mizan-v0.1.0-x86_64-apple-darwin.tar.gz && sudo mv mizan-v0.1.0-x86_64-apple-darwin/mizan /usr/local/bin/
+curl -sLO https://github.com/ckodex-labs/ckodex-oscal-cli/releases/download/v1.0.0/mizan-v1.0.0-x86_64-apple-darwin.tar.gz
+tar -xzf mizan-v1.0.0-x86_64-apple-darwin.tar.gz && sudo mv mizan-v1.0.0-x86_64-apple-darwin/mizan /usr/local/bin/
 ```
 
 ### Build from Source

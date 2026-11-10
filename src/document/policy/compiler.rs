@@ -185,14 +185,70 @@ pub fn compile_policies(
     })
 }
 
+fn sanitize_rego_identifier(raw: &str) -> String {
+    let mapped: String = raw
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    let trimmed = mapped.trim_matches('_');
+    if trimmed.is_empty() {
+        return "control".to_string();
+    }
+    if trimmed.chars().next().is_some_and(|c| c.is_ascii_digit()) {
+        format!("c_{trimmed}")
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn sanitize_k8s_name(raw: &str) -> String {
+    let mapped: String = raw
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = mapped.trim_matches('-');
+    if trimmed.is_empty() {
+        "control".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn escape_policy_string(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        match ch {
+            '\r' | '\n' => out.push(' '),
+            '\\' => out.push_str("\\\\"),
+            '"' => out.push_str("\\\""),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
 fn generate_rego_policy(cid: &str, desc: &str) -> String {
-    let pkg_name = cid.replace('-', "_");
+    let pkg_name = sanitize_rego_identifier(cid);
+    let safe_cid = escape_policy_string(cid);
+    let safe_desc = escape_policy_string(desc);
     format!(
         r#"# METADATA
-# title: OSCAL Compliance Rule for {cid}
-# description: {desc}
+# title: OSCAL Compliance Rule for {safe_cid}
+# description: {safe_desc}
 # custom:
-#   control_id: "{cid}"
+#   control_id: "{safe_cid}"
 #   framework: "NIST-SP-800-53"
 
 package oscal.compliance.{pkg_name}
@@ -211,29 +267,31 @@ allow if {{
 # Check rule violations
 violations contains msg if {{
     not input.compliance.{pkg_name}.enabled
-    msg := "Control {cid} enforcement is disabled in target configuration"
+    msg := "Control {safe_cid} enforcement is disabled in target configuration"
 }}
 
 violations contains msg if {{
     input.compliance.{pkg_name}.status == "unsatisfied"
-    msg := "Control {cid} status is marked unsatisfied"
+    msg := "Control {safe_cid} status is marked unsatisfied"
 }}
 "#
     )
 }
 
 fn generate_kyverno_policy(cid: &str, desc: &str) -> String {
-    let policy_name = format!("oscal-compliance-{}", cid.to_lowercase().replace('_', "-"));
+    let policy_name = format!("oscal-compliance-{}", sanitize_k8s_name(cid));
+    let safe_cid = escape_policy_string(cid);
+    let safe_desc = escape_policy_string(desc);
     format!(
         r#"apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: {policy_name}
   annotations:
-    policies.kyverno.io/title: "OSCAL Control {cid}"
+    policies.kyverno.io/title: "OSCAL Control {safe_cid}"
     policies.kyverno.io/category: "Compliance & Security"
-    policies.kyverno.io/description: "{desc}"
-    oscal.compliance/control-id: "{cid}"
+    policies.kyverno.io/description: "{safe_desc}"
+    oscal.compliance/control-id: "{safe_cid}"
 spec:
   validationFailureAction: Audit
   background: true
@@ -247,7 +305,7 @@ spec:
                 - Deployment
                 - StatefulSet
       validate:
-        message: "Resource must adhere to OSCAL control {cid} baseline security constraints."
+        message: "Resource must adhere to OSCAL control {safe_cid} baseline security constraints."
         pattern:
           spec:
             template:
@@ -256,4 +314,41 @@ spec:
                   =(runAsNonRoot): true
 "#
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_c2p_policy_compiler_escapes_multiline_descriptions_and_identifiers() {
+        let cid = "ac-2(1)";
+        let desc = "line 1\n\"quoted\" line 2";
+
+        let rego = generate_rego_policy(cid, desc);
+        assert!(rego.contains("package oscal.compliance.ac_2_1"));
+        assert!(rego.contains(r#"# description: line 1 \"quoted\" line 2"#));
+        assert!(!rego.contains("\n\"quoted\""));
+
+        let mut evaluator = crate::document::policy::RegorusEvaluator::new();
+        evaluator
+            .add_policy_str("ac_2_1.rego", &rego)
+            .expect("generated Rego policy must compile cleanly in Regorus");
+
+        let kyverno = generate_kyverno_policy(cid, desc);
+        assert!(kyverno.contains("name: oscal-compliance-ac-2-1"));
+        let parsed_yaml: Value = serde_yaml::from_str(&kyverno)
+            .expect("generated Kyverno YAML must be valid YAML even with quotes/newlines");
+        assert_eq!(
+            parsed_yaml["metadata"]["annotations"]["policies.kyverno.io/description"],
+            "line 1 \"quoted\" line 2"
+        );
+        assert_eq!(
+            parsed_yaml["metadata"]["annotations"]["oscal.compliance/control-id"],
+            "ac-2(1)"
+        );
+
+        let digit_rego = generate_rego_policy("1.1.1", "benchmark control");
+        assert!(digit_rego.contains("package oscal.compliance.c_1_1_1"));
+    }
 }

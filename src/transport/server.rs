@@ -64,6 +64,90 @@ fn insert_bounded<V>(map: &mut HashMap<String, V>, key: String, val: V) -> Resul
     Ok(())
 }
 
+fn tenant_key(ctx: &TenantContext, id: &str) -> String {
+    format!("{}/{id}", ctx.tenant_id.as_str())
+}
+
+fn tenant_prefix(ctx: &TenantContext) -> String {
+    format!("{}/", ctx.tenant_id.as_str())
+}
+
+fn get_for_tenant<'a, V>(
+    map: &'a HashMap<String, V>,
+    ctx: &TenantContext,
+    id: &str,
+) -> Option<&'a V> {
+    map.get(&tenant_key(ctx, id))
+}
+
+fn contains_for_tenant<V>(map: &HashMap<String, V>, ctx: &TenantContext, id: &str) -> bool {
+    map.contains_key(&tenant_key(ctx, id))
+}
+
+fn remove_for_tenant<V>(map: &mut HashMap<String, V>, ctx: &TenantContext, id: &str) -> Option<V> {
+    map.remove(&tenant_key(ctx, id))
+}
+
+fn iter_for_tenant<'a, V>(
+    map: &'a HashMap<String, V>,
+    ctx: &TenantContext,
+) -> impl Iterator<Item = (&'a str, &'a V)> {
+    let prefix = tenant_prefix(ctx);
+    map.iter()
+        .filter_map(move |(k, v)| k.strip_prefix(&prefix).map(|id| (id, v)))
+}
+
+fn values_for_tenant<'a, V>(
+    map: &'a HashMap<String, V>,
+    ctx: &TenantContext,
+) -> impl Iterator<Item = &'a V> {
+    iter_for_tenant(map, ctx).map(|(_, v)| v)
+}
+
+fn insert_for_tenant_bounded<V>(
+    map: &mut HashMap<String, V>,
+    ctx: &TenantContext,
+    id: &str,
+    val: V,
+) -> Result<(), Status> {
+    insert_bounded(map, tenant_key(ctx, id), val)
+}
+
+fn resolve_or_assign_uuid(opt_uuid: &mut Option<crate::proto::oscal::common::v1::Uuid>) -> String {
+    if let Some(u) = opt_uuid.as_ref()
+        && !u.value.trim().is_empty()
+    {
+        return u.value.trim().to_string();
+    }
+    let generated = uuid::Uuid::new_v4().to_string();
+    *opt_uuid = Some(crate::proto::oscal::common::v1::Uuid {
+        value: generated.clone(),
+    });
+    generated
+}
+
+fn ensure_uuid_field(
+    opt_uuid: &mut Option<crate::proto::oscal::common::v1::Uuid>,
+    fallback_uuid: &str,
+) {
+    if opt_uuid.as_ref().is_none_or(|u| u.value.trim().is_empty()) {
+        *opt_uuid = Some(crate::proto::oscal::common::v1::Uuid {
+            value: fallback_uuid.to_string(),
+        });
+    }
+}
+
+fn decode_proto_from_json<M: prost::Message + Default>(
+    full_type_name: &str,
+    content_json: &str,
+) -> Option<M> {
+    let pool = prost_reflect::DescriptorPool::decode(crate::PROTO_DESCRIPTOR_SET).ok()?;
+    let desc = pool.get_message_by_name(full_type_name)?;
+    let mut de = serde_json::Deserializer::from_str(content_json);
+    let dyn_msg = prost_reflect::DynamicMessage::deserialize(desc, &mut de).ok()?;
+    dyn_msg.transcode_to().ok()
+}
+
 #[derive(Clone, Default)]
 pub struct MizanServerState {
     pub datastore: FabricDataStore,
@@ -76,11 +160,15 @@ pub struct MizanServerState {
     pub assessment_results: Arc<RwLock<HashMap<String, AssessmentResults>>>,
     pub poams: Arc<RwLock<HashMap<String, PlanOfActionAndMilestones>>>,
     pub mappings: Arc<RwLock<HashMap<String, MappingCollection>>>,
+    pub entities: Arc<RwLock<HashMap<String, Entity>>>,
+    pub snapshots: Arc<RwLock<HashMap<String, Vec<Entity>>>>,
+    pub releases: Arc<RwLock<HashMap<String, String>>>,
+    pub frameworks: Arc<RwLock<HashMap<String, FrameworkSummary>>>,
     pub claims: Arc<RwLock<HashMap<String, Claim>>>,
     pub evidence: Arc<RwLock<HashMap<String, Evidence>>>,
     pub nodes: Arc<RwLock<HashMap<String, GraphNode>>>,
     pub edges: Arc<RwLock<HashMap<String, GraphEdge>>>,
-    pub projection_events: Arc<RwLock<Vec<GraphProjectionEvent>>>,
+    pub projection_events: Arc<RwLock<HashMap<String, Vec<GraphProjectionEvent>>>>,
     pub oidc_validator: Option<OidcTokenValidator>,
     pub require_auth: bool,
 }
@@ -88,6 +176,90 @@ pub struct MizanServerState {
 impl MizanServerState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Constructs `MizanServerState` backed by the provided `FabricDataStore` and
+    /// warm-loads any persisted tenant documents into the in-memory maps.
+    pub fn with_datastore(datastore: FabricDataStore) -> Self {
+        let mut state = Self {
+            datastore,
+            ..Self::default()
+        };
+        state.rehydrate_from_datastore();
+        state
+    }
+
+    pub fn rehydrate_from_datastore(&mut self) {
+        for (tenant_id, namespace, id, doc) in self.datastore.snapshot_all_documents() {
+            let key = format!("{}/{id}", tenant_id.as_str());
+            match namespace.as_str() {
+                "catalogs" => {
+                    if let Some(msg) = decode_proto_from_json::<Catalog>(
+                        "oscal.catalog.v1.Catalog",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.catalogs).insert(key, msg);
+                    }
+                }
+                "profiles" => {
+                    if let Some(msg) = decode_proto_from_json::<Profile>(
+                        "oscal.profile.v1.Profile",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.profiles).insert(key, msg);
+                    }
+                }
+                "components" => {
+                    if let Some(msg) = decode_proto_from_json::<ComponentDefinition>(
+                        "oscal.component_definition.v1.ComponentDefinition",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.components).insert(key, msg);
+                    }
+                }
+                "ssps" => {
+                    if let Some(msg) = decode_proto_from_json::<Ssp>(
+                        "oscal.ssp.v1.SystemSecurityPlan",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.ssps).insert(key, msg);
+                    }
+                }
+                "assessment_plans" => {
+                    if let Some(msg) = decode_proto_from_json::<AssessmentPlan>(
+                        "oscal.assessment_plan.v1.AssessmentPlan",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.assessment_plans).insert(key, msg);
+                    }
+                }
+                "assessment_results" => {
+                    if let Some(msg) = decode_proto_from_json::<AssessmentResults>(
+                        "oscal.assessment_results.v1.AssessmentResults",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.assessment_results).insert(key, msg);
+                    }
+                }
+                "poams" => {
+                    if let Some(msg) = decode_proto_from_json::<PlanOfActionAndMilestones>(
+                        "oscal.poam.v1.PlanOfActionAndMilestones",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.poams).insert(key, msg);
+                    }
+                }
+                "mappings" => {
+                    if let Some(msg) = decode_proto_from_json::<MappingCollection>(
+                        "oscal.mapping.v1.MappingCollection",
+                        &doc.content_json,
+                    ) {
+                        write_lock(&self.mappings).insert(key, msg);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     pub fn with_oidc_auth(mut self, validator: OidcTokenValidator) -> Self {
@@ -167,6 +339,56 @@ impl MizanServerState {
 
         Ok(ctx)
     }
+
+    fn persist_to_datastore(
+        &self,
+        ctx: &TenantContext,
+        namespace: &str,
+        id: &str,
+        resource_type: &str,
+        content_json: &str,
+    ) {
+        if let Err(err) =
+            self.datastore
+                .put_document(ctx, namespace, id, resource_type, content_json)
+        {
+            tracing::warn!(
+                tenant = ctx.tenant_id.as_str(),
+                namespace,
+                id,
+                error = %err,
+                "Failed to persist document to FabricDataStore"
+            );
+        }
+    }
+
+    fn persist_proto_to_datastore<M: prost::Message>(
+        &self,
+        ctx: &TenantContext,
+        namespace: &str,
+        id: &str,
+        resource_type: &str,
+        full_type_name: &str,
+        msg: &M,
+    ) {
+        let content_json = crate::output::message_json(full_type_name, msg)
+            .ok()
+            .and_then(|v| serde_json::to_string(&v).ok())
+            .unwrap_or_else(|| "{\"status\":\"stored\"}".to_string());
+        self.persist_to_datastore(ctx, namespace, id, resource_type, &content_json);
+    }
+
+    fn delete_from_datastore(&self, ctx: &TenantContext, namespace: &str, id: &str) {
+        if let Err(err) = self.datastore.delete_document(ctx, namespace, id) {
+            tracing::warn!(
+                tenant = ctx.tenant_id.as_str(),
+                namespace,
+                id,
+                error = %err,
+                "Failed to delete document from FabricDataStore"
+            );
+        }
+    }
 }
 
 #[tonic::async_trait]
@@ -175,7 +397,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<GetCatalogRequest>,
     ) -> Result<Response<GetCatalogResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
@@ -183,7 +405,7 @@ impl OscalService for MizanServerState {
             .unwrap_or_else(|| "default".to_string());
 
         let cats = read_lock(&self.catalogs);
-        if let Some(cat) = cats.get(&uuid) {
+        if let Some(cat) = get_for_tenant(&cats, &ctx, &uuid) {
             return Ok(Response::new(GetCatalogResponse {
                 catalog: Some(cat.clone()),
             }));
@@ -196,9 +418,9 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListCatalogsRequest>,
     ) -> Result<Response<ListCatalogsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
         let cats = read_lock(&self.catalogs);
-        let catalogs = cats.values().cloned().collect();
+        let catalogs = values_for_tenant(&cats, &ctx).cloned().collect();
         Ok(Response::new(ListCatalogsResponse {
             catalogs,
             next_page_token: String::new(),
@@ -212,25 +434,22 @@ impl OscalService for MizanServerState {
         let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Catalog)?;
         let req = request.into_inner();
-        let catalog = req
+        let mut catalog = req
             .catalog
             .ok_or_else(|| Status::invalid_argument("catalog is required"))?;
-        let uuid = catalog
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut catalog.uuid);
 
         let mut cats = write_lock(&self.catalogs);
-        insert_bounded(&mut cats, uuid.clone(), catalog.clone())?;
+        insert_for_tenant_bounded(&mut cats, &ctx, &uuid, catalog.clone())?;
         drop(cats);
 
-        let _ = self.datastore.put_document(
+        self.persist_proto_to_datastore(
             &ctx,
             "catalogs",
             &uuid,
             "catalog",
-            "{\"status\":\"stored\"}",
+            "oscal.catalog.v1.Catalog",
+            &catalog,
         );
 
         Ok(Response::new(CreateCatalogResponse {
@@ -242,22 +461,33 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateCatalogRequest>,
     ) -> Result<Response<UpdateCatalogResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::UpdateDocument, ResourceType::Catalog)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let catalog = req
+        let mut catalog = req
             .catalog
             .ok_or_else(|| Status::invalid_argument("catalog is required"))?;
+        ensure_uuid_field(&mut catalog.uuid, &uuid);
 
         let mut cats = write_lock(&self.catalogs);
-        if !cats.contains_key(&uuid) {
+        if !contains_for_tenant(&cats, &ctx, &uuid) {
             return Err(Status::not_found(format!("Catalog `{uuid}` not found")));
         }
-        cats.insert(uuid, catalog.clone());
+        insert_for_tenant_bounded(&mut cats, &ctx, &uuid, catalog.clone())?;
+        drop(cats);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "catalogs",
+            &uuid,
+            "catalog",
+            "oscal.catalog.v1.Catalog",
+            &catalog,
+        );
 
         Ok(Response::new(UpdateCatalogResponse {
             catalog: Some(catalog),
@@ -277,13 +507,13 @@ impl OscalService for MizanServerState {
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
 
         let mut cats = write_lock(&self.catalogs);
-        let success = cats.remove(&uuid).is_some();
+        let success = remove_for_tenant(&mut cats, &ctx, &uuid).is_some();
         drop(cats);
         if !success {
             return Err(Status::not_found(format!("Catalog `{uuid}` not found")));
         }
 
-        let _ = self.datastore.delete_document(&ctx, "catalogs", &uuid);
+        self.delete_from_datastore(&ctx, "catalogs", &uuid);
 
         Ok(Response::new(DeleteCatalogResponse { success: true }))
     }
@@ -292,14 +522,14 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<GetProfileRequest>,
     ) -> Result<Response<GetProfileResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .unwrap_or_else(|| "default".to_string());
         let profs = read_lock(&self.profiles);
-        if let Some(p) = profs.get(&uuid) {
+        if let Some(p) = get_for_tenant(&profs, &ctx, &uuid) {
             return Ok(Response::new(GetProfileResponse {
                 profile: Some(p.clone()),
             }));
@@ -311,10 +541,10 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListProfilesRequest>,
     ) -> Result<Response<ListProfilesResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
         let profs = read_lock(&self.profiles);
         Ok(Response::new(ListProfilesResponse {
-            profiles: profs.values().cloned().collect(),
+            profiles: values_for_tenant(&profs, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -323,19 +553,26 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateProfileRequest>,
     ) -> Result<Response<CreateProfileResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Profile)?;
         let req = request.into_inner();
-        let profile = req
+        let mut profile = req
             .profile
             .ok_or_else(|| Status::invalid_argument("profile is required"))?;
-        let uuid = profile
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut profile.uuid);
         let mut profs = write_lock(&self.profiles);
-        insert_bounded(&mut profs, uuid, profile.clone())?;
+        insert_for_tenant_bounded(&mut profs, &ctx, &uuid, profile.clone())?;
+        drop(profs);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "profiles",
+            &uuid,
+            "profile",
+            "oscal.profile.v1.Profile",
+            &profile,
+        );
+
         Ok(Response::new(CreateProfileResponse {
             profile: Some(profile),
         }))
@@ -345,21 +582,33 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateProfileRequest>,
     ) -> Result<Response<UpdateProfileResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::UpdateDocument, ResourceType::Profile)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let profile = req
+        let mut profile = req
             .profile
             .ok_or_else(|| Status::invalid_argument("profile is required"))?;
+        ensure_uuid_field(&mut profile.uuid, &uuid);
         let mut profs = write_lock(&self.profiles);
-        if !profs.contains_key(&uuid) {
+        if !contains_for_tenant(&profs, &ctx, &uuid) {
             return Err(Status::not_found(format!("Profile `{uuid}` not found")));
         }
-        profs.insert(uuid, profile.clone());
+        insert_for_tenant_bounded(&mut profs, &ctx, &uuid, profile.clone())?;
+        drop(profs);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "profiles",
+            &uuid,
+            "profile",
+            "oscal.profile.v1.Profile",
+            &profile,
+        );
+
         Ok(Response::new(UpdateProfileResponse {
             profile: Some(profile),
         }))
@@ -369,7 +618,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteProfileRequest>,
     ) -> Result<Response<DeleteProfileResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::DeleteDocument, ResourceType::Profile)?;
         let req = request.into_inner();
         let uuid = req
@@ -377,9 +626,14 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut profs = write_lock(&self.profiles);
-        if profs.remove(&uuid).is_none() {
+        let removed = remove_for_tenant(&mut profs, &ctx, &uuid).is_some();
+        drop(profs);
+        if !removed {
             return Err(Status::not_found(format!("Profile `{uuid}` not found")));
         }
+
+        self.delete_from_datastore(&ctx, "profiles", &uuid);
+
         Ok(Response::new(DeleteProfileResponse { success: true }))
     }
 
@@ -387,14 +641,14 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<GetComponentDefinitionRequest>,
     ) -> Result<Response<GetComponentDefinitionResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .unwrap_or_default();
         let comps = read_lock(&self.components);
-        if let Some(c) = comps.get(&uuid) {
+        if let Some(c) = get_for_tenant(&comps, &ctx, &uuid) {
             return Ok(Response::new(GetComponentDefinitionResponse {
                 component_definition: Some(c.clone()),
             }));
@@ -406,10 +660,10 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListComponentDefinitionsRequest>,
     ) -> Result<Response<ListComponentDefinitionsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
         let comps = read_lock(&self.components);
         Ok(Response::new(ListComponentDefinitionsResponse {
-            component_definitions: comps.values().cloned().collect(),
+            component_definitions: values_for_tenant(&comps, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -418,18 +672,25 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateComponentDefinitionRequest>,
     ) -> Result<Response<CreateComponentDefinitionResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Ssp)?;
-        let comp = request
+        let ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Ssp)?;
+        let mut comp = request
             .into_inner()
             .component_definition
             .ok_or_else(|| Status::invalid_argument("component definition is required"))?;
-        let uuid = comp
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut comp.uuid);
         let mut comps = write_lock(&self.components);
-        insert_bounded(&mut comps, uuid, comp.clone())?;
+        insert_for_tenant_bounded(&mut comps, &ctx, &uuid, comp.clone())?;
+        drop(comps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "components",
+            &uuid,
+            "component_definition",
+            "oscal.component_definition.v1.ComponentDefinition",
+            &comp,
+        );
+
         Ok(Response::new(CreateComponentDefinitionResponse {
             component_definition: Some(comp),
         }))
@@ -439,17 +700,34 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateComponentDefinitionRequest>,
     ) -> Result<Response<UpdateComponentDefinitionResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Ssp)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let comp = req
+        let mut comp = req
             .component_definition
             .ok_or_else(|| Status::invalid_argument("component definition is required"))?;
+        ensure_uuid_field(&mut comp.uuid, &uuid);
         let mut comps = write_lock(&self.components);
-        insert_bounded(&mut comps, uuid, comp.clone())?;
+        if !contains_for_tenant(&comps, &ctx, &uuid) {
+            return Err(Status::not_found(format!(
+                "Component definition `{uuid}` not found"
+            )));
+        }
+        insert_for_tenant_bounded(&mut comps, &ctx, &uuid, comp.clone())?;
+        drop(comps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "components",
+            &uuid,
+            "component_definition",
+            "oscal.component_definition.v1.ComponentDefinition",
+            &comp,
+        );
+
         Ok(Response::new(UpdateComponentDefinitionResponse {
             component_definition: Some(comp),
         }))
@@ -459,29 +737,38 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteComponentDefinitionRequest>,
     ) -> Result<Response<DeleteComponentDefinitionResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Ssp)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut comps = write_lock(&self.components);
-        let success = comps.remove(&uuid).is_some();
-        Ok(Response::new(DeleteComponentDefinitionResponse { success }))
+        let success = remove_for_tenant(&mut comps, &ctx, &uuid).is_some();
+        drop(comps);
+        if !success {
+            return Err(Status::not_found(format!(
+                "Component definition `{uuid}` not found"
+            )));
+        }
+        self.delete_from_datastore(&ctx, "components", &uuid);
+        Ok(Response::new(DeleteComponentDefinitionResponse {
+            success: true,
+        }))
     }
 
     async fn get_ssp(
         &self,
         request: Request<GetSspRequest>,
     ) -> Result<Response<GetSspResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .unwrap_or_default();
         let ssps = read_lock(&self.ssps);
-        if let Some(s) = ssps.get(&uuid) {
+        if let Some(s) = get_for_tenant(&ssps, &ctx, &uuid) {
             return Ok(Response::new(GetSspResponse {
                 ssp: Some(s.clone()),
             }));
@@ -493,10 +780,10 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListSspsRequest>,
     ) -> Result<Response<ListSspsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Ssp)?;
         let ssps = read_lock(&self.ssps);
         Ok(Response::new(ListSspsResponse {
-            ssps: ssps.values().cloned().collect(),
+            ssps: values_for_tenant(&ssps, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -505,18 +792,25 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateSspRequest>,
     ) -> Result<Response<CreateSspResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Ssp)?;
-        let ssp = request
+        let ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Ssp)?;
+        let mut ssp = request
             .into_inner()
             .ssp
             .ok_or_else(|| Status::invalid_argument("ssp is required"))?;
-        let uuid = ssp
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut ssp.uuid);
         let mut ssps = write_lock(&self.ssps);
-        insert_bounded(&mut ssps, uuid, ssp.clone())?;
+        insert_for_tenant_bounded(&mut ssps, &ctx, &uuid, ssp.clone())?;
+        drop(ssps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "ssps",
+            &uuid,
+            "ssp",
+            "oscal.ssp.v1.SystemSecurityPlan",
+            &ssp,
+        );
+
         Ok(Response::new(CreateSspResponse { ssp: Some(ssp) }))
     }
 
@@ -524,17 +818,32 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateSspRequest>,
     ) -> Result<Response<UpdateSspResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Ssp)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let ssp = req
+        let mut ssp = req
             .ssp
             .ok_or_else(|| Status::invalid_argument("ssp is required"))?;
+        ensure_uuid_field(&mut ssp.uuid, &uuid);
         let mut ssps = write_lock(&self.ssps);
-        insert_bounded(&mut ssps, uuid, ssp.clone())?;
+        if !contains_for_tenant(&ssps, &ctx, &uuid) {
+            return Err(Status::not_found(format!("SSP `{uuid}` not found")));
+        }
+        insert_for_tenant_bounded(&mut ssps, &ctx, &uuid, ssp.clone())?;
+        drop(ssps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "ssps",
+            &uuid,
+            "ssp",
+            "oscal.ssp.v1.SystemSecurityPlan",
+            &ssp,
+        );
+
         Ok(Response::new(UpdateSspResponse { ssp: Some(ssp) }))
     }
 
@@ -542,22 +851,29 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteSspRequest>,
     ) -> Result<Response<DeleteSspResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Ssp)?;
+        let ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Ssp)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut ssps = write_lock(&self.ssps);
-        let success = ssps.remove(&uuid).is_some();
-        Ok(Response::new(DeleteSspResponse { success }))
+        let success = remove_for_tenant(&mut ssps, &ctx, &uuid).is_some();
+        drop(ssps);
+        if !success {
+            return Err(Status::not_found(format!("SSP `{uuid}` not found")));
+        }
+
+        self.delete_from_datastore(&ctx, "ssps", &uuid);
+
+        Ok(Response::new(DeleteSspResponse { success: true }))
     }
 
     async fn get_assessment_plan(
         &self,
         request: Request<GetAssessmentPlanRequest>,
     ) -> Result<Response<GetAssessmentPlanResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::ReadDocument,
             ResourceType::AssessmentResults,
@@ -568,7 +884,7 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .unwrap_or_default();
         let plans = read_lock(&self.assessment_plans);
-        if let Some(p) = plans.get(&uuid) {
+        if let Some(p) = get_for_tenant(&plans, &ctx, &uuid) {
             return Ok(Response::new(GetAssessmentPlanResponse {
                 assessment_plan: Some(p.clone()),
             }));
@@ -580,14 +896,14 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListAssessmentPlansRequest>,
     ) -> Result<Response<ListAssessmentPlansResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::ReadDocument,
             ResourceType::AssessmentResults,
         )?;
         let plans = read_lock(&self.assessment_plans);
         Ok(Response::new(ListAssessmentPlansResponse {
-            assessment_plans: plans.values().cloned().collect(),
+            assessment_plans: values_for_tenant(&plans, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -596,22 +912,29 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateAssessmentPlanRequest>,
     ) -> Result<Response<CreateAssessmentPlanResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::CreateDocument,
             ResourceType::AssessmentResults,
         )?;
-        let plan = request
+        let mut plan = request
             .into_inner()
             .assessment_plan
             .ok_or_else(|| Status::invalid_argument("assessment plan is required"))?;
-        let uuid = plan
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut plan.uuid);
         let mut plans = write_lock(&self.assessment_plans);
-        insert_bounded(&mut plans, uuid, plan.clone())?;
+        insert_for_tenant_bounded(&mut plans, &ctx, &uuid, plan.clone())?;
+        drop(plans);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "assessment_plans",
+            &uuid,
+            "assessment_plan",
+            "oscal.assessment_plan.v1.AssessmentPlan",
+            &plan,
+        );
+
         Ok(Response::new(CreateAssessmentPlanResponse {
             assessment_plan: Some(plan),
         }))
@@ -621,7 +944,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateAssessmentPlanRequest>,
     ) -> Result<Response<UpdateAssessmentPlanResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::UpdateDocument,
             ResourceType::AssessmentResults,
@@ -631,11 +954,28 @@ impl OscalService for MizanServerState {
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let plan = req
+        let mut plan = req
             .assessment_plan
             .ok_or_else(|| Status::invalid_argument("assessment plan is required"))?;
+        ensure_uuid_field(&mut plan.uuid, &uuid);
         let mut plans = write_lock(&self.assessment_plans);
-        insert_bounded(&mut plans, uuid, plan.clone())?;
+        if !contains_for_tenant(&plans, &ctx, &uuid) {
+            return Err(Status::not_found(format!(
+                "Assessment plan `{uuid}` not found"
+            )));
+        }
+        insert_for_tenant_bounded(&mut plans, &ctx, &uuid, plan.clone())?;
+        drop(plans);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "assessment_plans",
+            &uuid,
+            "assessment_plan",
+            "oscal.assessment_plan.v1.AssessmentPlan",
+            &plan,
+        );
+
         Ok(Response::new(UpdateAssessmentPlanResponse {
             assessment_plan: Some(plan),
         }))
@@ -645,7 +985,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteAssessmentPlanRequest>,
     ) -> Result<Response<DeleteAssessmentPlanResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::DeleteDocument,
             ResourceType::AssessmentResults,
@@ -656,15 +996,24 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut plans = write_lock(&self.assessment_plans);
-        let success = plans.remove(&uuid).is_some();
-        Ok(Response::new(DeleteAssessmentPlanResponse { success }))
+        let success = remove_for_tenant(&mut plans, &ctx, &uuid).is_some();
+        drop(plans);
+        if !success {
+            return Err(Status::not_found(format!(
+                "Assessment plan `{uuid}` not found"
+            )));
+        }
+        self.delete_from_datastore(&ctx, "assessment_plans", &uuid);
+        Ok(Response::new(DeleteAssessmentPlanResponse {
+            success: true,
+        }))
     }
 
     async fn get_assessment_results(
         &self,
         request: Request<GetAssessmentResultsRequest>,
     ) -> Result<Response<GetAssessmentResultsResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::ReadDocument,
             ResourceType::AssessmentResults,
@@ -675,7 +1024,7 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .unwrap_or_default();
         let res = read_lock(&self.assessment_results);
-        if let Some(r) = res.get(&uuid) {
+        if let Some(r) = get_for_tenant(&res, &ctx, &uuid) {
             return Ok(Response::new(GetAssessmentResultsResponse {
                 assessment_results: Some(r.clone()),
             }));
@@ -687,14 +1036,14 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListAssessmentResultsRequest>,
     ) -> Result<Response<ListAssessmentResultsResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::ReadDocument,
             ResourceType::AssessmentResults,
         )?;
         let res = read_lock(&self.assessment_results);
         Ok(Response::new(ListAssessmentResultsResponse {
-            assessment_results_list: res.values().cloned().collect(),
+            assessment_results_list: values_for_tenant(&res, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -703,22 +1052,29 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateAssessmentResultsRequest>,
     ) -> Result<Response<CreateAssessmentResultsResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::CreateDocument,
             ResourceType::AssessmentResults,
         )?;
-        let res = request
+        let mut res = request
             .into_inner()
             .assessment_results
             .ok_or_else(|| Status::invalid_argument("assessment results are required"))?;
-        let uuid = res
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut res.uuid);
         let mut results = write_lock(&self.assessment_results);
-        insert_bounded(&mut results, uuid, res.clone())?;
+        insert_for_tenant_bounded(&mut results, &ctx, &uuid, res.clone())?;
+        drop(results);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "assessment_results",
+            &uuid,
+            "assessment_results",
+            "oscal.assessment_results.v1.AssessmentResults",
+            &res,
+        );
+
         Ok(Response::new(CreateAssessmentResultsResponse {
             assessment_results: Some(res),
         }))
@@ -728,7 +1084,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateAssessmentResultsRequest>,
     ) -> Result<Response<UpdateAssessmentResultsResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::UpdateDocument,
             ResourceType::AssessmentResults,
@@ -738,11 +1094,28 @@ impl OscalService for MizanServerState {
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let res = req
+        let mut res = req
             .assessment_results
             .ok_or_else(|| Status::invalid_argument("assessment results are required"))?;
+        ensure_uuid_field(&mut res.uuid, &uuid);
         let mut results = write_lock(&self.assessment_results);
-        insert_bounded(&mut results, uuid, res.clone())?;
+        if !contains_for_tenant(&results, &ctx, &uuid) {
+            return Err(Status::not_found(format!(
+                "Assessment results `{uuid}` not found"
+            )));
+        }
+        insert_for_tenant_bounded(&mut results, &ctx, &uuid, res.clone())?;
+        drop(results);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "assessment_results",
+            &uuid,
+            "assessment_results",
+            "oscal.assessment_results.v1.AssessmentResults",
+            &res,
+        );
+
         Ok(Response::new(UpdateAssessmentResultsResponse {
             assessment_results: Some(res),
         }))
@@ -752,7 +1125,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteAssessmentResultsRequest>,
     ) -> Result<Response<DeleteAssessmentResultsResponse>, Status> {
-        let _ctx = self.authorize_request(
+        let ctx = self.authorize_request(
             &request,
             Action::DeleteDocument,
             ResourceType::AssessmentResults,
@@ -763,22 +1136,31 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut results = write_lock(&self.assessment_results);
-        let success = results.remove(&uuid).is_some();
-        Ok(Response::new(DeleteAssessmentResultsResponse { success }))
+        let success = remove_for_tenant(&mut results, &ctx, &uuid).is_some();
+        drop(results);
+        if !success {
+            return Err(Status::not_found(format!(
+                "Assessment results `{uuid}` not found"
+            )));
+        }
+        self.delete_from_datastore(&ctx, "assessment_results", &uuid);
+        Ok(Response::new(DeleteAssessmentResultsResponse {
+            success: true,
+        }))
     }
 
     async fn get_poam(
         &self,
         request: Request<GetPoamRequest>,
     ) -> Result<Response<GetPoamResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Poam)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Poam)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .unwrap_or_default();
         let poams = read_lock(&self.poams);
-        if let Some(p) = poams.get(&uuid) {
+        if let Some(p) = get_for_tenant(&poams, &ctx, &uuid) {
             return Ok(Response::new(GetPoamResponse {
                 poam: Some(p.clone()),
             }));
@@ -790,10 +1172,10 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListPoamsRequest>,
     ) -> Result<Response<ListPoamsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Poam)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Poam)?;
         let poams = read_lock(&self.poams);
         Ok(Response::new(ListPoamsResponse {
-            poams: poams.values().cloned().collect(),
+            poams: values_for_tenant(&poams, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -802,18 +1184,25 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreatePoamRequest>,
     ) -> Result<Response<CreatePoamResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Poam)?;
-        let poam = request
+        let ctx = self.authorize_request(&request, Action::CreateDocument, ResourceType::Poam)?;
+        let mut poam = request
             .into_inner()
             .poam
             .ok_or_else(|| Status::invalid_argument("poam is required"))?;
-        let uuid = poam
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut poam.uuid);
         let mut poams = write_lock(&self.poams);
-        insert_bounded(&mut poams, uuid, poam.clone())?;
+        insert_for_tenant_bounded(&mut poams, &ctx, &uuid, poam.clone())?;
+        drop(poams);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "poams",
+            &uuid,
+            "poam",
+            "oscal.poam.v1.PlanOfActionAndMilestones",
+            &poam,
+        );
+
         Ok(Response::new(CreatePoamResponse { poam: Some(poam) }))
     }
 
@@ -821,17 +1210,32 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdatePoamRequest>,
     ) -> Result<Response<UpdatePoamResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Poam)?;
+        let ctx = self.authorize_request(&request, Action::UpdateDocument, ResourceType::Poam)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let poam = req
+        let mut poam = req
             .poam
             .ok_or_else(|| Status::invalid_argument("poam is required"))?;
+        ensure_uuid_field(&mut poam.uuid, &uuid);
         let mut poams = write_lock(&self.poams);
-        insert_bounded(&mut poams, uuid, poam.clone())?;
+        if !contains_for_tenant(&poams, &ctx, &uuid) {
+            return Err(Status::not_found(format!("POA&M `{uuid}` not found")));
+        }
+        insert_for_tenant_bounded(&mut poams, &ctx, &uuid, poam.clone())?;
+        drop(poams);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "poams",
+            &uuid,
+            "poam",
+            "oscal.poam.v1.PlanOfActionAndMilestones",
+            &poam,
+        );
+
         Ok(Response::new(UpdatePoamResponse { poam: Some(poam) }))
     }
 
@@ -839,29 +1243,36 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeletePoamRequest>,
     ) -> Result<Response<DeletePoamResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Poam)?;
+        let ctx = self.authorize_request(&request, Action::DeleteDocument, ResourceType::Poam)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut poams = write_lock(&self.poams);
-        let success = poams.remove(&uuid).is_some();
-        Ok(Response::new(DeletePoamResponse { success }))
+        let success = remove_for_tenant(&mut poams, &ctx, &uuid).is_some();
+        drop(poams);
+        if !success {
+            return Err(Status::not_found(format!("POA&M `{uuid}` not found")));
+        }
+
+        self.delete_from_datastore(&ctx, "poams", &uuid);
+
+        Ok(Response::new(DeletePoamResponse { success: true }))
     }
 
     async fn get_mapping(
         &self,
         request: Request<GetMappingRequest>,
     ) -> Result<Response<GetMappingResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
         let uuid = request
             .into_inner()
             .uuid
             .map(|u| u.value)
             .unwrap_or_default();
         let maps = read_lock(&self.mappings);
-        if let Some(m) = maps.get(&uuid) {
+        if let Some(m) = get_for_tenant(&maps, &ctx, &uuid) {
             return Ok(Response::new(GetMappingResponse {
                 mapping: Some(m.clone()),
             }));
@@ -873,10 +1284,10 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<ListMappingsRequest>,
     ) -> Result<Response<ListMappingsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
         let maps = read_lock(&self.mappings);
         Ok(Response::new(ListMappingsResponse {
-            mappings: maps.values().cloned().collect(),
+            mappings: values_for_tenant(&maps, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -885,19 +1296,26 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<CreateMappingRequest>,
     ) -> Result<Response<CreateMappingResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Catalog)?;
-        let mapping = request
+        let mut mapping = request
             .into_inner()
             .mapping
             .ok_or_else(|| Status::invalid_argument("mapping is required"))?;
-        let uuid = mapping
-            .uuid
-            .as_ref()
-            .map(|u| u.value.clone())
-            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+        let uuid = resolve_or_assign_uuid(&mut mapping.uuid);
         let mut maps = write_lock(&self.mappings);
-        insert_bounded(&mut maps, uuid, mapping.clone())?;
+        insert_for_tenant_bounded(&mut maps, &ctx, &uuid, mapping.clone())?;
+        drop(maps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "mappings",
+            &uuid,
+            "mapping",
+            "oscal.mapping.v1.MappingCollection",
+            &mapping,
+        );
+
         Ok(Response::new(CreateMappingResponse {
             mapping: Some(mapping),
         }))
@@ -907,18 +1325,33 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<UpdateMappingRequest>,
     ) -> Result<Response<UpdateMappingResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::UpdateDocument, ResourceType::Catalog)?;
         let req = request.into_inner();
         let uuid = req
             .uuid
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
-        let mapping = req
+        let mut mapping = req
             .mapping
             .ok_or_else(|| Status::invalid_argument("mapping is required"))?;
+        ensure_uuid_field(&mut mapping.uuid, &uuid);
         let mut maps = write_lock(&self.mappings);
-        insert_bounded(&mut maps, uuid, mapping.clone())?;
+        if !contains_for_tenant(&maps, &ctx, &uuid) {
+            return Err(Status::not_found(format!("Mapping `{uuid}` not found")));
+        }
+        insert_for_tenant_bounded(&mut maps, &ctx, &uuid, mapping.clone())?;
+        drop(maps);
+
+        self.persist_proto_to_datastore(
+            &ctx,
+            "mappings",
+            &uuid,
+            "mapping",
+            "oscal.mapping.v1.MappingCollection",
+            &mapping,
+        );
+
         Ok(Response::new(UpdateMappingResponse {
             mapping: Some(mapping),
         }))
@@ -928,7 +1361,7 @@ impl OscalService for MizanServerState {
         &self,
         request: Request<DeleteMappingRequest>,
     ) -> Result<Response<DeleteMappingResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::DeleteDocument, ResourceType::Catalog)?;
         let uuid = request
             .into_inner()
@@ -936,20 +1369,25 @@ impl OscalService for MizanServerState {
             .map(|u| u.value)
             .ok_or_else(|| Status::invalid_argument("uuid is required"))?;
         let mut maps = write_lock(&self.mappings);
-        let success = maps.remove(&uuid).is_some();
-        Ok(Response::new(DeleteMappingResponse { success }))
+        let success = remove_for_tenant(&mut maps, &ctx, &uuid).is_some();
+        drop(maps);
+        if !success {
+            return Err(Status::not_found(format!("Mapping `{uuid}` not found")));
+        }
+        self.delete_from_datastore(&ctx, "mappings", &uuid);
+        Ok(Response::new(DeleteMappingResponse { success: true }))
     }
 
     async fn search(
         &self,
         request: Request<SearchRequest>,
     ) -> Result<Response<SearchResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
         let req = request.into_inner();
         let query = req.query.to_lowercase();
         let cats = read_lock(&self.catalogs);
         let mut results = Vec::new();
-        for (id, cat) in cats.iter() {
+        for (id, cat) in iter_for_tenant(&cats, &ctx) {
             let title = cat
                 .metadata
                 .as_ref()
@@ -977,9 +1415,18 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<CreateEntityRequest>,
     ) -> Result<Response<CreateEntityResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Catalog)?;
         let entity = request.into_inner().entity;
+        if let Some(ref ent) = entity {
+            let id = if ent.urn.is_empty() {
+                uuid::Uuid::new_v4().to_string()
+            } else {
+                ent.urn.clone()
+            };
+            let mut entities = write_lock(&self.entities);
+            insert_for_tenant_bounded(&mut entities, &ctx, &id, ent.clone())?;
+        }
         Ok(Response::new(CreateEntityResponse { entity }))
     }
 
@@ -987,7 +1434,14 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<GetEntityRequest>,
     ) -> Result<Response<GetEntityResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let id = request.into_inner().urn;
+        let entities = read_lock(&self.entities);
+        if let Some(ent) = get_for_tenant(&entities, &ctx, &id) {
+            return Ok(Response::new(GetEntityResponse {
+                entity: Some(ent.clone()),
+            }));
+        }
         Err(Status::not_found("Entity not found"))
     }
 
@@ -995,9 +1449,16 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<UpdateEntityRequest>,
     ) -> Result<Response<UpdateEntityResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::UpdateDocument, ResourceType::Catalog)?;
         let entity = request.into_inner().entity;
+        if let Some(ref ent) = entity {
+            let mut entities = write_lock(&self.entities);
+            if !contains_for_tenant(&entities, &ctx, &ent.urn) {
+                return Err(Status::not_found("Entity not found"));
+            }
+            insert_for_tenant_bounded(&mut entities, &ctx, &ent.urn, ent.clone())?;
+        }
         Ok(Response::new(UpdateEntityResponse { entity }))
     }
 
@@ -1005,9 +1466,10 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<ListEntitiesRequest>,
     ) -> Result<Response<ListEntitiesResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let entities = read_lock(&self.entities);
         Ok(Response::new(ListEntitiesResponse {
-            entities: Vec::new(),
+            entities: values_for_tenant(&entities, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -1016,41 +1478,53 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<CreateSnapshotRequest>,
     ) -> Result<Response<CreateSnapshotResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Profile)?;
         let name = request.into_inner().name;
-        Ok(Response::new(CreateSnapshotResponse {
-            name,
-            entity_count: 0,
-        }))
+        let tenant_entities: Vec<Entity> = {
+            let entities = read_lock(&self.entities);
+            values_for_tenant(&entities, &ctx).cloned().collect()
+        };
+        let entity_count = tenant_entities.len() as i32;
+        let mut snapshots = write_lock(&self.snapshots);
+        insert_for_tenant_bounded(&mut snapshots, &ctx, &name, tenant_entities)?;
+        Ok(Response::new(CreateSnapshotResponse { name, entity_count }))
     }
 
     async fn get_snapshot(
         &self,
         request: Request<GetSnapshotRequest>,
     ) -> Result<Response<GetSnapshotResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
-        let _name = request.into_inner().name;
-        Ok(Response::new(GetSnapshotResponse {
-            entities: Vec::new(),
-        }))
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
+        let name = request.into_inner().name;
+        let snapshots = read_lock(&self.snapshots);
+        let entities = get_for_tenant(&snapshots, &ctx, &name)
+            .cloned()
+            .unwrap_or_default();
+        Ok(Response::new(GetSnapshotResponse { entities }))
     }
 
     async fn list_snapshots(
         &self,
         request: Request<ListSnapshotsRequest>,
     ) -> Result<Response<ListSnapshotsResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
-        Ok(Response::new(ListSnapshotsResponse { names: Vec::new() }))
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
+        let snapshots = read_lock(&self.snapshots);
+        let names = iter_for_tenant(&snapshots, &ctx)
+            .map(|(k, _)| k.to_string())
+            .collect();
+        Ok(Response::new(ListSnapshotsResponse { names }))
     }
 
     async fn create_release(
         &self,
         request: Request<CreateReleaseRequest>,
     ) -> Result<Response<CreateReleaseResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::PublishBaseline, ResourceType::Profile)?;
         let req = request.into_inner();
+        let mut releases = write_lock(&self.releases);
+        insert_for_tenant_bounded(&mut releases, &ctx, &req.name, req.snapshot_name.clone())?;
         Ok(Response::new(CreateReleaseResponse {
             name: req.name,
             snapshot_name: req.snapshot_name,
@@ -1061,8 +1535,12 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<ListReleasesRequest>,
     ) -> Result<Response<ListReleasesResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
-        Ok(Response::new(ListReleasesResponse { names: Vec::new() }))
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Profile)?;
+        let releases = read_lock(&self.releases);
+        let names = iter_for_tenant(&releases, &ctx)
+            .map(|(k, _)| k.to_string())
+            .collect();
+        Ok(Response::new(ListReleasesResponse { names }))
     }
 
     async fn ingest_requirements(
@@ -1180,9 +1658,10 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<ListFrameworksRequest>,
     ) -> Result<Response<ListFrameworksResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let frameworks = read_lock(&self.frameworks);
         Ok(Response::new(ListFrameworksResponse {
-            frameworks: Vec::new(),
+            frameworks: values_for_tenant(&frameworks, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -1191,7 +1670,14 @@ impl GovernanceService for MizanServerState {
         &self,
         request: Request<GetFrameworkRequest>,
     ) -> Result<Response<GetFrameworkResponse>, Status> {
-        let _ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let ctx = self.authorize_request(&request, Action::ReadDocument, ResourceType::Catalog)?;
+        let id = request.into_inner().ref_id;
+        let frameworks = read_lock(&self.frameworks);
+        if let Some(fw) = get_for_tenant(&frameworks, &ctx, &id) {
+            return Ok(Response::new(GetFrameworkResponse {
+                framework: Some(fw.clone()),
+            }));
+        }
         Err(Status::not_found("Framework not found"))
     }
 
@@ -1261,15 +1747,18 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<CreateClaimRequest>,
     ) -> Result<Response<CreateClaimResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Attestation)?;
-        let claim = request
+        let mut claim = request
             .into_inner()
             .claim
             .ok_or_else(|| Status::invalid_argument("claim is required"))?;
+        if claim.id.trim().is_empty() {
+            claim.id = uuid::Uuid::new_v4().to_string();
+        }
         let id = claim.id.clone();
         let mut claims = write_lock(&self.claims);
-        insert_bounded(&mut claims, id, claim.clone())?;
+        insert_for_tenant_bounded(&mut claims, &ctx, &id, claim.clone())?;
         Ok(Response::new(CreateClaimResponse {
             claim: Some(claim),
             trust_state: "observed".to_string(),
@@ -1280,11 +1769,11 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<GetClaimRequest>,
     ) -> Result<Response<GetClaimResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let id = request.into_inner().claim_id;
         let claims = read_lock(&self.claims);
-        if let Some(c) = claims.get(&id) {
+        if let Some(c) = get_for_tenant(&claims, &ctx, &id) {
             return Ok(Response::new(GetClaimResponse {
                 claim: Some(c.clone()),
             }));
@@ -1296,11 +1785,11 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<ListClaimsRequest>,
     ) -> Result<Response<ListClaimsResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let claims = read_lock(&self.claims);
         Ok(Response::new(ListClaimsResponse {
-            claims: claims.values().cloned().collect(),
+            claims: values_for_tenant(&claims, &ctx).cloned().collect(),
             next_page_token: String::new(),
         }))
     }
@@ -1309,13 +1798,12 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<VerifyClaimRequest>,
     ) -> Result<Response<VerifyClaimResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let claim_id = req.claim_id;
         let claims = read_lock(&self.claims);
-        let claim = claims
-            .get(&claim_id)
+        let claim = get_for_tenant(&claims, &ctx, &claim_id)
             .ok_or_else(|| Status::not_found(format!("Claim `{claim_id}` not found")))?;
 
         let trust_state = if claim.trust_state.is_empty() {
@@ -1371,12 +1859,11 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<ExportClaimReceiptRequest>,
     ) -> Result<Response<ExportClaimReceiptResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let id = request.into_inner().claim_id;
         let claims = read_lock(&self.claims);
-        let claim = claims
-            .get(&id)
+        let claim = get_for_tenant(&claims, &ctx, &id)
             .cloned()
             .ok_or_else(|| Status::not_found(format!("Claim `{id}` not found")))?;
         drop(claims);
@@ -1426,7 +1913,7 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<UploadEvidenceRequest>,
     ) -> Result<Response<UploadEvidenceResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let blob = req.blob;
@@ -1438,7 +1925,9 @@ impl TransparencyExchangeService for MizanServerState {
                 &ev_check.id
             };
             let store = read_lock(&self.evidence);
-            if !store.contains_key(candidate_id) && store.len() >= MAX_SERVER_COLLECTION_SIZE {
+            if !contains_for_tenant(&store, &ctx, candidate_id)
+                && store.len() >= MAX_SERVER_COLLECTION_SIZE
+            {
                 return Err(Status::resource_exhausted(format!(
                     "server collection capacity ({MAX_SERVER_COLLECTION_SIZE}) exhausted"
                 )));
@@ -1457,7 +1946,7 @@ impl TransparencyExchangeService for MizanServerState {
                 ev.id = digest;
             }
             let mut store = write_lock(&self.evidence);
-            insert_bounded(&mut store, ev.id.clone(), ev.clone())?;
+            insert_for_tenant_bounded(&mut store, &ctx, &ev.id, ev.clone())?;
         }
         Ok(Response::new(UploadEvidenceResponse {
             evidence,
@@ -1469,13 +1958,12 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<GetEvidenceRequest>,
     ) -> Result<Response<GetEvidenceResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let id = request.into_inner().evidence_id;
         let store = read_lock(&self.evidence);
-        if let Some(ev) = store
-            .get(&id)
-            .or_else(|| store.values().find(|e| e.digest == id))
+        if let Some(ev) = get_for_tenant(&store, &ctx, &id)
+            .or_else(|| values_for_tenant(&store, &ctx).find(|e| e.digest == id))
         {
             return Ok(Response::new(GetEvidenceResponse {
                 evidence: Some(ev.clone()),
@@ -1488,16 +1976,15 @@ impl TransparencyExchangeService for MizanServerState {
         &self,
         request: Request<VerifyEvidenceRequest>,
     ) -> Result<Response<VerifyEvidenceResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let id = req.evidence_id;
         let fetch_and_hash = req.fetch_and_hash;
 
         let store = read_lock(&self.evidence);
-        let ev = store
-            .get(&id)
-            .or_else(|| store.values().find(|e| e.digest == id))
+        let ev = get_for_tenant(&store, &ctx, &id)
+            .or_else(|| values_for_tenant(&store, &ctx).find(|e| e.digest == id))
             .cloned()
             .ok_or_else(|| Status::not_found(format!("Evidence `{id}` not found")))?;
         drop(store);
@@ -1583,7 +2070,7 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ProjectEdgeRequest>,
     ) -> Result<Response<ProjectEdgeResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::CreateDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         if req.claim_id.trim().is_empty() {
@@ -1591,8 +2078,7 @@ impl TransparencyGraphService for MizanServerState {
         }
 
         let claims = read_lock(&self.claims);
-        let claim = claims
-            .get(&req.claim_id)
+        let claim = get_for_tenant(&claims, &ctx, &req.claim_id)
             .cloned()
             .ok_or_else(|| Status::not_found(format!("Claim `{}` not found", req.claim_id)))?;
         drop(claims);
@@ -1676,8 +2162,9 @@ impl TransparencyGraphService for MizanServerState {
 
         // Pre-validate bounded collection capacities before mutating graph state.
         {
-            let events = read_lock(&self.projection_events);
-            if events.len() >= MAX_SERVER_COLLECTION_SIZE {
+            let events_map = read_lock(&self.projection_events);
+            let total_events: usize = events_map.values().map(Vec::len).sum();
+            if total_events >= MAX_SERVER_COLLECTION_SIZE {
                 return Err(Status::resource_exhausted(format!(
                     "server collection capacity ({MAX_SERVER_COLLECTION_SIZE}) exhausted"
                 )));
@@ -1686,43 +2173,51 @@ impl TransparencyGraphService for MizanServerState {
 
         {
             let mut nodes = write_lock(&self.nodes);
-            let needed = usize::from(!nodes.contains_key(&from_node))
-                + usize::from(from_node != to_node && !nodes.contains_key(&to_node));
+            let needed = usize::from(!contains_for_tenant(&nodes, &ctx, &from_node))
+                + usize::from(from_node != to_node && !contains_for_tenant(&nodes, &ctx, &to_node));
             if nodes.len() + needed > MAX_SERVER_COLLECTION_SIZE {
                 return Err(Status::resource_exhausted(format!(
                     "server collection capacity ({MAX_SERVER_COLLECTION_SIZE}) exhausted"
                 )));
             }
             let mut edges = write_lock(&self.edges);
-            insert_bounded(&mut edges, edge_id.clone(), edge.clone())?;
-            nodes.entry(from_node.clone()).or_insert_with(|| GraphNode {
-                id: from_node.clone(),
-                kind: claim
-                    .subject
-                    .as_ref()
-                    .map(|s| s.kind.clone())
-                    .filter(|k| !k.is_empty())
-                    .unwrap_or_else(|| "artifact".to_string()),
-                urn: format!("urn:mizan:node:{from_node}"),
-                labels_json: "{}".to_string(),
-                created_at: Some(now_ts),
-            });
-            nodes.entry(to_node.clone()).or_insert_with(|| GraphNode {
-                id: to_node.clone(),
-                kind: "component".to_string(),
-                urn: format!("urn:mizan:node:{to_node}"),
-                labels_json: "{}".to_string(),
-                created_at: Some(now_ts),
-            });
+            insert_for_tenant_bounded(&mut edges, &ctx, &edge_id, edge.clone())?;
+            nodes
+                .entry(tenant_key(&ctx, &from_node))
+                .or_insert_with(|| GraphNode {
+                    id: from_node.clone(),
+                    kind: claim
+                        .subject
+                        .as_ref()
+                        .map(|s| s.kind.clone())
+                        .filter(|k| !k.is_empty())
+                        .unwrap_or_else(|| "artifact".to_string()),
+                    urn: format!("urn:mizan:node:{from_node}"),
+                    labels_json: "{}".to_string(),
+                    created_at: Some(now_ts),
+                });
+            nodes
+                .entry(tenant_key(&ctx, &to_node))
+                .or_insert_with(|| GraphNode {
+                    id: to_node.clone(),
+                    kind: "component".to_string(),
+                    urn: format!("urn:mizan:node:{to_node}"),
+                    labels_json: "{}".to_string(),
+                    created_at: Some(now_ts),
+                });
         }
 
         let projection_event = {
-            let mut events = write_lock(&self.projection_events);
-            if events.len() >= MAX_SERVER_COLLECTION_SIZE {
+            let mut events_map = write_lock(&self.projection_events);
+            let total_events: usize = events_map.values().map(Vec::len).sum();
+            if total_events >= MAX_SERVER_COLLECTION_SIZE {
                 return Err(Status::resource_exhausted(format!(
                     "server collection capacity ({MAX_SERVER_COLLECTION_SIZE}) exhausted"
                 )));
             }
+            let events = events_map
+                .entry(ctx.tenant_id.as_str().to_string())
+                .or_default();
             let sequence = (events.len() as i64) + 1;
             let previous_hash = events
                 .last()
@@ -1764,15 +2259,19 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ListProjectionEventsRequest>,
     ) -> Result<Response<ListProjectionEventsResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let events_guard = read_lock(&self.projection_events);
+        let empty_events = Vec::new();
+        let tenant_events = events_guard
+            .get(ctx.tenant_id.as_str())
+            .unwrap_or(&empty_events);
 
         let mut chain_valid = true;
         let mut expected_prev =
             "sha256:0000000000000000000000000000000000000000000000000000000000000000".to_string();
-        for ev in events_guard.iter() {
+        for ev in tenant_events.iter() {
             if ev.previous_hash != expected_prev {
                 chain_valid = false;
                 break;
@@ -1797,7 +2296,7 @@ impl TransparencyGraphService for MizanServerState {
             expected_prev = ev.event_hash.clone();
         }
 
-        let filtered: Vec<GraphProjectionEvent> = events_guard
+        let filtered: Vec<GraphProjectionEvent> = tenant_events
             .iter()
             .filter(|ev| {
                 (req.claim_id.is_empty() || ev.claim_id == req.claim_id)
@@ -1816,11 +2315,11 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<GetEdgeRequest>,
     ) -> Result<Response<GetEdgeResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let edge_id = request.into_inner().edge_id;
         let edges = read_lock(&self.edges);
-        if let Some(edge) = edges.get(&edge_id) {
+        if let Some(edge) = get_for_tenant(&edges, &ctx, &edge_id) {
             return Ok(Response::new(GetEdgeResponse {
                 edge: Some(edge.clone()),
             }));
@@ -1832,12 +2331,11 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ListEdgesRequest>,
     ) -> Result<Response<ListEdgesResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let edges = read_lock(&self.edges);
-        let filtered: Vec<GraphEdge> = edges
-            .values()
+        let filtered: Vec<GraphEdge> = values_for_tenant(&edges, &ctx)
             .filter(|e| {
                 (req.from_node.is_empty() || e.from_node == req.from_node)
                     && (req.to_node.is_empty() || e.to_node == req.to_node)
@@ -1856,11 +2354,11 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<DeleteEdgeRequest>,
     ) -> Result<Response<DeleteEdgeResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::DeleteDocument, ResourceType::Attestation)?;
         let edge_id = request.into_inner().edge_id;
         let mut edges = write_lock(&self.edges);
-        let success = edges.remove(&edge_id).is_some();
+        let success = remove_for_tenant(&mut edges, &ctx, &edge_id).is_some();
         Ok(Response::new(DeleteEdgeResponse { success }))
     }
 
@@ -1868,11 +2366,11 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<GetNodeRequest>,
     ) -> Result<Response<GetNodeResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let node_id = request.into_inner().node_id;
         let nodes = read_lock(&self.nodes);
-        if let Some(node) = nodes.get(&node_id) {
+        if let Some(node) = get_for_tenant(&nodes, &ctx, &node_id) {
             return Ok(Response::new(GetNodeResponse {
                 node: Some(node.clone()),
             }));
@@ -1884,12 +2382,11 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ListNodesRequest>,
     ) -> Result<Response<ListNodesResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let nodes = read_lock(&self.nodes);
-        let filtered: Vec<GraphNode> = nodes
-            .values()
+        let filtered: Vec<GraphNode> = values_for_tenant(&nodes, &ctx)
             .filter(|n| req.kind.is_empty() || n.kind == req.kind)
             .cloned()
             .collect();
@@ -1903,7 +2400,7 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<TraverseRequest>,
     ) -> Result<Response<TraverseResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let max_depth = if req.max_depth <= 0 {
@@ -1914,7 +2411,7 @@ impl TransparencyGraphService for MizanServerState {
         let edges = read_lock(&self.edges);
         let nodes = read_lock(&self.nodes);
 
-        let mut sorted_edges: Vec<&GraphEdge> = edges.values().collect();
+        let mut sorted_edges: Vec<&GraphEdge> = values_for_tenant(&edges, &ctx).collect();
         sorted_edges.sort_by(|a, b| a.id.cmp(&b.id));
 
         let mut path = Vec::new();
@@ -1932,7 +2429,7 @@ impl TransparencyGraphService for MizanServerState {
                     && (req.relations.is_empty() || req.relations.contains(&edge.relation))
                     && visited_edges.insert(edge.id.clone())
                 {
-                    let target_node = nodes.get(&edge.to_node).cloned();
+                    let target_node = get_for_tenant(&nodes, &ctx, &edge.to_node).cloned();
                     path.push(PathSegment {
                         depth: next_depth,
                         edge: Some((*edge).clone()),
@@ -1949,7 +2446,7 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ShortestPathRequest>,
     ) -> Result<Response<ShortestPathResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         if req.from_node.is_empty() || req.to_node.is_empty() {
@@ -1961,7 +2458,7 @@ impl TransparencyGraphService for MizanServerState {
         }
         let edges = read_lock(&self.edges);
 
-        let mut sorted_edges: Vec<&GraphEdge> = edges.values().collect();
+        let mut sorted_edges: Vec<&GraphEdge> = values_for_tenant(&edges, &ctx).collect();
         sorted_edges.sort_by(|a, b| a.id.cmp(&b.id));
 
         let max_depth = 16usize;
@@ -2005,7 +2502,7 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ImpactRadiusRequest>,
     ) -> Result<Response<ImpactRadiusResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let max_depth = if req.max_depth <= 0 {
@@ -2016,7 +2513,7 @@ impl TransparencyGraphService for MizanServerState {
         let edges_map = read_lock(&self.edges);
         let nodes_map = read_lock(&self.nodes);
 
-        let mut sorted_edges: Vec<&GraphEdge> = edges_map.values().collect();
+        let mut sorted_edges: Vec<&GraphEdge> = values_for_tenant(&edges_map, &ctx).collect();
         sorted_edges.sort_by(|a, b| a.id.cmp(&b.id));
 
         let mut matched_edges = Vec::new();
@@ -2044,7 +2541,7 @@ impl TransparencyGraphService for MizanServerState {
                         &edge.from_node
                     };
                     if visited_nodes.insert(neighbor_id.clone()) {
-                        if let Some(n) = nodes_map.get(neighbor_id) {
+                        if let Some(n) = get_for_tenant(&nodes_map, &ctx, neighbor_id) {
                             matched_nodes.push(n.clone());
                         }
                         queue.push_back((neighbor_id.clone(), next_depth));
@@ -2062,15 +2559,14 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ExplainClaimRequest>,
     ) -> Result<Response<ExplainClaimResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let claim_id = if !req.claim_id.is_empty() {
             req.claim_id
         } else if !req.edge_id.is_empty() {
             let edges = read_lock(&self.edges);
-            edges
-                .get(&req.edge_id)
+            get_for_tenant(&edges, &ctx, &req.edge_id)
                 .map(|e| e.claim_id.clone())
                 .ok_or_else(|| Status::not_found(format!("Edge `{}` not found", req.edge_id)))?
         } else {
@@ -2078,8 +2574,7 @@ impl TransparencyGraphService for MizanServerState {
         };
 
         let claims = read_lock(&self.claims);
-        let claim = claims
-            .get(&claim_id)
+        let claim = get_for_tenant(&claims, &ctx, &claim_id)
             .cloned()
             .ok_or_else(|| Status::not_found(format!("Claim `{claim_id}` not found")))?;
         drop(claims);
@@ -2087,9 +2582,8 @@ impl TransparencyGraphService for MizanServerState {
         let ev_store = read_lock(&self.evidence);
         let mut linked_evidence = Vec::new();
         for sref in &claim.source_refs {
-            if let Some(ev) = ev_store.get(&sref.r#ref).or_else(|| {
-                ev_store
-                    .values()
+            if let Some(ev) = get_for_tenant(&ev_store, &ctx, &sref.r#ref).or_else(|| {
+                values_for_tenant(&ev_store, &ctx)
                     .find(|e| !sref.digest.is_empty() && e.digest == sref.digest)
             }) {
                 linked_evidence.push(ev.clone());
@@ -2125,15 +2619,14 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<ComputeTrustStateRequest>,
     ) -> Result<Response<ComputeTrustStateResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         let claim_id = if !req.claim_id.is_empty() {
             req.claim_id.clone()
         } else if !req.edge_id.is_empty() {
             let edges = read_lock(&self.edges);
-            edges
-                .get(&req.edge_id)
+            get_for_tenant(&edges, &ctx, &req.edge_id)
                 .map(|e| e.claim_id.clone())
                 .ok_or_else(|| Status::not_found(format!("Edge `{}` not found", req.edge_id)))?
         } else {
@@ -2141,8 +2634,7 @@ impl TransparencyGraphService for MizanServerState {
         };
 
         let claims = read_lock(&self.claims);
-        let claim = claims
-            .get(&claim_id)
+        let claim = get_for_tenant(&claims, &ctx, &claim_id)
             .ok_or_else(|| Status::not_found(format!("Claim `{claim_id}` not found")))?;
 
         let trust_state = if claim.trust_state.is_empty() {
@@ -2187,7 +2679,7 @@ impl TransparencyGraphService for MizanServerState {
         &self,
         request: Request<VerifyClosureRequest>,
     ) -> Result<Response<VerifyClosureResponse>, Status> {
-        let _ctx =
+        let ctx =
             self.authorize_request(&request, Action::ReadDocument, ResourceType::Attestation)?;
         let req = request.into_inner();
         if req.subject_node.trim().is_empty() {
@@ -2195,7 +2687,7 @@ impl TransparencyGraphService for MizanServerState {
         }
         let edges = read_lock(&self.edges);
 
-        let mut sorted_edges: Vec<&GraphEdge> = edges.values().collect();
+        let mut sorted_edges: Vec<&GraphEdge> = values_for_tenant(&edges, &ctx).collect();
         sorted_edges.sort_by(|a, b| a.id.cmp(&b.id));
 
         let mut edges_checked = 0i32;

@@ -1,8 +1,8 @@
 {
   "schema": "mizan.workbench.snapshot/v1",
-  "generatedAt": "2026-11-10T21:49:12.332Z",
+  "generatedAt": "2026-11-10T22:29:17.621Z",
   "mizanVersion": "oscal-cli 1.0.0",
-  "gitCommit": "e49797f613aa9f8c1a3f88cf5a260de360f9fafb",
+  "gitCommit": "00a8f73c499611c3f42ca22434422233cc833932",
   "gitDirty": false,
   "inputs": [
     {
@@ -34,7 +34,7 @@
         "--version"
       ],
       "exitCode": 0,
-      "durationMs": 21,
+      "durationMs": 7,
       "stdoutSha256": "97b87596581eb15eabfcdedb2a6a4a76b34b108ae877ddfa37113afaf8b66314",
       "output": "version.txt"
     },
@@ -62,7 +62,7 @@
         "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json"
       ],
       "exitCode": 0,
-      "durationMs": 34,
+      "durationMs": 32,
       "stdoutSha256": "07932870beb22223e13136f3d2cce43db16153886467d9d2c3c67b7e1a169524",
       "output": "nist-catalog-inspect.json"
     },
@@ -76,7 +76,7 @@
         "examples/nist-800-53-r5/NIST_SP-800-53_rev5_catalog.json"
       ],
       "exitCode": 0,
-      "durationMs": 104,
+      "durationMs": 95,
       "stdoutSha256": "8fd92b481a5293654c72b218a36789b39194b1547bd30aa41edbe5c80dac1a24",
       "output": "nist-catalog-validate.json"
     },
@@ -92,7 +92,7 @@
         "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
       ],
       "exitCode": 0,
-      "durationMs": 63,
+      "durationMs": 61,
       "stdoutSha256": "44bc4d3b562284b352321c060ac58f17e7c03fbf595567d035fa32cffde10fbe",
       "output": "nist-moderate-resolve.txt"
     },
@@ -106,8 +106,8 @@
         "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
       ],
       "exitCode": 0,
-      "durationMs": 14,
-      "stdoutSha256": "e16ce5fd266e4e478c7f6b08121dfa709820d4a9730bfb05e8a68d712bff180b",
+      "durationMs": 15,
+      "stdoutSha256": "c3a6936cb5952a18c7096e1da76a9959e60f05c74b476d446824a43dbb9f4158",
       "output": "nist-moderate-inspect.json"
     },
     {
@@ -120,7 +120,7 @@
         "apps/workbench/.snapshot-work/nist-moderate-resolved.json"
       ],
       "exitCode": 0,
-      "durationMs": 57,
+      "durationMs": 55,
       "stdoutSha256": "4f9e5e741f6095e113c2a210b02e0bebe4c404e3633753086b5301cac0522c6a",
       "output": "nist-moderate-validate.json"
     },
@@ -134,7 +134,7 @@
         "examples/sample-ssp.json"
       ],
       "exitCode": 0,
-      "durationMs": 6,
+      "durationMs": 7,
       "stdoutSha256": "e63ce16e66e65236a878c857bc7e4b1381866326d97ebf84a5c5315d94e1620a",
       "output": "ssp-inspect.json"
     },
@@ -148,7 +148,7 @@
         "examples/sample-ssp.json"
       ],
       "exitCode": 0,
-      "durationMs": 45,
+      "durationMs": 44,
       "stdoutSha256": "9c5ef081b65ce3a07c0ef6fa8a8fbfbe3de6f4b5dfea1e2e353d77c279457410",
       "output": "ssp-validate.json"
     },
@@ -181,7 +181,7 @@
         "examples/sample-ssp.json"
       ],
       "exitCode": 0,
-      "durationMs": 6,
+      "durationMs": 7,
       "stdoutSha256": "2939e47e8df3fe77e4734005e4718a4a352be53bf68515810d0cd3aeb5eacb23",
       "output": "ssp-blast-radius.json"
     },
@@ -215,7 +215,7 @@
       ],
       "exitCode": 0,
       "durationMs": 6,
-      "stdoutSha256": "198eca4e70b073cb6f53872de1f22a8b38fab5c0791d9078eeda5b282881df89",
+      "stdoutSha256": "c026862914acf6597d4d88d6996d7c8774346f1550bb6694a86b3953578ea0b4",
       "output": "sbom-import.json"
     },
     {
@@ -246,7 +246,7 @@
         "http://localhost:3000"
       ],
       "exitCode": 0,
-      "durationMs": 7,
+      "durationMs": 6,
       "stdoutSha256": "5d608c5e80d7c955c8f42fec3b763dc47c7edd77c003e2ce8b4fb607c625823a",
       "output": "utcp-manual.json"
     },
@@ -282,8 +282,8 @@
         "apps/workbench/.snapshot-work/pipeline"
       ],
       "exitCode": 0,
-      "durationMs": 151,
-      "stdoutSha256": "492e2fb93960819a8cfbc14a64e9a2986ba7e9914b7c2fc32c2389a50cec46b7",
+      "durationMs": 141,
+      "stdoutSha256": "325fa6e5a04da593b7985669f2f71887dfaab0cf5c3246f3e8e319c6e56de532",
       "output": "pipeline-run.json"
     },
     {

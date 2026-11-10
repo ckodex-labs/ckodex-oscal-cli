@@ -17,7 +17,10 @@ pub mod crud_client;
 pub use crud_client::CrudClient;
 
 pub mod server;
-pub use server::{MizanServerState, start_embedded_server, start_embedded_server_with_state};
+pub use server::{
+    MizanServerState, start_embedded_server, start_embedded_server_with_incoming,
+    start_embedded_server_with_state,
+};
 
 pub(crate) const MAX_MESSAGE_BYTES: usize = 16 * 1024 * 1024;
 
@@ -25,7 +28,11 @@ pub async fn connect_channel(config: &AppConfig) -> Result<Channel> {
     let mut endpoint = Endpoint::from_shared(config.endpoint.clone())
         .map_err(|error| AppError::Configuration(format!("invalid endpoint: {error}")))?
         .connect_timeout(config.timeout)
-        .timeout(config.timeout);
+        .timeout(config.timeout)
+        .tcp_keepalive(Some(std::time::Duration::from_secs(60)))
+        .http2_keep_alive_interval(std::time::Duration::from_secs(30))
+        .keep_alive_timeout(std::time::Duration::from_secs(10))
+        .concurrency_limit(256);
     let https = config.endpoint.starts_with("https://");
     let tls_options = config.tls_domain.is_some()
         || config.ca_cert.is_some()
@@ -64,14 +71,26 @@ pub async fn connect_channel(config: &AppConfig) -> Result<Channel> {
             .tls_config(tls)
             .map_err(|error| AppError::Configuration(format!("invalid TLS config: {error}")))?;
     }
-    endpoint
-        .connect()
-        .await
-        .map_err(|error| AppError::Connection {
-            endpoint: redact_endpoint(&config.endpoint),
-            message: error.to_string(),
-            hint: "check the endpoint, server availability, timeout, and TLS settings",
-        })
+
+    const RETRY_DELAYS_MS: [u64; 2] = [50, 150];
+    let mut last_error = None;
+    for attempt in 0..=RETRY_DELAYS_MS.len() {
+        match endpoint.connect().await {
+            Ok(channel) => return Ok(channel),
+            Err(error) => {
+                last_error = Some(error);
+                if let Some(&delay_ms) = RETRY_DELAYS_MS.get(attempt) {
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                }
+            }
+        }
+    }
+    let error = last_error.expect("at least one connection attempt must run");
+    Err(AppError::Connection {
+        endpoint: redact_endpoint(&config.endpoint),
+        message: error.to_string(),
+        hint: "check the endpoint, server availability, timeout, and TLS settings",
+    })
 }
 
 pub(crate) fn attach_token<T>(request: &mut Request<T>, token: Option<&str>) -> Result<()> {

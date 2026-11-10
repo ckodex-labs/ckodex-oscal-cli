@@ -40,7 +40,10 @@ impl RegorusEvaluator {
     }
 
     pub fn add_policy_file(&mut self, path: &Path) -> Result<()> {
-        let content = fs::read_to_string(path).map_err(|err| io_error(path, err))?;
+        let content = crate::document::io_safe::read_bounded_utf8_file(
+            path,
+            crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+        )?;
         let filename = path
             .file_name()
             .and_then(|n| n.to_str())
@@ -57,7 +60,11 @@ impl RegorusEvaluator {
         let entries = fs::read_dir(dir_path).map_err(|err| io_error(dir_path, err))?;
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("rego") {
+            if let Ok(meta) = fs::symlink_metadata(&path)
+                && !meta.file_type().is_symlink()
+                && meta.file_type().is_file()
+                && path.extension().and_then(|ext| ext.to_str()) == Some("rego")
+            {
                 self.add_policy_file(&path)?;
                 count += 1;
             }
@@ -109,16 +116,29 @@ impl RegorusEvaluator {
         package: &str,
         input: Value,
     ) -> Result<PolicyEvaluationResult> {
+        let pkg_trimmed = package.trim();
+        if pkg_trimmed.is_empty() {
+            return Err(AppError::InvalidArgument(
+                "Rego query package must not be empty".to_string(),
+            ));
+        }
+        let pkg_clean = pkg_trimmed.strip_prefix("data.").unwrap_or(pkg_trimmed);
+
         self.set_input_json(input)?;
-        let deny_query = format!("data.{package}.deny");
-        let deny_result = self.eval_query(&deny_query);
+        let deny_query = format!("data.{pkg_clean}.deny");
+        // Propagate syntax or engine evaluation errors directly instead of silently passing
+        let deny_val = self.eval_query(&deny_query)?;
 
         let mut findings = Vec::new();
         let mut passed = true;
+        let mut effective_query = deny_query;
+        let mut raw_output = deny_val.clone();
 
-        if let Ok(Value::Object(map)) = &deny_result
+        let mut deny_defined = false;
+        if let Value::Object(map) = &deny_val
             && let Some(result_arr) = map.get("result").and_then(Value::as_array)
         {
+            deny_defined = !result_arr.is_empty();
             for binding in result_arr {
                 if let Some(expressions) = binding.get("expressions").and_then(Value::as_array) {
                     for expr in expressions {
@@ -133,6 +153,61 @@ impl RegorusEvaluator {
                             } else if let Some(msg) = value.as_str() {
                                 findings.push(msg.to_string());
                                 passed = false;
+                            } else if value == &Value::Bool(true) {
+                                findings.push(format!("Policy deny rule matched in {pkg_clean}"));
+                                passed = false;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Support allow-only Rego packages (where `deny` is undefined)
+        if !deny_defined {
+            let allow_query = format!("data.{pkg_clean}.allow");
+            let allow_val = self.eval_query(&allow_query)?;
+            if let Value::Object(map) = &allow_val
+                && let Some(result_arr) = map.get("result").and_then(Value::as_array)
+                && !result_arr.is_empty()
+            {
+                effective_query = allow_query;
+                raw_output = allow_val.clone();
+                for binding in result_arr {
+                    if let Some(expressions) = binding.get("expressions").and_then(Value::as_array)
+                    {
+                        for expr in expressions {
+                            if expr.get("value") == Some(&Value::Bool(false)) {
+                                passed = false;
+                                // Collect optional `violations` set messages if present
+                                if let Ok(v_val) =
+                                    self.eval_query(&format!("data.{pkg_clean}.violations"))
+                                    && let Some(v_arr) =
+                                        v_val.get("result").and_then(Value::as_array)
+                                {
+                                    for vb in v_arr {
+                                        if let Some(vex) =
+                                            vb.get("expressions").and_then(Value::as_array)
+                                        {
+                                            for ve in vex {
+                                                if let Some(items) =
+                                                    ve.get("value").and_then(Value::as_array)
+                                                {
+                                                    for item in items {
+                                                        if let Some(msg) = item.as_str() {
+                                                            findings.push(msg.to_string());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if findings.is_empty() {
+                                    findings.push(format!(
+                                        "Policy allow rule evaluated to false in {pkg_clean}"
+                                    ));
+                                }
                             }
                         }
                     }
@@ -142,10 +217,10 @@ impl RegorusEvaluator {
 
         Ok(PolicyEvaluationResult {
             policy_file: package.to_string(),
-            query: deny_query,
+            query: effective_query,
             passed,
             findings,
-            raw_output: deny_result.unwrap_or(Value::Null),
+            raw_output,
         })
     }
 }
@@ -210,5 +285,40 @@ mod tests {
 
         assert!(result_good.passed);
         assert!(result_good.findings.is_empty());
+
+        // Broken query syntax must return Err rather than silently passing
+        assert!(
+            evaluator
+                .evaluate_compliance_rule("oscal..broken!!syntax", json!({}))
+                .is_err(),
+            "malformed Rego query must fail closed with Err"
+        );
+    }
+
+    #[test]
+    fn test_regorus_evaluator_allow_only_policy() {
+        let mut evaluator = RegorusEvaluator::new();
+        let rego_code = r#"
+            package oscal.allow_only
+
+            default allow = false
+            allow if {
+                input.approved == true
+            }
+        "#;
+        evaluator
+            .add_policy_str("allow_only.rego", rego_code)
+            .unwrap();
+
+        let denied = evaluator
+            .evaluate_compliance_rule("oscal.allow_only", json!({ "approved": false }))
+            .unwrap();
+        assert!(!denied.passed);
+        assert!(!denied.findings.is_empty());
+
+        let allowed = evaluator
+            .evaluate_compliance_rule("oscal.allow_only", json!({ "approved": true }))
+            .unwrap();
+        assert!(allowed.passed);
     }
 }

@@ -323,10 +323,10 @@ fn dedup_control_array(controls: &[Value], modifications: &mut Vec<String>) -> (
             .to_string();
         if let Some(existing) = map.get_mut(&cid) {
             // Merge parameters
-            if let Some(new_params) = ctrl.get("params").and_then(Value::as_array) {
-                let existing_params = existing
-                    .as_object_mut()
-                    .unwrap()
+            if let Some(new_params) = ctrl.get("params").and_then(Value::as_array)
+                && let Some(obj) = existing.as_object_mut()
+            {
+                let existing_params = obj
                     .entry("params".to_string())
                     .or_insert_with(|| Value::Array(Vec::new()));
                 if let Some(arr) = existing_params.as_array_mut() {

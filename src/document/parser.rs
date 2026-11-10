@@ -1,12 +1,12 @@
 use serde_json::Value;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::{
-    document::schema::DocumentKind,
-    error::{AppError, Result, io_error},
+    document::{
+        io_safe::{MAX_OSCAL_FILE_BYTES, read_bounded_utf8_file},
+        schema::DocumentKind,
+    },
+    error::{AppError, Result},
 };
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -49,49 +49,63 @@ impl OscalDocument {
 
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let path_ref = path.as_ref();
+        let content = read_bounded_utf8_file(path_ref, MAX_OSCAL_FILE_BYTES)?;
         if let Some(ext) = path_ref.extension().and_then(|e| e.to_str())
-            && ext == "csv"
+            && ext.eq_ignore_ascii_case("csv")
         {
-            let content = fs::read_to_string(path_ref).map_err(|e| io_error(path_ref, e))?;
             return crate::document::tabular::import_from_csv(&content, None, None, None);
         }
-        let content = fs::read_to_string(path_ref).map_err(|e| io_error(path_ref, e))?;
         Self::from_str(&content, Some(path_ref.to_path_buf()))
     }
 
     pub fn from_str(content: &str, path: Option<PathBuf>) -> Result<Self> {
+        let mut pre_parsed: Option<Value> = None;
         let format = if let Some(p) = &path {
-            match p.extension().and_then(|ext| ext.to_str()) {
+            match p
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .map(str::to_ascii_lowercase)
+                .as_deref()
+            {
                 Some("yaml") | Some("yml") => FileFormat::Yaml,
                 Some("csv") => FileFormat::Csv,
                 Some("pb") | Some("proto") => FileFormat::Proto,
+                Some("json") => FileFormat::Json,
                 _ => {
-                    if serde_json::from_str::<Value>(content).is_ok() {
+                    if let Ok(val) = serde_json::from_str::<Value>(content) {
+                        pre_parsed = Some(val);
                         FileFormat::Json
-                    } else if serde_yaml::from_str::<Value>(content).is_ok() {
+                    } else if let Ok(val) = serde_yaml::from_str::<Value>(content) {
+                        pre_parsed = Some(val);
                         FileFormat::Yaml
                     } else {
                         FileFormat::Json
                     }
                 }
             }
-        } else if serde_json::from_str::<Value>(content).is_ok() {
+        } else if let Ok(val) = serde_json::from_str::<Value>(content) {
+            pre_parsed = Some(val);
             FileFormat::Json
         } else {
             FileFormat::Yaml
         };
 
-        let value: Value = match format {
-            FileFormat::Json => serde_json::from_str(content)
-                .map_err(|e| AppError::Configuration(format!("Failed to parse JSON: {e}")))?,
-            FileFormat::Yaml => serde_yaml::from_str(content)
-                .map_err(|e| AppError::Configuration(format!("Failed to parse YAML: {e}")))?,
-            FileFormat::Csv => {
-                let doc = crate::document::tabular::import_from_csv(content, None, None, None)?;
-                return Ok(doc);
+        let value: Value = if let Some(val) = pre_parsed {
+            val
+        } else {
+            match format {
+                FileFormat::Json => serde_json::from_str(content)
+                    .map_err(|e| AppError::Configuration(format!("Failed to parse JSON: {e}")))?,
+                FileFormat::Yaml => serde_yaml::from_str(content)
+                    .map_err(|e| AppError::Configuration(format!("Failed to parse YAML: {e}")))?,
+                FileFormat::Csv => {
+                    let doc = crate::document::tabular::import_from_csv(content, None, None, None)?;
+                    return Ok(doc);
+                }
+                FileFormat::Proto => serde_json::from_str(content).map_err(|e| {
+                    AppError::Configuration(format!("Failed to parse Proto text: {e}"))
+                })?,
             }
-            FileFormat::Proto => serde_json::from_str(content)
-                .map_err(|e| AppError::Configuration(format!("Failed to parse Proto text: {e}")))?,
         };
 
         let kind = detect_kind(&value)?;

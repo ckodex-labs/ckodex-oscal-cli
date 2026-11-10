@@ -170,8 +170,20 @@ pub(super) struct TerminalSession {
     terminal: Terminal<CrosstermBackend<io::Stdout>>,
 }
 
+static TERMINAL_PANIC_HOOK: std::sync::Once = std::sync::Once::new();
+
 impl TerminalSession {
     pub(super) fn enter() -> Result<Self> {
+        TERMINAL_PANIC_HOOK.call_once(|| {
+            let prev_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |panic_info| {
+                let _ = disable_raw_mode();
+                let mut stdout = io::stdout();
+                let _ = execute!(stdout, LeaveAlternateScreen, crossterm::cursor::Show);
+                prev_hook(panic_info);
+            }));
+        });
+
         enable_raw_mode().map_err(|error| crate::error::io_error("terminal", error))?;
         let mut stdout = io::stdout();
         if let Err(error) = execute!(stdout, EnterAlternateScreen) {

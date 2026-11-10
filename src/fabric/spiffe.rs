@@ -27,8 +27,12 @@ pub enum SpiffeError {
     UnsupportedAlgorithm(String),
     #[error("Missing signature in SPIFFE JWT SVID")]
     MissingSignature,
+    #[error("Missing verification key for SPIFFE JWT SVID in strict mode")]
+    MissingVerificationKey,
     #[error("Cryptographic signature verification failed for SPIFFE JWT SVID")]
     InvalidSignature,
+    #[error("JWT SVID subject mismatch: expected {expected}, got {actual}")]
+    SubjectMismatch { expected: String, actual: String },
 }
 
 /// SPIFFE Trust Domain representing an administrative domain (e.g., `meridian.runbase.io`)
@@ -290,52 +294,82 @@ impl SpireWorkloadAttestor {
         svid.is_valid_at(now_timestamp)?;
         self.verify_spiffe_id(&svid.spiffe_id)?;
 
-        if !svid.token.is_empty() {
-            let parts: Vec<&str> = svid.token.split('.').collect();
-            if parts.len() != 3 {
-                return Err(SpiffeError::MalformedJwtToken(
-                    "JWT SVID token does not contain 3 segments".to_string(),
-                ));
+        if svid.token.trim().is_empty() {
+            return Err(SpiffeError::MissingSignature);
+        }
+
+        let parts: Vec<&str> = svid.token.split('.').collect();
+        if parts.len() != 3 {
+            return Err(SpiffeError::MalformedJwtToken(
+                "JWT SVID token does not contain 3 segments".to_string(),
+            ));
+        }
+
+        let header_raw = crate::fabric::oidc::base64_url_decode(parts[0])
+            .map_err(|e| SpiffeError::MalformedJwtToken(format!("Header decode: {}", e)))?;
+        let header: crate::fabric::oidc::JwtHeader = serde_json::from_slice(&header_raw)
+            .map_err(|e| SpiffeError::MalformedJwtToken(format!("Header JSON: {}", e)))?;
+
+        let alg = header.alg.to_ascii_uppercase();
+        if (self.strict_mode || self.shared_secret.is_some()) && (alg == "NONE" || alg.is_empty()) {
+            return Err(SpiffeError::UnsafeAlgorithmNone);
+        }
+
+        if self.strict_mode && self.shared_secret.is_none() {
+            return Err(SpiffeError::MissingVerificationKey);
+        }
+
+        let sig_segment = parts[2];
+        if let Some(secret) = &self.shared_secret {
+            if alg != "HS256" {
+                return Err(SpiffeError::UnsupportedAlgorithm(header.alg));
             }
-
-            let header_raw = crate::fabric::oidc::base64_url_decode(parts[0])
-                .map_err(|e| SpiffeError::MalformedJwtToken(format!("Header decode: {}", e)))?;
-            let header: crate::fabric::oidc::JwtHeader = serde_json::from_slice(&header_raw)
-                .map_err(|e| SpiffeError::MalformedJwtToken(format!("Header JSON: {}", e)))?;
-
-            let alg = header.alg.to_ascii_uppercase();
-            if (self.strict_mode || self.shared_secret.is_some())
-                && (alg == "NONE" || alg.is_empty())
-            {
-                return Err(SpiffeError::UnsafeAlgorithmNone);
-            }
-
-            let sig_segment = parts[2];
-            if let Some(secret) = &self.shared_secret {
-                if alg != "HS256" {
-                    return Err(SpiffeError::UnsupportedAlgorithm(header.alg));
-                }
-                if sig_segment.is_empty() {
-                    return Err(SpiffeError::MissingSignature);
-                }
-                let sig_bytes =
-                    crate::fabric::oidc::base64_url_decode(sig_segment).map_err(|e| {
-                        SpiffeError::MalformedJwtToken(format!("Signature decode: {}", e))
-                    })?;
-                let signing_input = format!("{}.{}", parts[0], parts[1]);
-                let expected_sig =
-                    crate::fabric::oidc::hmac_sha256(secret, signing_input.as_bytes());
-
-                if !crate::fabric::oidc::constant_time_eq(&sig_bytes, &expected_sig) {
-                    return Err(SpiffeError::InvalidSignature);
-                }
-            } else if self.strict_mode && sig_segment.is_empty() && alg != "NONE" {
+            if sig_segment.is_empty() {
                 return Err(SpiffeError::MissingSignature);
-            } else if !self.strict_mode && alg == "NONE" && !sig_segment.is_empty() {
+            }
+            let sig_bytes = crate::fabric::oidc::base64_url_decode(sig_segment)
+                .map_err(|e| SpiffeError::MalformedJwtToken(format!("Signature decode: {}", e)))?;
+            let signing_input = format!("{}.{}", parts[0], parts[1]);
+            let expected_sig = crate::fabric::oidc::hmac_sha256(secret, signing_input.as_bytes());
+
+            if !crate::fabric::oidc::constant_time_eq(&sig_bytes, &expected_sig) {
                 return Err(SpiffeError::InvalidSignature);
             }
-        } else if self.shared_secret.is_some() {
-            return Err(SpiffeError::MissingSignature);
+        } else if alg == "NONE" && !sig_segment.is_empty() {
+            return Err(SpiffeError::InvalidSignature);
+        }
+
+        let payload_raw = crate::fabric::oidc::base64_url_decode(parts[1])
+            .map_err(|e| SpiffeError::MalformedJwtToken(format!("Payload decode: {}", e)))?;
+        #[derive(Deserialize)]
+        struct JwtPayloadClaims {
+            sub: Option<String>,
+            exp: Option<i64>,
+        }
+        let payload: JwtPayloadClaims = serde_json::from_slice(&payload_raw)
+            .map_err(|e| SpiffeError::MalformedJwtToken(format!("Payload JSON: {}", e)))?;
+
+        let expected_sub = svid.spiffe_id.to_string();
+        let actual_sub = payload.sub.ok_or_else(|| {
+            SpiffeError::MalformedJwtToken("Missing 'sub' claim in JWT SVID payload".to_string())
+        })?;
+        if actual_sub != expected_sub {
+            return Err(SpiffeError::SubjectMismatch {
+                expected: expected_sub,
+                actual: actual_sub,
+            });
+        }
+
+        match payload.exp {
+            Some(exp) if now_timestamp >= exp => {
+                return Err(SpiffeError::SvidExpired(exp, now_timestamp));
+            }
+            None if self.strict_mode || self.shared_secret.is_some() => {
+                return Err(SpiffeError::MalformedJwtToken(
+                    "Missing 'exp' claim in JWT SVID payload".to_string(),
+                ));
+            }
+            _ => {}
         }
 
         Ok(())
@@ -417,6 +451,71 @@ mod tests {
         assert!(matches!(
             attestor.verify_jwt_svid(&none_svid, 1750000000),
             Err(SpiffeError::UnsafeAlgorithmNone)
+        ));
+    }
+
+    #[test]
+    fn test_spire_jwt_svid_strict_mode_fails_closed_and_validates_payload_claims() {
+        let td = TrustDomain::new("meridian.runbase.io").unwrap();
+        let secret = b"spire-cluster-signing-key-32b-ok";
+        let spiffe_id: SpiffeId = "spiffe://meridian.runbase.io/ns/prod/sa/workload"
+            .parse()
+            .unwrap();
+        let other_id: SpiffeId = "spiffe://meridian.runbase.io/ns/prod/sa/other"
+            .parse()
+            .unwrap();
+
+        let signed_svid = JwtSvid::sign_hs256(
+            spiffe_id.clone(),
+            vec!["mizan-fabric".to_string()],
+            2000000000,
+            1700000000,
+            secret,
+        )
+        .unwrap();
+
+        // 1. Strict mode without a verification key MUST fail closed
+        let unkeyed_attestor = SpireWorkloadAttestor::new(td.clone());
+        assert!(matches!(
+            unkeyed_attestor.verify_jwt_svid(&signed_svid, 1750000000),
+            Err(SpiffeError::MissingVerificationKey)
+        ));
+
+        // 2. Empty token MUST fail closed
+        let keyed_attestor = SpireWorkloadAttestor::new(td).with_shared_secret(secret);
+        let empty_svid = JwtSvid::new(spiffe_id, vec![], 2000000000, 1700000000, "");
+        assert!(matches!(
+            keyed_attestor.verify_jwt_svid(&empty_svid, 1750000000),
+            Err(SpiffeError::MissingSignature)
+        ));
+
+        // 3. Mismatched JWT payload `sub` vs `svid.spiffe_id` MUST be rejected
+        let mut swapped_sub_svid = signed_svid.clone();
+        swapped_sub_svid.spiffe_id = other_id;
+        assert!(matches!(
+            keyed_attestor.verify_jwt_svid(&swapped_sub_svid, 1750000000),
+            Err(SpiffeError::SubjectMismatch { .. })
+        ));
+
+        // 4. Expired JWT payload `exp` MUST be rejected even if outer struct expires_at was forged
+        let expired_token_svid = JwtSvid::sign_hs256(
+            signed_svid.spiffe_id.clone(),
+            vec!["mizan-fabric".to_string()],
+            1740000000,
+            1700000000,
+            secret,
+        )
+        .unwrap();
+        let forged_outer = JwtSvid {
+            spiffe_id: signed_svid.spiffe_id,
+            audience: vec!["mizan-fabric".to_string()],
+            expires_at: 2100000000,
+            issued_at: 1700000000,
+            token: expired_token_svid.token,
+        };
+        assert!(matches!(
+            keyed_attestor.verify_jwt_svid(&forged_outer, 1750000000),
+            Err(SpiffeError::SvidExpired(1740000000, 1750000000))
         ));
     }
 }

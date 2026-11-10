@@ -110,7 +110,9 @@ pub(super) fn run_catalog_extend(
     }
 
     let doc = builder.build(Some(output))?;
-    let root = doc.root_object().unwrap();
+    let root = doc.root_object().ok_or_else(|| {
+        AppError::Configuration("Built enterprise catalog missing root object".to_string())
+    })?;
     let ctrls_len = root
         .get("controls")
         .and_then(serde_json::Value::as_array)

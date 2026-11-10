@@ -3,7 +3,7 @@ use serde_json::Value;
 use std::{fs, path::Path};
 
 use crate::{
-    document::parser::OscalDocument,
+    document::{io_safe::atomic_write_bytes, parser::OscalDocument},
     error::{AppError, Result, io_error},
 };
 
@@ -14,6 +14,26 @@ pub struct SplitReport {
     pub files_created: usize,
     pub controls_split: usize,
     pub components_split: usize,
+}
+
+fn sanitize_filename_id(raw: &str, fallback: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for c in raw.chars() {
+        if c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.' {
+            out.push(c);
+        } else {
+            out.push('_');
+        }
+    }
+    while out.contains("..") {
+        out = out.replace("..", "_");
+    }
+    let trimmed = out.trim_matches('.').trim_matches('_');
+    if trimmed.is_empty() {
+        fallback.to_string()
+    } else {
+        trimmed.to_string()
+    }
 }
 
 pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport> {
@@ -40,7 +60,7 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
     }
 
     let meta_file = out_dir.join("_metadata.yaml");
-    fs::write(&meta_file, &meta_yaml).map_err(|e| io_error(&meta_file, e))?;
+    atomic_write_bytes(&meta_file, meta_yaml.as_bytes())?;
     files_created += 1;
 
     // 2. Handle Catalog / Group controls
@@ -48,7 +68,8 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         let ctrls_dir = out_dir.join("controls");
         fs::create_dir_all(&ctrls_dir).map_err(|e| io_error(&ctrls_dir, e))?;
         for ctrl in controls {
-            let ctrl_id = ctrl.get("id").and_then(Value::as_str).unwrap_or("unknown");
+            let raw_id = ctrl.get("id").and_then(Value::as_str).unwrap_or("unknown");
+            let ctrl_id = sanitize_filename_id(raw_id, "unknown");
             let file_path = ctrls_dir.join(format!("{ctrl_id}.md"));
             write_control_markdown(&file_path, ctrl)?;
             files_created += 1;
@@ -58,13 +79,15 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
 
     if let Some(groups) = root_obj.get("groups").and_then(Value::as_array) {
         for grp in groups {
-            let grp_id = grp.get("id").and_then(Value::as_str).unwrap_or("group");
-            let grp_dir = out_dir.join(grp_id);
+            let raw_grp_id = grp.get("id").and_then(Value::as_str).unwrap_or("group");
+            let grp_id = sanitize_filename_id(raw_grp_id, "group");
+            let grp_dir = out_dir.join(&grp_id);
             fs::create_dir_all(&grp_dir).map_err(|e| io_error(&grp_dir, e))?;
 
             if let Some(ctrls) = grp.get("controls").and_then(Value::as_array) {
                 for ctrl in ctrls {
-                    let ctrl_id = ctrl.get("id").and_then(Value::as_str).unwrap_or("unknown");
+                    let raw_id = ctrl.get("id").and_then(Value::as_str).unwrap_or("unknown");
+                    let ctrl_id = sanitize_filename_id(raw_id, "unknown");
                     let file_path = grp_dir.join(format!("{ctrl_id}.md"));
                     write_control_markdown(&file_path, ctrl)?;
                     files_created += 1;
@@ -80,7 +103,7 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         let sys_char_str = serde_yaml::to_string(sys_char).map_err(|e| {
             AppError::Configuration(format!("Failed to serialize system-characteristics: {e}"))
         })?;
-        fs::write(&sys_char_file, &sys_char_str).map_err(|e| io_error(&sys_char_file, e))?;
+        atomic_write_bytes(&sys_char_file, sys_char_str.as_bytes())?;
         files_created += 1;
     }
 
@@ -91,14 +114,15 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         fs::create_dir_all(&comps_dir).map_err(|e| io_error(&comps_dir, e))?;
         for comp in comps {
             let comp_title = comp.get("title").and_then(Value::as_str).unwrap_or("comp");
-            let slug = comp_title
+            let raw_slug = comp_title
                 .to_lowercase()
                 .replace(|c: char| !c.is_alphanumeric(), "_");
+            let slug = sanitize_filename_id(&raw_slug, "comp");
             let file_path = comps_dir.join(format!("{slug}.yaml"));
             let comp_str = serde_yaml::to_string(comp).map_err(|e| {
                 AppError::Configuration(format!("Failed to serialize component: {e}"))
             })?;
-            fs::write(&file_path, &comp_str).map_err(|e| io_error(&file_path, e))?;
+            atomic_write_bytes(&file_path, comp_str.as_bytes())?;
             files_created += 1;
             components_split += 1;
         }
@@ -112,10 +136,11 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         let reqs_dir = out_dir.join("control-implementation");
         fs::create_dir_all(&reqs_dir).map_err(|e| io_error(&reqs_dir, e))?;
         for req in reqs {
-            let cid = req
+            let raw_cid = req
                 .get("control-id")
                 .and_then(Value::as_str)
                 .unwrap_or("req");
+            let cid = sanitize_filename_id(raw_cid, "req");
             let file_path = reqs_dir.join(format!("{cid}.md"));
             write_implemented_req_markdown(&file_path, req)?;
             files_created += 1;
@@ -129,7 +154,7 @@ pub fn split_document(doc: &OscalDocument, out_dir: &Path) -> Result<SplitReport
         let bm_str = serde_yaml::to_string(back_matter).map_err(|e| {
             AppError::Configuration(format!("Failed to serialize back-matter: {e}"))
         })?;
-        fs::write(&bm_file, &bm_str).map_err(|e| io_error(&bm_file, e))?;
+        atomic_write_bytes(&bm_file, bm_str.as_bytes())?;
         files_created += 1;
     }
 
@@ -199,8 +224,7 @@ fn write_control_markdown(file_path: &Path, ctrl: &Value) -> Result<()> {
         }
     }
 
-    fs::write(file_path, &body).map_err(|e| io_error(file_path, e))?;
-    Ok(())
+    atomic_write_bytes(file_path, body.as_bytes())
 }
 
 fn write_implemented_req_markdown(file_path: &Path, req: &Value) -> Result<()> {
@@ -252,8 +276,7 @@ fn write_implemented_req_markdown(file_path: &Path, req: &Value) -> Result<()> {
         }
     }
 
-    fs::write(file_path, &body).map_err(|e| io_error(file_path, e))?;
-    Ok(())
+    atomic_write_bytes(file_path, body.as_bytes())
 }
 
 fn capitalize_first(s: &str) -> String {

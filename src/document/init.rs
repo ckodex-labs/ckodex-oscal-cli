@@ -50,7 +50,7 @@ impl RepoInitializer {
         })?;
 
         let mut assets = Vec::new();
-        Self::scan_directory(repo_path, &mut assets);
+        Self::scan_directory(repo_path, &mut assets, 0);
 
         let df_count = assets.iter().filter(|a| a.category == "Dockerfile").count();
         let k8s_count = assets.iter().filter(|a| a.category == "Kubernetes").count();
@@ -90,41 +90,34 @@ impl RepoInitializer {
                 "ci_workflows": ci_count
             }
         });
-        fs::write(
-            &config_file,
-            serde_json::to_string_pretty(&mizan_config)
-                .map_err(|e| AppError::Configuration(e.to_string()))?,
-        )
-        .map_err(|e| {
-            AppError::Configuration(format!("Failed to write {}: {e}", config_file.display()))
-        })?;
+        let config_json_str = serde_json::to_string_pretty(&mizan_config)
+            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&config_file, config_json_str.as_bytes())
+            .map_err(|e| {
+                AppError::Configuration(format!("Failed to write {}: {e}", config_file.display()))
+            })?;
         created_files.push(config_file);
 
         // 2. Generate OSCAL Component Definition with control mappings
         let comp_def_file = output_dir.join("component-definition.json");
         let (comp_def_val, mapped_controls) =
             Self::generate_component_definition(repo_path, &assets);
-        fs::write(
-            &comp_def_file,
-            serde_json::to_string_pretty(&comp_def_val)
-                .map_err(|e| AppError::Configuration(e.to_string()))?,
-        )
-        .map_err(|e| {
-            AppError::Configuration(format!("Failed to write {}: {e}", comp_def_file.display()))
-        })?;
+        let comp_def_str = serde_json::to_string_pretty(&comp_def_val)
+            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&comp_def_file, comp_def_str.as_bytes())
+            .map_err(|e| {
+                AppError::Configuration(format!("Failed to write {}: {e}", comp_def_file.display()))
+            })?;
         created_files.push(comp_def_file);
 
         // 3. Generate initial System Security Plan (SSP)
         let ssp_file = output_dir.join("ssp.json");
         let ssp_val = Self::generate_ssp(repo_path, &mapped_controls);
-        fs::write(
-            &ssp_file,
-            serde_json::to_string_pretty(&ssp_val)
-                .map_err(|e| AppError::Configuration(e.to_string()))?,
-        )
-        .map_err(|e| {
-            AppError::Configuration(format!("Failed to write {}: {e}", ssp_file.display()))
-        })?;
+        let ssp_str = serde_json::to_string_pretty(&ssp_val)
+            .map_err(|e| AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&ssp_file, ssp_str.as_bytes()).map_err(
+            |e| AppError::Configuration(format!("Failed to write {}: {e}", ssp_file.display())),
+        )?;
         created_files.push(ssp_file);
 
         // 4. Generate README.md with guidance
@@ -167,9 +160,10 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
             ci_count,
             mapped_controls.len()
         );
-        fs::write(&readme_file, readme_content).map_err(|e| {
-            AppError::Configuration(format!("Failed to write {}: {e}", readme_file.display()))
-        })?;
+        crate::document::io_safe::atomic_write_bytes(&readme_file, readme_content.as_bytes())
+            .map_err(|e| {
+                AppError::Configuration(format!("Failed to write {}: {e}", readme_file.display()))
+            })?;
         created_files.push(readme_file);
 
         Ok(InitReport {
@@ -185,7 +179,12 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
         })
     }
 
-    fn scan_directory(dir: &Path, assets: &mut Vec<DiscoveredAsset>) {
+    fn scan_directory(dir: &Path, assets: &mut Vec<DiscoveredAsset>, depth: usize) {
+        const MAX_SCAN_DEPTH: usize = 16;
+        if depth > MAX_SCAN_DEPTH {
+            return;
+        }
+
         let entries = match fs::read_dir(dir) {
             Ok(e) => e,
             Err(_) => return,
@@ -193,19 +192,32 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
 
         for entry in entries.flatten() {
             let path = entry.path();
+            let Ok(meta) = fs::symlink_metadata(&path) else {
+                continue;
+            };
+            if meta.file_type().is_symlink() {
+                continue;
+            }
+
             let file_name = path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
 
-            if file_name.starts_with('.') || file_name == "target" || file_name == "node_modules" {
+            let is_allowed_dot = file_name == ".github" || file_name == ".gitlab-ci.yml";
+            if (!is_allowed_dot && file_name.starts_with('.'))
+                || matches!(
+                    file_name.as_str(),
+                    ".git" | ".next" | ".mizan" | "node_modules" | "target"
+                )
+            {
                 continue;
             }
 
-            if path.is_dir() {
-                Self::scan_directory(&path, assets);
-            } else if path.is_file() {
+            if meta.file_type().is_dir() {
+                Self::scan_directory(&path, assets, depth + 1);
+            } else if meta.file_type().is_file() {
                 let lower = file_name.to_lowercase();
                 if lower.starts_with("dockerfile") || lower.ends_with(".dockerfile") {
                     assets.push(DiscoveredAsset {
@@ -214,7 +226,10 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
                         details: format!("Container image specification: {file_name}"),
                     });
                 } else if lower.ends_with(".yaml") || lower.ends_with(".yml") {
-                    if let Ok(content) = fs::read_to_string(&path) {
+                    if let Ok(content) = crate::document::io_safe::read_bounded_utf8_file(
+                        &path,
+                        crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+                    ) {
                         if content.contains("apiVersion:") && content.contains("kind:") {
                             let kind = content
                                 .lines()
@@ -272,7 +287,12 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
         let lockfiles: Vec<String> = assets
             .iter()
             .filter(|a| a.category == "DependencyLock")
-            .map(|a| a.path.file_name().unwrap().to_string_lossy().to_string())
+            .map(|a| {
+                a.path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
             .collect();
         if !lockfiles.is_empty() {
             components.push(json!({
@@ -313,7 +333,12 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
         let dockerfiles: Vec<String> = assets
             .iter()
             .filter(|a| a.category == "Dockerfile")
-            .map(|a| a.path.file_name().unwrap().to_string_lossy().to_string())
+            .map(|a| {
+                a.path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
             .collect();
         if !dockerfiles.is_empty() {
             components.push(json!({
@@ -348,7 +373,12 @@ Auto-scaffolded by `mizan init --from-repo` on {}.
         let k8s_manifests: Vec<String> = assets
             .iter()
             .filter(|a| a.category == "Kubernetes")
-            .map(|a| a.path.file_name().unwrap().to_string_lossy().to_string())
+            .map(|a| {
+                a.path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default()
+            })
             .collect();
         if !k8s_manifests.is_empty() {
             components.push(json!({

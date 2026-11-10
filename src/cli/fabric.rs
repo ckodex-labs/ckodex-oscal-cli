@@ -29,7 +29,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                         "spiffe_spire": "ACTIVE",
                         "oidc_provider": "READY"
                     });
-                    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                    println!("{}", serde_json::to_string_pretty(&json)?);
                 }
                 _ => {
                     println!("Mizan Root Fabric · Enterprise Multi-Tenant Status");
@@ -54,7 +54,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                 let tenants = engine.tenant_manager.list_tenants();
                 match format {
                     OutputFormat::Json | OutputFormat::Jsonl => {
-                        println!("{}", serde_json::to_string_pretty(&tenants).unwrap());
+                        println!("{}", serde_json::to_string_pretty(&tenants)?);
                     }
                     _ => {
                         println!(
@@ -109,7 +109,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
 
                 match format {
                     OutputFormat::Json | OutputFormat::Jsonl => {
-                        println!("{}", serde_json::to_string_pretty(&metadata).unwrap());
+                        println!("{}", serde_json::to_string_pretty(&metadata)?);
                     }
                     _ => {
                         println!("Tenant Created & Registered in Root Fabric");
@@ -137,7 +137,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
 
                 match format {
                     OutputFormat::Json | OutputFormat::Jsonl => {
-                        println!("{}", serde_json::to_string_pretty(&tenant).unwrap());
+                        println!("{}", serde_json::to_string_pretty(&tenant)?);
                     }
                     _ => {
                         println!("Tenant Inspection · {}", tenant.tenant_id.as_str());
@@ -183,7 +183,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                         "service_account": spiffe_id.service_account(),
                         "valid_for_trust_domain": is_valid
                     });
-                    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                    println!("{}", serde_json::to_string_pretty(&json)?);
                 }
                 _ => {
                     println!("SPIFFE / SPIRE Workload Identity Verification");
@@ -258,7 +258,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                         "groups": claims.groups,
                         "status": "VALID"
                     });
-                    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                    println!("{}", serde_json::to_string_pretty(&json)?);
                 }
                 _ => {
                     println!("OpenID Connect (OIDC) Claims Decoded & Validated");
@@ -324,7 +324,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                                 "storage_encryption": "AES-256-GCM / SHA-256 CAS backing",
                                 "audit_mode": "Append-Only Cryptographic Receipts"
                             });
-                            println!("{}", serde_json::to_string_pretty(&json).unwrap());
+                            println!("{}", serde_json::to_string_pretty(&json)?);
                         }
                         _ => {
                             println!(
@@ -365,7 +365,7 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
 
                     match format {
                         OutputFormat::Json | OutputFormat::Jsonl => {
-                            println!("{}", serde_json::to_string_pretty(&docs).unwrap());
+                            println!("{}", serde_json::to_string_pretty(&docs)?);
                         }
                         _ => {
                             println!(
@@ -388,8 +388,10 @@ pub(super) fn run_fabric(args: &crate::config::FabricCliArgs, format: OutputForm
                                 println!("(no documents stored in partition)");
                             } else {
                                 for doc in &docs {
-                                    let short_digest = if doc.sha256_digest.len() > 8 {
-                                        format!("sha256:{}…", &doc.sha256_digest[..8])
+                                    let short_digest = if doc.sha256_digest.chars().count() > 8 {
+                                        let prefix: String =
+                                            doc.sha256_digest.chars().take(8).collect();
+                                        format!("sha256:{prefix}…")
                                     } else {
                                         format!("sha256:{}", doc.sha256_digest)
                                     };

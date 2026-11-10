@@ -104,10 +104,27 @@ pub fn compile_policies(
     // Generate Rego Policies
     if target == PolicyTarget::Rego || target == PolicyTarget::All {
         for (cid, desc) in &control_rules {
+            let safe_cid: String = cid
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
             let rego_content = generate_rego_policy(cid, desc);
-            let file_name = format!("{}.rego", cid.replace('-', "_"));
+            let file_name = format!(
+                "{}.rego",
+                if safe_cid.trim_matches('_').is_empty() {
+                    "control"
+                } else {
+                    safe_cid.trim_matches('_')
+                }
+            );
             let file_path = out_dir.join(&file_name);
-            fs::write(&file_path, &rego_content).map_err(|e| io_error(&file_path, e))?;
+            crate::document::io_safe::atomic_write_bytes(&file_path, rego_content.as_bytes())?;
             generated_files.push(file_name);
             count += 1;
         }
@@ -120,21 +137,36 @@ pub fn compile_policies(
             "rules_count": control_rules.len(),
             "generated_at": chrono::Utc::now().to_rfc3339()
         });
-        fs::write(
-            &manifest_path,
-            serde_json::to_string_pretty(&manifest_val).unwrap(),
-        )
-        .map_err(|e| io_error(&manifest_path, e))?;
+        let manifest_json = serde_json::to_string_pretty(&manifest_val)
+            .map_err(|e| crate::error::AppError::Configuration(e.to_string()))?;
+        crate::document::io_safe::atomic_write_bytes(&manifest_path, manifest_json.as_bytes())?;
         generated_files.push("policy_manifest.json".to_string());
     }
 
     // Generate Kyverno ClusterPolicies
     if target == PolicyTarget::Kyverno || target == PolicyTarget::All {
         for (cid, desc) in &control_rules {
+            let safe_cid: String = cid
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || c == '-' {
+                        c
+                    } else {
+                        '-'
+                    }
+                })
+                .collect();
             let kyverno_yaml = generate_kyverno_policy(cid, desc);
-            let file_name = format!("kyverno_{}.yaml", cid.replace('_', "-"));
+            let file_name = format!(
+                "kyverno_{}.yaml",
+                if safe_cid.trim_matches('-').is_empty() {
+                    "control"
+                } else {
+                    safe_cid.trim_matches('-')
+                }
+            );
             let file_path = out_dir.join(&file_name);
-            fs::write(&file_path, &kyverno_yaml).map_err(|e| io_error(&file_path, e))?;
+            crate::document::io_safe::atomic_write_bytes(&file_path, kyverno_yaml.as_bytes())?;
             generated_files.push(file_name);
             count += 1;
         }

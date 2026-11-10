@@ -5,7 +5,7 @@ use crate::fabric::tenant::{TenantContext, TenantError, TenantId};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
 
@@ -101,20 +101,54 @@ impl FabricDataStore {
                     Err(_) => continue,
                 };
 
-                // Load audit trail if audit.jsonl exists
+                // Load audit trail if audit.jsonl exists (tolerating a truncated/torn UTF-8 final line after unclean crash)
                 let audit_file = path.join("audit.jsonl");
                 if audit_file.is_file() {
-                    let file = std::fs::File::open(&audit_file)?;
-                    let reader = std::io::BufReader::new(file);
-                    let mut entries_vec = Vec::new();
-                    for line_res in reader.lines() {
-                        let line = line_res?;
-                        let trimmed = line.trim();
-                        if trimmed.is_empty() {
-                            continue;
+                    let raw_bytes = crate::document::io_safe::read_bounded_regular_file(
+                        &audit_file,
+                        crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+                    )
+                    .map_err(|e| match e {
+                        crate::error::AppError::Io { source, .. } => DataStoreError::Io(source),
+                        other => DataStoreError::Io(std::io::Error::other(other.to_string())),
+                    })?;
+
+                    let raw_slices: Vec<&[u8]> = raw_bytes
+                        .split(|&b| b == b'\n')
+                        .map(|s| s.strip_suffix(b"\r").unwrap_or(s))
+                        .filter(|s| s.iter().any(|b| !b.is_ascii_whitespace()))
+                        .collect();
+
+                    let total_lines = raw_slices.len();
+                    let mut entries_vec = Vec::with_capacity(total_lines);
+                    for (idx, slice) in raw_slices.into_iter().enumerate() {
+                        let is_last = idx + 1 == total_lines;
+                        let line_str = match std::str::from_utf8(slice) {
+                            Ok(s) => s.trim(),
+                            Err(utf8_err) if is_last => {
+                                tracing::warn!(
+                                    "Skipping torn UTF-8 trailing audit log entry in '{}': {utf8_err}",
+                                    audit_file.display()
+                                );
+                                continue;
+                            }
+                            Err(utf8_err) => {
+                                return Err(DataStoreError::Io(std::io::Error::new(
+                                    std::io::ErrorKind::InvalidData,
+                                    utf8_err,
+                                )));
+                            }
+                        };
+                        match serde_json::from_str::<AuditEntry>(line_str) {
+                            Ok(audit_entry) => entries_vec.push(audit_entry),
+                            Err(err) if is_last => {
+                                tracing::warn!(
+                                    "Skipping truncated trailing audit log entry in '{}': {err}",
+                                    audit_file.display()
+                                );
+                            }
+                            Err(err) => return Err(DataStoreError::Serialization(err)),
                         }
-                        let audit_entry: AuditEntry = serde_json::from_str(trimmed)?;
-                        entries_vec.push(audit_entry);
                     }
                     if !entries_vec.is_empty() {
                         audit_map.insert(tenant_id.clone(), entries_vec);
@@ -148,11 +182,25 @@ impl FabricDataStore {
                                     Err(_) => continue,
                                 };
 
-                                if !filename.ends_with(".json") || filename.contains(".tmp") {
+                                if !filename.ends_with(".json")
+                                    || filename.contains(".tmp")
+                                    || filename.contains(".mizan-tmp.")
+                                {
                                     continue;
                                 }
 
-                                let content = std::fs::read_to_string(&doc_path)?;
+                                let content = crate::document::io_safe::read_bounded_utf8_file(
+                                    &doc_path,
+                                    crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+                                )
+                                .map_err(|e| match e {
+                                    crate::error::AppError::Io { source, .. } => {
+                                        DataStoreError::Io(source)
+                                    }
+                                    other => {
+                                        DataStoreError::Io(std::io::Error::other(other.to_string()))
+                                    }
+                                })?;
                                 let doc: StoredDocument = serde_json::from_str(&content)?;
 
                                 // Verify cryptographic integrity: digest must match content
@@ -200,6 +248,8 @@ impl FabricDataStore {
             || segment == "."
             || segment == ".."
             || segment.contains("..")
+            || segment.contains('\0')
+            || segment.chars().any(char::is_control)
         {
             return Err(DataStoreError::Integrity(format!(
                 "Invalid path segment: '{segment}'"
@@ -218,27 +268,14 @@ impl FabricDataStore {
         let dir = storage_dir
             .join(doc.tenant_id.as_str())
             .join(&doc.namespace);
-        std::fs::create_dir_all(&dir)?;
-
         let target = dir.join(format!("{}.json", doc.document_id));
-        let tmp = dir.join(format!(
-            "{}.json.tmp.{}",
-            doc.document_id,
-            uuid::Uuid::new_v4()
-        ));
-
         let content = serde_json::to_string_pretty(doc)?;
-        if let Err(e) = std::fs::write(&tmp, content.as_bytes()) {
-            let _ = std::fs::remove_file(&tmp);
-            return Err(DataStoreError::Io(e));
-        }
-
-        if let Err(e) = std::fs::rename(&tmp, &target) {
-            let _ = std::fs::remove_file(&tmp);
-            return Err(DataStoreError::Io(e));
-        }
-
-        Ok(())
+        crate::document::io_safe::atomic_write_bytes(&target, content.as_bytes()).map_err(|e| {
+            match e {
+                crate::error::AppError::Io { source, .. } => DataStoreError::Io(source),
+                other => DataStoreError::Io(std::io::Error::other(other.to_string())),
+            }
+        })
     }
 
     fn remove_document_file(
@@ -278,6 +315,7 @@ impl FabricDataStore {
         let line = serde_json::to_string(entry)?;
         writeln!(file, "{}", line)?;
         file.flush()?;
+        file.sync_data()?;
 
         Ok(())
     }
@@ -759,5 +797,73 @@ mod tests {
             Ok(_) => panic!("Expected tamper detection to return Integrity error, but succeeded"),
             Err(e) => panic!("Expected Integrity error, got: {e:?}"),
         }
+    }
+
+    #[test]
+    fn test_persistent_datastore_audit_jsonl_truncated_and_torn_utf8_recovery() {
+        let guard = TempDirGuard::new("audit-torn-crash");
+        let storage_path = guard.path();
+
+        let t = TenantId::new("tenant-crash").unwrap();
+        let ctx = TenantContext::new(t, UserId::new("operator"));
+
+        {
+            let store = FabricDataStore::new_persistent(storage_path.clone()).unwrap();
+            store
+                .put_document(&ctx, "prod", "doc-1", "catalog", r#"{"ok":true}"#)
+                .unwrap();
+            store
+                .put_document(&ctx, "prod", "doc-2", "catalog", r#"{"ok":2}"#)
+                .unwrap();
+        }
+
+        let audit_file = storage_path.join("tenant-crash/audit.jsonl");
+
+        // Case 1: Append a truncated JSON line without trailing newline
+        {
+            let mut f = std::fs::OpenOptions::new()
+                .append(true)
+                .open(&audit_file)
+                .unwrap();
+            f.write_all(br#"{"timestamp":"2026-09-01T00:00:00Z","tenant_id":"tenant-crash"#)
+                .unwrap();
+        }
+        let reloaded = FabricDataStore::new_persistent(storage_path.clone())
+            .expect("truncated trailing JSON line in audit.jsonl must not brick startup");
+        assert_eq!(reloaded.get_audit_logs(&ctx).unwrap().len(), 2);
+
+        // Case 2: Append a torn multi-byte UTF-8 sequence (first 2 bytes of 4-byte emoji 🚀 = F0 9F) on the final line
+        {
+            let valid_prefix = std::fs::read(&audit_file).unwrap();
+            // Rewrite clean 2 lines + torn UTF-8 trailing line
+            let mut clean_two_lines: Vec<u8> = valid_prefix
+                .split_inclusive(|&b| b == b'\n')
+                .take(2)
+                .flatten()
+                .copied()
+                .collect();
+            clean_two_lines.extend_from_slice(b"{\"timestamp\":\"2026\",\"user_id\":\"\xF0\x9F");
+            std::fs::write(&audit_file, clean_two_lines).unwrap();
+        }
+        let reloaded_utf8 = FabricDataStore::new_persistent(storage_path.clone())
+            .expect("torn UTF-8 trailing line in audit.jsonl must not brick startup");
+        assert_eq!(reloaded_utf8.get_audit_logs(&ctx).unwrap().len(), 2);
+
+        // Case 3: Corrupt non-final line in audit.jsonl MUST still fail closed
+        {
+            let raw = std::fs::read(&audit_file).unwrap();
+            let valid_line: Vec<u8> = raw
+                .split_inclusive(|&b| b == b'\n')
+                .next()
+                .unwrap()
+                .to_vec();
+            let mut mid_corrupt = b"{corrupt_mid_log}\n".to_vec();
+            mid_corrupt.extend_from_slice(&valid_line);
+            std::fs::write(&audit_file, mid_corrupt).unwrap();
+        }
+        assert!(
+            FabricDataStore::new_persistent(storage_path).is_err(),
+            "corrupted non-final audit log entry must still fail closed"
+        );
     }
 }

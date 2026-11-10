@@ -319,8 +319,10 @@ impl PipelineOrchestrator {
             }
         });
 
-        if !findings_for_oscal.is_empty() {
-            result_obj.as_object_mut().unwrap().insert(
+        if !findings_for_oscal.is_empty()
+            && let Some(obj) = result_obj.as_object_mut()
+        {
+            obj.insert(
                 "findings".to_string(),
                 serde_json::Value::Array(findings_for_oscal),
             );

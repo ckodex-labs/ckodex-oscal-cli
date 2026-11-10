@@ -34,7 +34,16 @@ pub struct TenantId(String);
 impl TenantId {
     pub fn new(id: impl Into<String>) -> Result<Self, TenantError> {
         let s = id.into().trim().to_ascii_lowercase();
-        if s.is_empty() || s.contains('/') || s.contains('\\') || s.contains(' ') {
+        if s.is_empty()
+            || s == "."
+            || s == ".."
+            || s.contains("..")
+            || s.contains('/')
+            || s.contains('\\')
+            || s.contains(' ')
+            || s.contains('\0')
+            || s.chars().any(char::is_control)
+        {
             return Err(TenantError::InvalidTenantId(s));
         }
         Ok(Self(s))
@@ -152,12 +161,14 @@ pub struct TenantMetadata {
 #[derive(Debug, Clone, Default)]
 pub struct TenantManager {
     tenants: HashMap<TenantId, TenantMetadata>,
+    storage_path: Option<std::path::PathBuf>,
 }
 
 impl TenantManager {
     pub fn new() -> Self {
         let mut mgr = Self {
             tenants: HashMap::new(),
+            storage_path: None,
         };
 
         // Bootstrap default system tenants
@@ -203,30 +214,55 @@ impl TenantManager {
     }
 
     pub fn load_or_default() -> Self {
-        let path = Self::persistence_path();
-        if path.exists()
-            && let Ok(data) = std::fs::read_to_string(&path)
-            && let Ok(tenants_map) =
+        Self::load_from_path_or_default(&Self::persistence_path())
+    }
+
+    pub fn load_from_path_or_default(path: &std::path::Path) -> Self {
+        if path.exists() {
+            if let Ok(data) = crate::document::io_safe::read_bounded_utf8_file(
+                path,
+                crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+            ) && let Ok(tenants_map) =
                 serde_json::from_str::<HashMap<TenantId, TenantMetadata>>(&data)
-            && !tenants_map.is_empty()
-        {
-            return Self {
-                tenants: tenants_map,
-            };
+                && !tenants_map.is_empty()
+            {
+                return Self {
+                    tenants: tenants_map,
+                    storage_path: Some(path.to_path_buf()),
+                };
+            }
+
+            let base_name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("tenants.json");
+            let bak_path = path.with_file_name(format!("{base_name}.corrupt.bak"));
+            tracing::warn!(
+                "Corrupt tenant registry at '{}'; preserving backup at '{}'",
+                path.display(),
+                bak_path.display()
+            );
+            let _ = std::fs::rename(path, &bak_path);
         }
 
-        let mgr = Self::new();
+        let mut mgr = Self::new();
+        mgr.storage_path = Some(path.to_path_buf());
         let _ = mgr.save();
         mgr
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        let path = Self::persistence_path();
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
+        let target = self
+            .storage_path
+            .clone()
+            .unwrap_or_else(Self::persistence_path);
         let json = serde_json::to_string_pretty(&self.tenants)?;
-        std::fs::write(path, json)
+        crate::document::io_safe::atomic_write_bytes(&target, json.as_bytes()).map_err(
+            |e| match e {
+                crate::error::AppError::Io { source, .. } => source,
+                other => std::io::Error::other(other.to_string()),
+            },
+        )
     }
 
     pub fn register_tenant(&mut self, metadata: TenantMetadata) {
@@ -259,12 +295,31 @@ mod tests {
 
         assert!(ctx.assert_same_tenant(&t1).is_ok());
         assert!(ctx.assert_same_tenant(&t2).is_err());
+
+        for bad in [".", "..", "a..b", "bad\0id", "bad\nid", "bad/id", "bad\\id"] {
+            assert!(
+                TenantId::new(bad).is_err(),
+                "TenantId::new must reject '{bad:?}'"
+            );
+        }
     }
 
     #[test]
-    fn test_tenant_manager_listing() {
+    fn test_tenant_manager_listing_and_corrupt_backup() {
         let mgr = TenantManager::new();
         let list = mgr.list_tenants();
         assert!(list.len() >= 2);
+
+        let tmp_dir =
+            std::env::temp_dir().join(format!("mizan-tenant-bak-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let tenants_file = tmp_dir.join("tenants.json");
+        std::fs::write(&tenants_file, "{broken-json").unwrap();
+
+        let recovered = TenantManager::load_from_path_or_default(&tenants_file);
+        assert!(recovered.list_tenants().len() >= 2);
+        assert!(tmp_dir.join("tenants.json.corrupt.bak").exists());
+
+        let _ = std::fs::remove_dir_all(tmp_dir);
     }
 }

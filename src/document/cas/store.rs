@@ -2,7 +2,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{fs, path::PathBuf};
 
-use crate::error::{AppError, Result, io_error};
+use crate::{
+    document::io_safe::{MAX_OSCAL_FILE_BYTES, atomic_write_bytes, read_bounded_regular_file},
+    error::{AppError, Result, io_error},
+};
+
+const EMPTY_SHA256_HEX: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CasStats {
@@ -49,14 +54,32 @@ impl CasStore {
     }
 
     pub fn put_bytes(&self, data: &[u8]) -> Result<String> {
+        if (data.len() as u64) > MAX_OSCAL_FILE_BYTES {
+            return Err(AppError::InvalidArgument(format!(
+                "CAS blob size ({} bytes) exceeds maximum permitted limit of {} bytes",
+                data.len(),
+                MAX_OSCAL_FILE_BYTES
+            )));
+        }
         let digest = Self::compute_digest(data);
         let path = self.blob_path(&digest)?;
 
-        if !path.exists() {
-            if let Some(parent) = path.parent() {
-                let _ = fs::create_dir_all(parent);
+        let needs_write = match fs::symlink_metadata(&path) {
+            Ok(meta) if meta.file_type().is_file() => {
+                if (!data.is_empty() && meta.len() == 0) || meta.len() != data.len() as u64 {
+                    true
+                } else if let Ok(existing) = read_bounded_regular_file(&path, MAX_OSCAL_FILE_BYTES)
+                {
+                    Self::compute_digest(&existing) != digest
+                } else {
+                    true
+                }
             }
-            fs::write(&path, data).map_err(|e| io_error(&path, e))?;
+            _ => true,
+        };
+
+        if needs_write {
+            atomic_write_bytes(&path, data)?;
         }
 
         Ok(digest)
@@ -73,7 +96,7 @@ impl CasStore {
                 "CAS object not found: {digest}"
             )));
         }
-        let bytes = fs::read(&path).map_err(|e| io_error(&path, e))?;
+        let bytes = read_bounded_regular_file(&path, MAX_OSCAL_FILE_BYTES)?;
 
         // Verify cryptographic integrity on read
         let actual_digest = Self::compute_digest(&bytes);
@@ -96,11 +119,17 @@ impl CasStore {
     }
 
     pub fn has_blob(&self, digest: &str) -> bool {
-        if let Ok(path) = self.blob_path(digest) {
-            path.exists()
-        } else {
-            false
+        let Ok(path) = self.blob_path(digest) else {
+            return false;
+        };
+        let Ok(meta) = fs::symlink_metadata(&path) else {
+            return false;
+        };
+        if !meta.file_type().is_file() {
+            return false;
         }
+        let clean_hash = digest.strip_prefix("sha256:").unwrap_or(digest);
+        meta.len() > 0 || clean_hash.eq_ignore_ascii_case(EMPTY_SHA256_HEX)
     }
 
     pub fn stats(&self) -> Result<CasStats> {
@@ -364,6 +393,35 @@ mod tests {
         let stats_after = cas.stats().expect("stats after");
         assert_eq!(stats_after.total_objects, 0);
         assert_eq!(stats_after.total_bytes, 0);
+
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_cas_store_self_heals_zero_byte_and_corrupted_blob() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "mizan-cas-selfheal-{}-{}",
+            std::process::id(),
+            uuid::Uuid::new_v4()
+        ));
+        let cas = CasStore::new(temp_dir.clone());
+
+        let payload = "Self-healing CAS blob content";
+        let digest = cas.put_str(payload).expect("initial put");
+        let blob_path = cas.blob_path(&digest).unwrap();
+
+        // Simulate crash truncation to 0 bytes
+        fs::write(&blob_path, b"").unwrap();
+        assert!(
+            !cas.has_blob(&digest),
+            "0-byte non-empty digest blob must not be reported as valid"
+        );
+
+        // Re-putting the same content must self-heal the truncated blob
+        let healed_digest = cas.put_str(payload).expect("self-heal put");
+        assert_eq!(healed_digest, digest);
+        assert!(cas.has_blob(&digest));
+        assert_eq!(cas.get_str(&digest).unwrap(), payload);
 
         let _ = fs::remove_dir_all(temp_dir);
     }

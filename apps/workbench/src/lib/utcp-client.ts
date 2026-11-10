@@ -87,6 +87,19 @@ function getBasePath(): string {
   return process.env.NEXT_PUBLIC_BASE_PATH ?? "";
 }
 
+function withBasePath(endpoint: string): string {
+  const base = getBasePath();
+  if (
+    !base ||
+    !endpoint.startsWith("/") ||
+    endpoint === base ||
+    endpoint.startsWith(`${base}/`)
+  ) {
+    return endpoint;
+  }
+  return `${base}${endpoint}`;
+}
+
 /**
  * 3-Tier UTCP Manual Discovery:
  * 1. Tauri IPC (`get_utcp_manual`) when running inside the Mizan Desktop application.
@@ -109,13 +122,15 @@ export async function fetchMizanUtcpManual(
     }
   }
 
+  const resolvedEndpoint = withBasePath(endpoint);
   try {
-    const sep = endpoint.includes("?") ? "&" : "?";
+    const sep = resolvedEndpoint.includes("?") ? "&" : "?";
     const res = await fetch(
-      `${endpoint}${sep}transport=${encodeURIComponent(transport)}`,
+      `${resolvedEndpoint}${sep}transport=${encodeURIComponent(transport)}`,
       {
         method: "GET",
         headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8_000),
       },
     );
     if (res.ok) {
@@ -129,10 +144,11 @@ export async function fetchMizanUtcpManual(
   const snapRes = await fetch(snapshotUrl, {
     method: "GET",
     headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(8_000),
   });
   if (!snapRes.ok) {
     throw new Error(
-      `Failed to fetch UTCP manual from live bridge (${endpoint}) or snapshot (${snapshotUrl}: ${snapRes.status})`,
+      `Failed to fetch UTCP manual from live bridge (${resolvedEndpoint}) or snapshot (${snapshotUrl}: ${snapRes.status})`,
     );
   }
   return (await snapRes.json()) as UtcpManual;
@@ -160,13 +176,15 @@ export async function invokeMizanUtcpTool<T = unknown>(
     });
   }
 
-  const sep = endpoint.includes("?") ? "&" : "?";
+  const resolvedEndpoint = withBasePath(endpoint);
+  const sep = resolvedEndpoint.includes("?") ? "&" : "?";
   const res = await fetch(
-    `${endpoint}${sep}tool=${encodeURIComponent(normalizedTool)}`,
+    `${resolvedEndpoint}${sep}tool=${encodeURIComponent(normalizedTool)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ tool: normalizedTool, inputs }),
+      signal: AbortSignal.timeout(30_000),
     },
   );
   if (!res.ok) {

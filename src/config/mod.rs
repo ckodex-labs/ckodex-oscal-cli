@@ -53,7 +53,7 @@ impl AppConfig {
                     ));
                 }
             },
-            timeout: Duration::from_secs(args.timeout_secs),
+            timeout: Duration::from_secs(args.timeout_secs.clamp(1, 300)),
             tls_domain: args.tls_domain.clone(),
             ca_cert: args.ca_cert.clone(),
             client_cert: args.client_cert.clone(),

@@ -38,14 +38,15 @@ pub async fn run() {
 async fn run_inner() -> error::Result<()> {
     use clap::Parser;
 
-    tracing_subscriber::fmt()
+    let _ = tracing_subscriber::fmt()
+        .with_writer(std::io::stderr)
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn")),
         )
         .with_target(false)
         .compact()
-        .init();
+        .try_init();
 
     let mut args = config::Cli::parse();
     if let Some(command) = args.command.as_ref() {

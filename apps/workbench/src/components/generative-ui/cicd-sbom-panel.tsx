@@ -260,6 +260,7 @@ function EvalPanel({ rules }: { rules: Rulepack[] }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rule: selected, payload: input }),
+        signal: AbortSignal.timeout(30_000),
       });
       const ct = res.headers.get("content-type") ?? "";
       if (!ct.includes("application/json")) {

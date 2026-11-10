@@ -8,43 +8,124 @@ mod tools;
 pub use protocol::{McpError, error_response, success_response, tools_list};
 pub use tools::execute_tool;
 
+pub const MAX_MCP_FRAME_BYTES: usize = 16 * 1024 * 1024;
+
+enum FrameRead {
+    Eof,
+    Line(String),
+    Oversized,
+    InvalidUtf8(String),
+}
+
+fn read_bounded_frame<R: BufRead>(reader: &mut R, max_bytes: usize) -> io::Result<FrameRead> {
+    let mut buf = Vec::new();
+    let mut oversized = false;
+
+    loop {
+        let available = reader.fill_buf()?;
+        if available.is_empty() {
+            if buf.is_empty() && !oversized {
+                return Ok(FrameRead::Eof);
+            }
+            break;
+        }
+
+        if let Some(newline_pos) = available.iter().position(|&b| b == b'\n') {
+            let chunk = &available[..=newline_pos];
+            if !oversized {
+                if buf.len().saturating_add(chunk.len()) > max_bytes {
+                    oversized = true;
+                    buf.clear();
+                } else {
+                    buf.extend_from_slice(chunk);
+                }
+            }
+            reader.consume(newline_pos + 1);
+            break;
+        } else {
+            let len = available.len();
+            if !oversized {
+                if buf.len().saturating_add(len) > max_bytes {
+                    oversized = true;
+                    buf.clear();
+                } else {
+                    buf.extend_from_slice(available);
+                }
+            }
+            reader.consume(len);
+        }
+    }
+
+    if oversized {
+        return Ok(FrameRead::Oversized);
+    }
+
+    match String::from_utf8(buf) {
+        Ok(line) => Ok(FrameRead::Line(line)),
+        Err(e) => Ok(FrameRead::InvalidUtf8(e.to_string())),
+    }
+}
+
 pub fn run_mcp_server() -> Result<()> {
     let stdin = io::stdin();
     let mut stdout = io::stdout().lock();
     let mut reader = stdin.lock();
-    let mut line = String::new();
+    serve_mcp_stream(&mut reader, &mut stdout, MAX_MCP_FRAME_BYTES)
+}
 
-    while reader.read_line(&mut line).map_err(|e| AppError::Io {
-        path: "stdin".into(),
-        source: e,
-    })? > 0
-    {
-        let trimmed = line.trim();
-        if !trimmed.is_empty() {
-            match serde_json::from_str::<Value>(trimmed) {
-                Ok(req) => {
-                    let id = req.get("id").unwrap_or(&Value::Null);
-                    match handle_mcp_request(&req) {
-                        Ok(Some(resp)) => write_response(&mut stdout, &resp)?,
-                        Ok(None) => {}
+fn serve_mcp_stream<R: BufRead, W: Write>(
+    reader: &mut R,
+    stdout: &mut W,
+    max_frame_bytes: usize,
+) -> Result<()> {
+    loop {
+        match read_bounded_frame(reader, max_frame_bytes).map_err(|e| AppError::Io {
+            path: "stdin".into(),
+            source: e,
+        })? {
+            FrameRead::Eof => break,
+            FrameRead::Oversized => {
+                let err_resp = error_response(
+                    None,
+                    -32600,
+                    "Invalid Request: frame exceeds 16 MiB limit".to_string(),
+                );
+                write_response(stdout, &err_resp)?;
+            }
+            FrameRead::InvalidUtf8(msg) => {
+                let err_resp =
+                    error_response(None, -32700, format!("Parse error: invalid UTF-8 ({msg})"));
+                write_response(stdout, &err_resp)?;
+            }
+            FrameRead::Line(line) => {
+                let trimmed = line.trim();
+                if !trimmed.is_empty() {
+                    match serde_json::from_str::<Value>(trimmed) {
+                        Ok(req) => {
+                            let id = req.get("id").unwrap_or(&Value::Null);
+                            match handle_mcp_request(&req) {
+                                Ok(Some(resp)) => write_response(stdout, &resp)?,
+                                Ok(None) => {}
+                                Err(e) => {
+                                    let err_resp =
+                                        error_response(Some(id), e.code(), e.to_string());
+                                    write_response(stdout, &err_resp)?;
+                                }
+                            }
+                        }
                         Err(e) => {
-                            let err_resp = error_response(Some(id), e.code(), e.to_string());
-                            write_response(&mut stdout, &err_resp)?;
+                            let err_resp = error_response(None, -32700, e.to_string());
+                            write_response(stdout, &err_resp)?;
                         }
                     }
                 }
-                Err(e) => {
-                    let err_resp = error_response(None, -32700, e.to_string());
-                    write_response(&mut stdout, &err_resp)?;
-                }
             }
         }
-        line.clear();
     }
     Ok(())
 }
 
-fn write_response(stdout: &mut io::StdoutLock, resp: &Value) -> Result<()> {
+fn write_response<W: Write>(stdout: &mut W, resp: &Value) -> Result<()> {
     let fallback = r#"{"jsonrpc":"2.0","id":null,"error":{"code":-32603,"message":"Internal response serialization error"}}"#;
     let resp_str = match serde_json::to_string(resp) {
         Ok(s) => s,
@@ -129,7 +210,11 @@ fn handle_mcp_request(req: &Value) -> std::result::Result<Option<Value>, McpErro
                 .or_else(|| params.get("q"))
                 .and_then(Value::as_str)
                 .unwrap_or("");
-            let limit = params.get("limit").and_then(Value::as_u64).unwrap_or(10) as usize;
+            let limit = params
+                .get("limit")
+                .and_then(Value::as_u64)
+                .unwrap_or(10)
+                .clamp(1, 100) as usize;
             let transport_str = params
                 .get("transport")
                 .and_then(Value::as_str)
@@ -318,5 +403,39 @@ mod tests {
             .unwrap()
             .expect("should return error");
         assert_eq!(resp["error"]["code"], -32601);
+    }
+
+    #[test]
+    fn test_mcp_rejects_oversized_frame_and_continues_serving() {
+        // Test with a small synthetic frame cap (256 bytes) AND verify MAX_MCP_FRAME_BYTES is 16 MiB
+        assert_eq!(MAX_MCP_FRAME_BYTES, 16 * 1024 * 1024);
+
+        let mut input = Vec::new();
+        // Frame 1: oversized (1024 bytes > 256 byte cap)
+        input.extend_from_slice(&vec![b'a'; 1024]);
+        input.push(b'\n');
+        // Frame 2: valid initialize request after draining the oversized frame
+        input.extend_from_slice(br#"{"jsonrpc":"2.0","id":99,"method":"initialize","params":{}}"#);
+        input.push(b'\n');
+
+        let mut reader = io::BufReader::with_capacity(64, input.as_slice());
+        let mut output = Vec::new();
+        serve_mcp_stream(&mut reader, &mut output, 256).expect("stream processing must succeed");
+
+        let lines: Vec<&str> = std::str::from_utf8(&output).unwrap().lines().collect();
+        assert_eq!(lines.len(), 2);
+
+        let err_resp: Value = serde_json::from_str(lines[0]).unwrap();
+        assert_eq!(err_resp["error"]["code"], -32600);
+        assert!(
+            err_resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("frame exceeds 16 MiB limit")
+        );
+
+        let ok_resp: Value = serde_json::from_str(lines[1]).unwrap();
+        assert_eq!(ok_resp["id"], 99);
+        assert_eq!(ok_resp["result"]["serverInfo"]["name"], "mizan-mcp");
     }
 }

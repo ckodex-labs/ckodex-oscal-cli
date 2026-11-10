@@ -33,8 +33,16 @@ interface EngineContextValue {
 
 const EngineContext = React.createContext<EngineContextValue | null>(null);
 
-async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, { cache: "no-store", ...init });
+async function fetchJson<T>(
+  url: string,
+  init?: RequestInit,
+  timeoutMs = 8_000,
+): Promise<T> {
+  const res = await fetch(url, {
+    cache: "no-store",
+    ...init,
+    signal: init?.signal ?? AbortSignal.timeout(timeoutMs),
+  });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return (await res.json()) as T;
 }
@@ -189,6 +197,7 @@ export async function runLive<T = unknown>(
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ argv }),
+    signal: AbortSignal.timeout(30_000),
   });
   const body = (await res.json()) as {
     success: boolean;

@@ -18,14 +18,20 @@ pub(super) fn run_audit(args: &AuditArgs, format: OutputFormat) -> Result<()> {
     };
 
     let (_doc, report) = match tokio::runtime::Handle::try_current() {
-        Ok(handle) => tokio::task::block_in_place(|| handle.block_on(execute_audit))?,
-        Err(_) => {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| AppError::Configuration(e.to_string()))?;
-            rt.block_on(execute_audit)?
+        Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
+            tokio::task::block_in_place(|| handle.block_on(execute_audit))?
         }
+        _ => std::thread::scope(|s| {
+            s.spawn(|| -> Result<_> {
+                let rt = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .map_err(|e| AppError::Configuration(e.to_string()))?;
+                rt.block_on(execute_audit)
+            })
+            .join()
+            .map_err(|_| AppError::Configuration("background audit worker panicked".to_string()))?
+        })?,
     };
 
     match format {

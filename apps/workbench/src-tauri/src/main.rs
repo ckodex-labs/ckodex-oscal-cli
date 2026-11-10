@@ -68,98 +68,132 @@ fn validate_ipc_path(raw: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-#[tauri::command]
-fn compute_blast_radius(file: String, target: String) -> Result<Value, String> {
-    let path = validate_ipc_path(&file)?;
-    let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
-    let report = analyze_blast_radius(&doc, &[], &target, 4).map_err(|e| e.to_string())?;
-    serde_json::to_value(&report).map_err(|e| e.to_string())
+const IPC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
+async fn run_bounded_blocking<F>(op_name: &'static str, f: F) -> Result<Value, String>
+where
+    F: FnOnce() -> Result<Value, String> + Send + 'static,
+{
+    tokio::time::timeout(IPC_TIMEOUT, tokio::task::spawn_blocking(f))
+        .await
+        .map_err(|_| format!("Tauri IPC '{op_name}' timed out after 30s"))?
+        .map_err(|e| format!("Tauri IPC '{op_name}' worker panicked: {e}"))?
 }
 
 #[tauri::command]
-fn validate_fedramp_pmo(file: String, baseline: String) -> Result<Value, String> {
-    let path = validate_ipc_path(&file)?;
-    let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
-    let base_enum = match baseline.to_lowercase().as_str() {
-        "low" => FedrampBaseline::Low,
-        "high" => FedrampBaseline::High,
-        _ => FedrampBaseline::Moderate,
-    };
-    let report = validate_fedramp(&doc, base_enum).map_err(|e| e.to_string())?;
-    serde_json::to_value(&report).map_err(|e| e.to_string())
+async fn compute_blast_radius(file: String, target: String) -> Result<Value, String> {
+    run_bounded_blocking("compute_blast_radius", move || {
+        let path = validate_ipc_path(&file)?;
+        let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
+        let report = analyze_blast_radius(&doc, &[], &target, 4).map_err(|e| e.to_string())?;
+        serde_json::to_value(&report).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn sync_3way(
+async fn validate_fedramp_pmo(file: String, baseline: String) -> Result<Value, String> {
+    run_bounded_blocking("validate_fedramp_pmo", move || {
+        let path = validate_ipc_path(&file)?;
+        let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
+        let base_enum = match baseline.to_lowercase().as_str() {
+            "low" => FedrampBaseline::Low,
+            "high" => FedrampBaseline::High,
+            _ => FedrampBaseline::Moderate,
+        };
+        let report = validate_fedramp(&doc, base_enum).map_err(|e| e.to_string())?;
+        serde_json::to_value(&report).map_err(|e| e.to_string())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn sync_3way(
     base: String,
     upstream: String,
     local: String,
     strategy: String,
 ) -> Result<Value, String> {
-    let base_p = validate_ipc_path(&base)?;
-    let upstream_p = validate_ipc_path(&upstream)?;
-    let local_p = validate_ipc_path(&local)?;
-    let base_doc = OscalDocument::from_file(&base_p).map_err(|e| e.to_string())?;
-    let upstream_doc = OscalDocument::from_file(&upstream_p).map_err(|e| e.to_string())?;
-    let local_doc = OscalDocument::from_file(&local_p).map_err(|e| e.to_string())?;
+    run_bounded_blocking("sync_3way", move || {
+        let base_p = validate_ipc_path(&base)?;
+        let upstream_p = validate_ipc_path(&upstream)?;
+        let local_p = validate_ipc_path(&local)?;
+        let base_doc = OscalDocument::from_file(&base_p).map_err(|e| e.to_string())?;
+        let upstream_doc = OscalDocument::from_file(&upstream_p).map_err(|e| e.to_string())?;
+        let local_doc = OscalDocument::from_file(&local_p).map_err(|e| e.to_string())?;
 
-    let strat = MergeStrategy::from_str_name(&strategy).unwrap_or(MergeStrategy::Manual);
-    let (_merged_doc, report) =
-        sync_and_merge(&base_doc, &upstream_doc, &local_doc, strat, None, None)
-            .map_err(|e| e.to_string())?;
-    serde_json::to_value(&report).map_err(|e| e.to_string())
+        let strat = MergeStrategy::from_str_name(&strategy).unwrap_or(MergeStrategy::Manual);
+        let (_merged_doc, report) =
+            sync_and_merge(&base_doc, &upstream_doc, &local_doc, strat, None, None)
+                .map_err(|e| e.to_string())?;
+        serde_json::to_value(&report).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn inspect_oscal_doc(file: String) -> Result<Value, String> {
-    let path = validate_ipc_path(&file)?;
-    let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
-    let report = inspect_document(&doc).map_err(|e| e.to_string())?;
-    serde_json::to_value(&report).map_err(|e| e.to_string())
+async fn inspect_oscal_doc(file: String) -> Result<Value, String> {
+    run_bounded_blocking("inspect_oscal_doc", move || {
+        let path = validate_ipc_path(&file)?;
+        let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
+        let report = inspect_document(&doc).map_err(|e| e.to_string())?;
+        serde_json::to_value(&report).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn query_control_metadata(file: String, control_id: String) -> Result<Value, String> {
-    let path = validate_ipc_path(&file)?;
-    let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
-    let root = doc.root_object().ok_or("Invalid document root")?;
-    let cid_lower = control_id.to_lowercase();
+async fn query_control_metadata(file: String, control_id: String) -> Result<Value, String> {
+    run_bounded_blocking("query_control_metadata", move || {
+        let path = validate_ipc_path(&file)?;
+        let doc = OscalDocument::from_file(&path).map_err(|e| e.to_string())?;
+        let root = doc.root_object().ok_or("Invalid document root")?;
+        let cid_lower = control_id.to_lowercase();
 
-    if let Some(controls) = root.get("controls").and_then(Value::as_array) {
-        for c in controls {
-            if c.get("id").and_then(Value::as_str) == Some(&cid_lower) {
-                return Ok(c.clone());
+        if let Some(controls) = root.get("controls").and_then(Value::as_array) {
+            for c in controls {
+                if c.get("id").and_then(Value::as_str) == Some(&cid_lower) {
+                    return Ok(c.clone());
+                }
             }
         }
-    }
-    Ok(json!({ "id": control_id, "found": false }))
+        Ok(json!({ "id": control_id, "found": false }))
+    })
+    .await
 }
 
 #[tauri::command]
 async fn audit_k8s_cluster(namespace: Option<String>) -> Result<Value, String> {
-    let mut auditor = KubeAuditor::new(KubeClusterClient::try_connect().await);
-    let (_doc, report) = auditor
-        .audit_cluster(namespace.as_deref(), None, None)
-        .await
-        .map_err(|e| e.to_string())?;
-    serde_json::to_value(&report).map_err(|e| e.to_string())
+    tokio::time::timeout(IPC_TIMEOUT, async move {
+        let mut auditor = KubeAuditor::new(KubeClusterClient::try_connect().await);
+        let (_doc, report) = auditor
+            .audit_cluster(namespace.as_deref(), None, None)
+            .await
+            .map_err(|e| e.to_string())?;
+        serde_json::to_value(&report).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|_| "Tauri IPC 'audit_k8s_cluster' timed out after 30s".to_string())?
 }
 
 #[tauri::command]
-fn evaluate_rego_policy(
+async fn evaluate_rego_policy(
     policy_path: String,
     input_json: Value,
     query_package: String,
 ) -> Result<Value, String> {
-    let validated_policy = validate_ipc_path(&policy_path)?;
-    let mut evaluator = RegorusEvaluator::new();
-    evaluator
-        .add_policy_dir(&validated_policy)
-        .map_err(|e| e.to_string())?;
-    let result = evaluator
-        .evaluate_compliance_rule(&query_package, input_json)
-        .map_err(|e| e.to_string())?;
-    serde_json::to_value(&result).map_err(|e| e.to_string())
+    run_bounded_blocking("evaluate_rego_policy", move || {
+        let validated_policy = validate_ipc_path(&policy_path)?;
+        let mut evaluator = RegorusEvaluator::new();
+        evaluator
+            .add_policy_dir(&validated_policy)
+            .map_err(|e| e.to_string())?;
+        let result = evaluator
+            .evaluate_compliance_rule(&query_package, input_json)
+            .map_err(|e| e.to_string())?;
+        serde_json::to_value(&result).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 const ALLOWED_TAURI_UTCP_TOOLS: &[&str] = &[
@@ -178,46 +212,55 @@ const ALLOWED_TAURI_UTCP_TOOLS: &[&str] = &[
 ];
 
 #[tauri::command]
-fn get_utcp_manual(transport: Option<String>, base_url: Option<String>) -> Result<Value, String> {
-    let t_str = transport.as_deref().unwrap_or("cli");
-    let t_type = mizan_oscal::utcp::UtcpTransportType::from_str_name(t_str)
-        .ok_or_else(|| format!("Unsupported UTCP transport: {t_str}"))?;
-    let url = base_url.as_deref().unwrap_or("http://localhost:3000");
-    let manual = mizan_oscal::utcp::UtcpManual::build_mizan_manual(t_type, url);
-    serde_json::to_value(manual).map_err(|e| e.to_string())
+async fn get_utcp_manual(
+    transport: Option<String>,
+    base_url: Option<String>,
+) -> Result<Value, String> {
+    run_bounded_blocking("get_utcp_manual", move || {
+        let t_str = transport.as_deref().unwrap_or("cli");
+        let t_type = mizan_oscal::utcp::UtcpTransportType::from_str_name(t_str)
+            .ok_or_else(|| format!("Unsupported UTCP transport: {t_str}"))?;
+        let url = base_url.as_deref().unwrap_or("http://localhost:3000");
+        let manual = mizan_oscal::utcp::UtcpManual::build_mizan_manual(t_type, url);
+        serde_json::to_value(manual).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 #[tauri::command]
-fn call_utcp_tool(tool_name: String, inputs: Option<Value>) -> Result<Value, String> {
-    let normalized = tool_name
-        .rsplit('.')
-        .next()
-        .unwrap_or(tool_name.as_str())
-        .trim();
-    if !ALLOWED_TAURI_UTCP_TOOLS.contains(&normalized) {
-        return Err(format!(
-            "UTCP tool not permitted over Tauri IPC: {tool_name}"
-        ));
-    }
-    let args = inputs.unwrap_or_else(|| json!({}));
-    if let Some(obj) = args.as_object() {
-        if obj.contains_key("output_file") || obj.contains_key("output_dir") {
-            return Err("Output path arguments are forbidden over Tauri IPC".to_string());
+async fn call_utcp_tool(tool_name: String, inputs: Option<Value>) -> Result<Value, String> {
+    run_bounded_blocking("call_utcp_tool", move || {
+        let normalized = tool_name
+            .rsplit('.')
+            .next()
+            .unwrap_or(tool_name.as_str())
+            .trim();
+        if !ALLOWED_TAURI_UTCP_TOOLS.contains(&normalized) {
+            return Err(format!(
+                "UTCP tool not permitted over Tauri IPC: {tool_name}"
+            ));
         }
-        for (k, v) in obj {
-            if (k == "file"
-                || k.ends_with("_file")
-                || k.ends_with("_path")
-                || k.ends_with("_dir"))
-                && let Some(p_str) = v.as_str()
-            {
-                validate_ipc_path(p_str)?;
+        let args = inputs.unwrap_or_else(|| json!({}));
+        if let Some(obj) = args.as_object() {
+            if obj.contains_key("output_file") || obj.contains_key("output_dir") {
+                return Err("Output path arguments are forbidden over Tauri IPC".to_string());
+            }
+            for (k, v) in obj {
+                if (k == "file"
+                    || k.ends_with("_file")
+                    || k.ends_with("_path")
+                    || k.ends_with("_dir"))
+                    && let Some(p_str) = v.as_str()
+                {
+                    validate_ipc_path(p_str)?;
+                }
             }
         }
-    }
-    let receipt =
-        mizan_oscal::utcp::execute_utcp_tool(normalized, &args).map_err(|e| e.to_string())?;
-    serde_json::to_value(receipt).map_err(|e| e.to_string())
+        let receipt =
+            mizan_oscal::utcp::execute_utcp_tool(normalized, &args).map_err(|e| e.to_string())?;
+        serde_json::to_value(receipt).map_err(|e| e.to_string())
+    })
+    .await
 }
 
 fn main() {
@@ -280,20 +323,24 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_tauri_utcp_ipc_commands() {
-        let manual =
-            get_utcp_manual(Some("http".to_string()), None).expect("get_utcp_manual should succeed");
+    #[tokio::test]
+    async fn test_tauri_utcp_ipc_commands() {
+        let manual = get_utcp_manual(Some("http".to_string()), None)
+            .await
+            .expect("get_utcp_manual should succeed");
         assert_eq!(manual["utcp_version"], "1.0.1");
         assert!(manual["tools"].as_array().unwrap().len() >= 19);
 
         let receipt = call_utcp_tool("mizan_oscal.fabric_status".to_string(), Some(json!({})))
+            .await
             .expect("call_utcp_tool fabric_status should succeed");
         assert_eq!(receipt["status"], "VERIFIED");
         assert_eq!(receipt["output"]["status"], "OPERATIONAL");
 
         assert!(
-            call_utcp_tool("export_utcp_manual".to_string(), Some(json!({}))).is_err(),
+            call_utcp_tool("export_utcp_manual".to_string(), Some(json!({})))
+                .await
+                .is_err(),
             "write-capable tool must be rejected over Tauri IPC"
         );
         assert!(
@@ -301,6 +348,7 @@ mod tests {
                 "inspect_document".to_string(),
                 Some(json!({ "file": "../escape.json" }))
             )
+            .await
             .is_err(),
             "path traversal in call_utcp_tool must be rejected"
         );

@@ -4,12 +4,15 @@ use std::{collections::BTreeMap, fs, path::Path};
 
 use crate::{
     document::{
+        io_safe::{MAX_OSCAL_FILE_BYTES, atomic_write_bytes, read_bounded_utf8_file},
         parser::OscalDocument,
         schema::DocumentKind,
         validator::{ValidationOptions, validate_document},
     },
     error::{AppError, Result, io_error},
 };
+
+const MAX_SCAN_DEPTH: usize = 16;
 
 #[derive(Clone, Debug, Serialize)]
 pub struct AssembleReport {
@@ -40,7 +43,7 @@ pub fn assemble_directory(
         )));
     }
 
-    let meta_content = fs::read_to_string(&meta_file).map_err(|e| io_error(&meta_file, e))?;
+    let meta_content = read_bounded_utf8_file(&meta_file, MAX_OSCAL_FILE_BYTES)?;
     let meta_val: Value = serde_yaml::from_str(&meta_content)
         .map_err(|e| AppError::Configuration(format!("Failed to parse _metadata.yaml: {e}")))?;
 
@@ -105,7 +108,7 @@ pub fn assemble_directory(
             // System characteristics
             let sc_file = input_dir.join("system-characteristics.yaml");
             if sc_file.exists() {
-                let sc_content = fs::read_to_string(&sc_file).map_err(|e| io_error(&sc_file, e))?;
+                let sc_content = read_bounded_utf8_file(&sc_file, MAX_OSCAL_FILE_BYTES)?;
                 let sc_val: Value = serde_yaml::from_str(&sc_content).map_err(|e| {
                     AppError::Configuration(format!(
                         "Failed to parse system-characteristics.yaml: {e}"
@@ -117,14 +120,20 @@ pub fn assemble_directory(
             // Components
             let comps_dir = input_dir.join("components");
             let mut components = Vec::new();
-            if comps_dir.exists() && comps_dir.is_dir() {
+            if let Ok(meta) = fs::symlink_metadata(&comps_dir)
+                && !meta.file_type().is_symlink()
+                && meta.file_type().is_dir()
+            {
                 for entry in fs::read_dir(&comps_dir).map_err(|e| io_error(&comps_dir, e))? {
                     let entry = entry.map_err(|e| io_error(&comps_dir, e))?;
                     let p = entry.path();
-                    if p.extension()
-                        .is_some_and(|ext| ext == "yaml" || ext == "yml" || ext == "json")
+                    if let Ok(emeta) = fs::symlink_metadata(&p)
+                        && !emeta.file_type().is_symlink()
+                        && emeta.file_type().is_file()
+                        && p.extension()
+                            .is_some_and(|ext| ext == "yaml" || ext == "yml" || ext == "json")
                     {
-                        let c_str = fs::read_to_string(&p).map_err(|e| io_error(&p, e))?;
+                        let c_str = read_bounded_utf8_file(&p, MAX_OSCAL_FILE_BYTES)?;
                         let c_val: Value = serde_yaml::from_str(&c_str).map_err(|e| {
                             AppError::Configuration(format!(
                                 "Failed to parse component {}: {e}",
@@ -145,11 +154,18 @@ pub fn assemble_directory(
             // Implemented requirements
             let reqs_dir = input_dir.join("control-implementation");
             let mut reqs = Vec::new();
-            if reqs_dir.exists() && reqs_dir.is_dir() {
+            if let Ok(meta) = fs::symlink_metadata(&reqs_dir)
+                && !meta.file_type().is_symlink()
+                && meta.file_type().is_dir()
+            {
                 for entry in fs::read_dir(&reqs_dir).map_err(|e| io_error(&reqs_dir, e))? {
                     let entry = entry.map_err(|e| io_error(&reqs_dir, e))?;
                     let p = entry.path();
-                    if p.extension().is_some_and(|ext| ext == "md") {
+                    if let Ok(emeta) = fs::symlink_metadata(&p)
+                        && !emeta.file_type().is_symlink()
+                        && emeta.file_type().is_file()
+                        && p.extension().is_some_and(|ext| ext == "md")
+                    {
                         let req_val = assemble_implemented_req(&p)?;
                         reqs.push(req_val);
                     }
@@ -179,7 +195,7 @@ pub fn assemble_directory(
     // Check for back-matter
     let bm_file = input_dir.join("back-matter.yaml");
     if bm_file.exists() {
-        let bm_content = fs::read_to_string(&bm_file).map_err(|e| io_error(&bm_file, e))?;
+        let bm_content = read_bounded_utf8_file(&bm_file, MAX_OSCAL_FILE_BYTES)?;
         let bm_val: Value = serde_yaml::from_str(&bm_content).map_err(|e| {
             AppError::Configuration(format!("Failed to parse back-matter.yaml: {e}"))
         })?;
@@ -195,7 +211,7 @@ pub fn assemble_directory(
     })?;
 
     if let Some(out_p) = output_path {
-        fs::write(out_p, &doc_str).map_err(|e| io_error(out_p, e))?;
+        atomic_write_bytes(out_p, doc_str.as_bytes())?;
     }
 
     let assembled_doc = OscalDocument::from_str(&doc_str, output_path.map(Path::to_path_buf))?;
@@ -215,20 +231,47 @@ pub fn assemble_directory(
 
 fn assemble_controls_from_dir(dir: &Path) -> Result<Vec<Value>> {
     let mut controls_map: BTreeMap<String, Value> = BTreeMap::new();
-    scan_dir_for_control_markdown(dir, &mut controls_map)?;
+    scan_dir_for_control_markdown(dir, &mut controls_map, 0)?;
     Ok(controls_map.into_values().collect())
 }
 
-fn scan_dir_for_control_markdown(dir: &Path, map: &mut BTreeMap<String, Value>) -> Result<()> {
-    if !dir.is_dir() {
+fn scan_dir_for_control_markdown(
+    dir: &Path,
+    map: &mut BTreeMap<String, Value>,
+    depth: usize,
+) -> Result<()> {
+    if depth > MAX_SCAN_DEPTH {
+        return Ok(());
+    }
+    let dir_meta = if depth == 0 {
+        let Ok(m) = fs::metadata(dir) else {
+            return Ok(());
+        };
+        m
+    } else {
+        let Ok(m) = fs::symlink_metadata(dir) else {
+            return Ok(());
+        };
+        if m.file_type().is_symlink() {
+            return Ok(());
+        }
+        m
+    };
+    if !dir_meta.file_type().is_dir() {
         return Ok(());
     }
     for entry in fs::read_dir(dir).map_err(|e| io_error(dir, e))? {
         let entry = entry.map_err(|e| io_error(dir, e))?;
         let path = entry.path();
-        if path.is_dir() {
-            scan_dir_for_control_markdown(&path, map)?;
-        } else if path.extension().is_some_and(|ext| ext == "md") {
+        let Ok(meta) = fs::symlink_metadata(&path) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        if meta.file_type().is_dir() {
+            scan_dir_for_control_markdown(&path, map, depth + 1)?;
+        } else if meta.file_type().is_file() && path.extension().is_some_and(|ext| ext == "md") {
             let file_name = path.file_name().and_then(|f| f.to_str()).unwrap_or("");
             if file_name.starts_with('_') || file_name == "README.md" {
                 continue;
@@ -249,7 +292,7 @@ fn scan_dir_for_control_markdown(dir: &Path, map: &mut BTreeMap<String, Value>) 
 }
 
 fn parse_control_markdown(path: &Path) -> Result<Value> {
-    let content = fs::read_to_string(path).map_err(|e| io_error(path, e))?;
+    let content = read_bounded_utf8_file(path, MAX_OSCAL_FILE_BYTES)?;
     let (frontmatter, body) = extract_frontmatter_and_body(&content)?;
 
     let mut ctrl_map: Map<String, Value> = serde_yaml::from_str(&frontmatter).map_err(|e| {
@@ -269,7 +312,7 @@ fn parse_control_markdown(path: &Path) -> Result<Value> {
 }
 
 fn assemble_implemented_req(path: &Path) -> Result<Value> {
-    let content = fs::read_to_string(path).map_err(|e| io_error(path, e))?;
+    let content = read_bounded_utf8_file(path, MAX_OSCAL_FILE_BYTES)?;
     let (frontmatter, body) = extract_frontmatter_and_body(&content)?;
 
     let mut req_map: Map<String, Value> = serde_yaml::from_str(&frontmatter).map_err(|e| {

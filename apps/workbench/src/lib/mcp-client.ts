@@ -12,10 +12,39 @@
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
+import { StringDecoder } from "string_decoder";
 import { BlastRadiusReport, FedrampReport, MergeReport } from "./oscal-types";
 
 // Path to project root containing the Rust oscal-cli executable
 const PROJECT_ROOT = path.resolve(process.cwd(), "../..");
+
+export const DEFAULT_CLI_TIMEOUT_MS = 30_000;
+export const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+export const MAX_CONCURRENT_PROCS = 8;
+
+let activeProcs = 0;
+const waitQueue: Array<() => void> = [];
+
+function acquireProcSlot(): Promise<() => void> {
+  return new Promise((resolve) => {
+    const grant = () => {
+      activeProcs += 1;
+      let released = false;
+      resolve(() => {
+        if (released) return;
+        released = true;
+        activeProcs = Math.max(0, activeProcs - 1);
+        const next = waitQueue.shift();
+        if (next) next();
+      });
+    };
+    if (activeProcs < MAX_CONCURRENT_PROCS) {
+      grant();
+    } else {
+      waitQueue.push(grant);
+    }
+  });
+}
 
 function getMizanBinary(): { bin: string; argsPrefix: string[] } {
   const customBin = process.env.MIZAN_BIN;
@@ -58,37 +87,132 @@ function getMizanBinary(): { bin: string; argsPrefix: string[] } {
   };
 }
 
-export async function callOscalCli(args: string[]): Promise<string> {
+export interface CliExecError extends Error {
+  exitCode?: number | null;
+  stdout?: string;
+  stderr?: string;
+}
+
+export async function callOscalCli(
+  args: string[],
+  timeoutMs = DEFAULT_CLI_TIMEOUT_MS,
+): Promise<string> {
+  const releaseSlot = await acquireProcSlot();
   const { bin, argsPrefix } = getMizanBinary();
   const fullArgs = [...argsPrefix, ...args];
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    let killEscalationTimer: ReturnType<typeof setTimeout> | null = null;
+
     const child = spawn(/*turbopackIgnore: true*/ bin, fullArgs, {
       cwd: PROJECT_ROOT,
       env: { ...process.env, RUST_LOG: "error" },
     });
 
+    const terminateChild = () => {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // ignore if already exited
+      }
+      killEscalationTimer = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // ignore if already exited
+        }
+      }, 2_000);
+      killEscalationTimer.unref?.();
+    };
+
+    const finish = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
+      if (killEscalationTimer) {
+        clearTimeout(killEscalationTimer);
+      }
+      releaseSlot();
+      fn();
+    };
+
+    const timeoutTimer = setTimeout(() => {
+      terminateChild();
+      finish(() => {
+        reject(new Error(`mizan CLI timed out after ${timeoutMs} ms`));
+      });
+    }, timeoutMs);
+    timeoutTimer.unref?.();
+
+    const stdoutDecoder = new StringDecoder("utf8");
+    const stderrDecoder = new StringDecoder("utf8");
     let stdout = "";
     let stderr = "";
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
 
-    child.stdout.on("data", (data) => {
-      stdout += data.toString();
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > MAX_OUTPUT_BYTES) {
+        terminateChild();
+        finish(() => {
+          reject(
+            new Error(
+              `mizan CLI stdout exceeded ${MAX_OUTPUT_BYTES} byte limit`,
+            ),
+          );
+        });
+        return;
+      }
+      stdout += stdoutDecoder.write(chunk);
     });
 
-    child.stderr.on("data", (data) => {
-      stderr += data.toString();
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderrBytes += chunk.length;
+      if (stderrBytes > MAX_OUTPUT_BYTES) {
+        terminateChild();
+        finish(() => {
+          reject(
+            new Error(
+              `mizan CLI stderr exceeded ${MAX_OUTPUT_BYTES} byte limit`,
+            ),
+          );
+        });
+        return;
+      }
+      stderr += stderrDecoder.write(chunk);
     });
 
     child.on("close", (code) => {
-      if (code === 0) {
-        resolve(stdout.trim());
-      } else {
-        reject(new Error(`mizan CLI failed (${code}): ${stderr || stdout}`));
-      }
+      stdout += stdoutDecoder.end();
+      stderr += stderrDecoder.end();
+      const trimmedStdout = stdout.trim();
+      const trimmedStderr = stderr.trim();
+
+      finish(() => {
+        if (code === 0) {
+          resolve(trimmedStdout);
+          return;
+        }
+        const detail =
+          trimmedStdout.startsWith("{") || trimmedStdout.startsWith("[")
+            ? trimmedStdout
+            : trimmedStderr || trimmedStdout;
+        const err: CliExecError = new Error(
+          `mizan CLI failed (${code ?? 1}): ${detail}`,
+        );
+        err.exitCode = code;
+        err.stdout = trimmedStdout;
+        err.stderr = trimmedStderr;
+        reject(err);
+      });
     });
 
     child.on("error", (err) => {
-      reject(err);
+      finish(() => {
+        reject(err);
+      });
     });
   });
 }

@@ -91,8 +91,10 @@ pub fn diff_documents(doc_a: &OscalDocument, doc_b: &OscalDocument) -> Result<Do
         let ca = &ctrls_a[*id];
         let cb = &ctrls_b[*id];
 
-        let str_a = serde_json::to_string_pretty(ca).unwrap();
-        let str_b = serde_json::to_string_pretty(cb).unwrap();
+        let str_a = serde_json::to_string_pretty(ca)
+            .map_err(|e| crate::error::AppError::Configuration(e.to_string()))?;
+        let str_b = serde_json::to_string_pretty(cb)
+            .map_err(|e| crate::error::AppError::Configuration(e.to_string()))?;
 
         if str_a != str_b {
             let t_a = ca.get("title").and_then(Value::as_str).map(String::from);

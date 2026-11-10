@@ -15,7 +15,12 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 import { callOscalCli } from "@/lib/mcp-client";
-import { bridgeError as fail, guardBridgeRequest } from "@/lib/bridge-guard";
+import {
+  MAX_BODY_BYTES,
+  bridgeError as fail,
+  guardBridgeRequest,
+  readBoundedJsonBody,
+} from "@/lib/bridge-guard";
 
 const PROJECT_ROOT = path.resolve(process.cwd(), "../..");
 
@@ -247,42 +252,10 @@ export async function GET(req?: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       {
-        manual_version: "1.0.0",
-        utcp_version: "1.0.1",
-        version: "1.0",
-        name: "mizan-oscal",
-        description:
-          "Mizan High-Assurance OSCAL v1.2.3 Compliance Kernel & Workbench — Universal Tool Calling Protocol (UTCP) Manual",
-        info: {
-          title: "mizan-oscal",
-          version: "0.2.0",
-          description:
-            "Mizan High-Assurance OSCAL v1.2.3 Compliance Kernel & Workbench — Universal Tool Calling Protocol (UTCP) Manual",
-        },
-        allowed_communication_protocols: [
-          "cli",
-          "http",
-          "grpc",
-          "mcp",
-          "sse",
-          "text",
-        ],
-        homepage: "https://github.com/universal-tool-calling-protocol",
-        specification_url:
-          "https://github.com/universal-tool-calling-protocol/utcp-specification",
-        supported_repositories: [
-          "https://github.com/universal-tool-calling-protocol",
-          "https://github.com/universal-tool-calling-protocol/utcp-specification",
-          "https://github.com/universal-tool-calling-protocol/utcp-mcp",
-          "https://github.com/universal-tool-calling-protocol/rs-utcp",
-          "https://github.com/universal-tool-calling-protocol/typescript-utcp",
-          "https://github.com/universal-tool-calling-protocol/go-utcp",
-          "https://github.com/universal-tool-calling-protocol/python-utcp",
-        ],
-        error: err instanceof Error ? err.message : "static fallback manual",
-        tools: [],
+        success: false,
+        error: err instanceof Error ? err.message : "UTCP manual bridge unavailable",
       },
-      { status: 200, headers: { "Cache-Control": "no-store" } },
+      { status: 503, headers: { "Cache-Control": "no-store" } },
     );
   }
 }
@@ -291,20 +264,17 @@ export async function POST(req: NextRequest) {
   const denied = guardBridgeRequest(req);
   if (denied) return denied;
 
-  let body: Record<string, unknown>;
-  try {
-    const parsed = await req.json();
-    if (
-      typeof parsed !== "object" ||
-      parsed === null ||
-      Array.isArray(parsed)
-    ) {
-      return fail(400, "JSON body must be an object");
-    }
-    body = parsed as Record<string, unknown>;
-  } catch {
-    return fail(400, "invalid JSON body");
+  const parsedBody = await readBoundedJsonBody(req, MAX_BODY_BYTES);
+  if (!parsedBody.ok) return parsedBody.response;
+
+  if (
+    typeof parsedBody.value !== "object" ||
+    parsedBody.value === null ||
+    Array.isArray(parsedBody.value)
+  ) {
+    return fail(400, "JSON body must be an object");
   }
+  const body = parsedBody.value as Record<string, unknown>;
 
   const queryTool = (
     req.nextUrl?.searchParams?.get("tool") ??

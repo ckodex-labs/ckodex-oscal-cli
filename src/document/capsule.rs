@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 use crate::error::{AppError, Result};
 
@@ -31,7 +28,7 @@ impl CapsuleExporter {
             )));
         }
 
-        let assessment_raw = fs::read_to_string(assessment_path).map_err(|e| {
+        let assessment_raw = read_bounded_capsule_utf8(assessment_path).map_err(|e| {
             AppError::Configuration(format!(
                 "Failed to read assessment file {}: {e}",
                 assessment_path.display()
@@ -43,7 +40,7 @@ impl CapsuleExporter {
 
         let bundle_json: Option<Value> = if let Some(bp) = evidence_bundle_path {
             if bp.exists() {
-                let raw = fs::read_to_string(bp).map_err(|e| {
+                let raw = read_bounded_capsule_utf8(bp).map_err(|e| {
                     AppError::Configuration(format!(
                         "Failed to read evidence bundle {}: {e}",
                         bp.display()
@@ -85,21 +82,14 @@ impl CapsuleExporter {
             &bundle_json.unwrap_or(serde_json::json!({ "observations": observations })),
         );
 
-        if let Some(parent) = output_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| {
+        crate::document::io_safe::atomic_write_bytes(output_path, html.as_bytes()).map_err(
+            |e| {
                 AppError::Configuration(format!(
-                    "Failed to create parent dir {}: {e}",
-                    parent.display()
+                    "Failed to write capsule HTML to {}: {e}",
+                    output_path.display()
                 ))
-            })?;
-        }
-
-        fs::write(output_path, &html).map_err(|e| {
-            AppError::Configuration(format!(
-                "Failed to write capsule HTML to {}: {e}",
-                output_path.display()
-            ))
-        })?;
+            },
+        )?;
 
         Ok(CapsuleReport {
             output_path: output_path.to_path_buf(),
@@ -111,14 +101,86 @@ impl CapsuleExporter {
     }
 }
 
+fn read_bounded_capsule_utf8(path: &Path) -> Result<String> {
+    use std::io::Read;
+    let max_bytes = crate::document::io_safe::MAX_OSCAL_FILE_BYTES;
+    let file = std::fs::File::open(path).map_err(|e| crate::error::io_error(path, e))?;
+    let meta = file
+        .metadata()
+        .map_err(|e| crate::error::io_error(path, e))?;
+    if meta.is_dir() {
+        return Err(crate::error::io_error(
+            path,
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "capsule input path is a directory",
+            ),
+        ));
+    }
+    if meta.is_file() && meta.len() > max_bytes {
+        return Err(crate::error::io_error(
+            path,
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("capsule input exceeds {max_bytes} byte limit"),
+            ),
+        ));
+    }
+    let mut buf = Vec::new();
+    file.take(max_bytes.saturating_add(1))
+        .read_to_end(&mut buf)
+        .map_err(|e| crate::error::io_error(path, e))?;
+    if (buf.len() as u64) > max_bytes {
+        return Err(crate::error::io_error(
+            path,
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("capsule input exceeds {max_bytes} byte limit"),
+            ),
+        ));
+    }
+    String::from_utf8(buf).map_err(|e| {
+        crate::error::io_error(
+            path,
+            std::io::Error::new(std::io::ErrorKind::InvalidData, e),
+        )
+    })
+}
+
+fn escape_html(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    for ch in raw.chars() {
+        match ch {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&#39;"),
+            _ => out.push(ch),
+        }
+    }
+    out
+}
+
+fn escape_script_json(json_str: &str) -> String {
+    json_str.replace("</", r"<\/").replace("<!--", r"<\u0021--")
+}
+
 fn generate_capsule_html(
     title: &str,
     merkle_root: &str,
     assessment: &Value,
     bundle: &Value,
 ) -> String {
-    let assessment_str = serde_json::to_string_pretty(assessment).unwrap_or_default();
-    let bundle_str = serde_json::to_string_pretty(bundle).unwrap_or_default();
+    let assessment_raw = serde_json::to_string_pretty(assessment).unwrap_or_default();
+    let bundle_raw = serde_json::to_string_pretty(bundle).unwrap_or_default();
+
+    let safe_title = escape_html(title);
+    let safe_merkle_root = escape_html(merkle_root);
+    let assessment_html = escape_html(&assessment_raw);
+    let bundle_html = escape_html(&bundle_raw);
+    let assessment_script = escape_script_json(&assessment_raw);
+    let bundle_script = escape_script_json(&bundle_raw);
 
     format!(
         r#"<!DOCTYPE html>
@@ -126,7 +188,7 @@ fn generate_capsule_html(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title} · Mizan Evidence Capsule</title>
+<title>{safe_title} · Mizan Evidence Capsule</title>
 <style>
   :root {{
     --bg: #090d16;
@@ -294,7 +356,7 @@ fn generate_capsule_html(
         <span>MIZAN</span>
         <span class="logo-badge">Evidence Capsule</span>
       </div>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">{title}</p>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">{safe_title}</p>
     </div>
     <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
       <nav style="display: flex; gap: 1rem; align-items: center;">
@@ -326,7 +388,7 @@ fn generate_capsule_html(
 
   <div class="merkle-banner">
     <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Cryptographic Merkle Root</div>
-    <div id="merkle-root-display">{merkle_root}</div>
+    <div id="merkle-root-display">{safe_merkle_root}</div>
   </div>
 
   <div class="tabs">
@@ -352,19 +414,19 @@ fn generate_capsule_html(
   </div>
 
   <div id="tab-assessment" class="tab-pane">
-    <pre><code>{assessment_str}</code></pre>
+    <pre><code>{assessment_html}</code></pre>
   </div>
 
   <div id="tab-bundle" class="tab-pane">
-    <pre><code>{bundle_str}</code></pre>
+    <pre><code>{bundle_html}</code></pre>
   </div>
 </div>
 
 <script id="mizan-data-assessment" type="application/json">
-{assessment_str}
+{assessment_script}
 </script>
 <script id="mizan-data-bundle" type="application/json">
-{bundle_str}
+{bundle_script}
 </script>
 
 <script>
@@ -373,6 +435,15 @@ fn generate_capsule_html(
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     evt.currentTarget.classList.add('active');
+  }}
+
+  function escHtml(val) {{
+    return String(val ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }}
 
   // Populate Observations
@@ -387,11 +458,11 @@ fn generate_capsule_html(
       const tr = document.createElement('tr');
       const statusClass = obs.status === 'PASSED' ? 'status-passed' : (obs.status === 'WAIVED' ? 'status-waived' : 'status-failed');
       tr.innerHTML = `
-        <td style="font-weight: 600;">${{obs.control_id}}</td>
-        <td><span class="status-tag ${{statusClass}}">${{obs.status}}</span></td>
-        <td style="color: var(--text-muted);">${{obs.target}}</td>
-        <td style="font-family: var(--mono); font-size: 0.75rem;">${{obs.evaluator_engine}}</td>
-        <td style="font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted);">${{obs.proof_digest}}</td>
+        <td style="font-weight: 600;">${{escHtml(obs.control_id)}}</td>
+        <td><span class="status-tag ${{statusClass}}">${{escHtml(obs.status)}}</span></td>
+        <td style="color: var(--text-muted);">${{escHtml(obs.target)}}</td>
+        <td style="font-family: var(--mono); font-size: 0.75rem;">${{escHtml(obs.evaluator_engine)}}</td>
+        <td style="font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted);">${{escHtml(obs.proof_digest)}}</td>
       `;
       tbody.appendChild(tr);
     }});
@@ -471,6 +542,7 @@ fn generate_capsule_html(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::fs;
 
     #[test]
     fn test_export_capsule() {
@@ -484,7 +556,7 @@ mod tests {
                 "assessment-results": {
                     "uuid": "test-uuid",
                     "metadata": {
-                        "title": "Unit Test Assessment"
+                        "title": "Unit Test Assessment </script><img src=x onerror=alert(1)>"
                     }
                 }
             })
@@ -500,7 +572,7 @@ mod tests {
                 "observations": [
                     {
                         "observation_id": "obs-1",
-                        "control_id": "cis-k8s-5.2.1",
+                        "control_id": "cis-k8s-5.2.1</script><!-- comment -->",
                         "target": "workload.yaml",
                         "status": "PASSED",
                         "evaluator_engine": "regorus-0.3.4",
@@ -521,9 +593,25 @@ mod tests {
         assert!(html_out.exists());
 
         let html_content = fs::read_to_string(&html_out).unwrap();
-        assert!(html_content.contains("Unit Test Assessment"));
-        assert!(html_content.contains("cis-k8s-5.2.1"));
+        assert!(
+            html_content
+                .contains("Unit Test Assessment &lt;/script&gt;&lt;img src=x onerror=alert(1)&gt;")
+        );
+        assert!(!html_content.contains("</script><img"));
+        assert!(!html_content.contains("<!-- comment -->"));
+        assert!(html_content.contains("cis-k8s-5.2.1<\\/script><\\u0021-- comment -->"));
         assert!(html_content.contains("sha256:11223344556677889900aabbccddeeff"));
+
+        // Extract embedded <script id="mizan-data-bundle" type="application/json"> and prove strict RFC 8259 JSON validity
+        let marker = "<script id=\"mizan-data-bundle\" type=\"application/json\">\n";
+        let start = html_content.find(marker).unwrap() + marker.len();
+        let end = html_content[start..].find("\n</script>").unwrap() + start;
+        let parsed_bundle: Value = serde_json::from_str(&html_content[start..end])
+            .expect("embedded bundle JSON script must be strictly valid RFC 8259 JSON");
+        assert_eq!(
+            parsed_bundle["observations"][0]["control_id"],
+            "cis-k8s-5.2.1</script><!-- comment -->"
+        );
 
         let _ = fs::remove_dir_all(temp_dir);
     }

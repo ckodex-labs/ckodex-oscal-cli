@@ -200,21 +200,37 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, McpError> {
             let out_path = optional_str_arg(args, "output_file")
                 .map(confine_output_path)
                 .transpose()?;
-            let audit_fut = async {
-                let mut auditor = KubeAuditor::new(KubeClusterClient::try_connect().await);
-                auditor
-                    .audit_cluster(namespace, None, out_path.as_deref())
-                    .await
-            };
+            let out_ref = out_path.as_deref();
             let result = match tokio::runtime::Handle::try_current() {
-                Ok(handle) => tokio::task::block_in_place(|| handle.block_on(audit_fut)),
-                Err(_) => match tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
+                Ok(handle)
+                    if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread =>
                 {
-                    Ok(rt) => rt.block_on(audit_fut),
-                    Err(e) => return Err(McpError::Io(e)),
-                },
+                    tokio::task::block_in_place(|| {
+                        handle.block_on(async {
+                            let mut auditor =
+                                KubeAuditor::new(KubeClusterClient::try_connect().await);
+                            auditor.audit_cluster(namespace, None, out_ref).await
+                        })
+                    })
+                }
+                _ => std::thread::scope(|s| {
+                    s.spawn(|| -> Result<_, McpError> {
+                        let rt = tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                            .map_err(McpError::Io)?;
+                        Ok(rt.block_on(async {
+                            let mut auditor =
+                                KubeAuditor::new(KubeClusterClient::try_connect().await);
+                            auditor.audit_cluster(namespace, None, out_ref).await
+                        }))
+                    })
+                    .join()
+                    .map_err(|_| McpError::Tool {
+                        tool: "audit_kubernetes_cluster".to_string(),
+                        message: "background audit thread panicked".to_string(),
+                    })?
+                })?,
             };
             let (_doc, report) = result?;
             Ok(serde_json::to_string_pretty(&report)?)
@@ -344,7 +360,7 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, McpError> {
             let (doc, summary) = SbomImporter::import_file(&file_path)?;
             if let Some(out) = out_path {
                 let json_str = serde_json::to_string_pretty(&doc.value)?;
-                std::fs::write(&out, json_str).map_err(McpError::Io)?;
+                crate::document::atomic_write_bytes(&out, json_str.as_bytes())?;
                 Ok(format!("Imported SBOM saved to {}", out.display()))
             } else {
                 let res = json!({ "summary": summary, "oscal_document": doc.value });
@@ -466,13 +482,17 @@ pub fn execute_tool(name: &str, args: &Value) -> Result<String, McpError> {
             let manual = crate::utcp::UtcpManual::build_mizan_manual(transport, base_url);
             let json_str = serde_json::to_string_pretty(&manual)?;
             if let Some(out) = out_path {
-                std::fs::write(&out, &json_str).map_err(McpError::Io)?;
+                crate::document::atomic_write_bytes(&out, json_str.as_bytes())?;
             }
             Ok(json_str)
         }
         "search_utcp_tools" => {
             let query = optional_str_arg(args, "query").unwrap_or("");
-            let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(10) as usize;
+            let limit = args
+                .get("limit")
+                .and_then(Value::as_u64)
+                .unwrap_or(10)
+                .clamp(1, 100) as usize;
             let transport_str = optional_str_arg(args, "transport").unwrap_or("http");
             let transport = crate::utcp::UtcpTransportType::from_str_name(transport_str)
                 .ok_or_else(|| {

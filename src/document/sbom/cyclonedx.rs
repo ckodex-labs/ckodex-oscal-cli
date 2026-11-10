@@ -136,8 +136,11 @@ impl SbomImporter {
     }
 
     pub fn import_file(path: &Path) -> Result<(OscalDocument, SbomSummary)> {
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| AppError::Configuration(format!("Failed to read SBOM file: {e}")))?;
+        let content = crate::document::io_safe::read_bounded_utf8_file(
+            path,
+            crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+        )
+        .map_err(|e| AppError::Configuration(format!("Failed to read SBOM file: {e}")))?;
         let val: Value = serde_json::from_str(&content)
             .map_err(|e| AppError::Configuration(format!("Invalid SBOM JSON: {e}")))?;
 

@@ -301,13 +301,13 @@ fn resolve_control_conflict(
             report.conflicts.push(MergeConflict {
                 control_id: id.to_string(),
                 field: "body/parts".to_string(),
-                local_summary: if local_str.len() > 60 {
-                    format!("{}...", &local_str[..60])
+                local_summary: if local_str.chars().count() > 60 {
+                    format!("{}...", local_str.chars().take(60).collect::<String>())
                 } else {
                     local_str.clone()
                 },
-                upstream_summary: if upstream_str.len() > 60 {
-                    format!("{}...", &upstream_str[..60])
+                upstream_summary: if upstream_str.chars().count() > 60 {
+                    format!("{}...", upstream_str.chars().take(60).collect::<String>())
                 } else {
                     upstream_str.clone()
                 },

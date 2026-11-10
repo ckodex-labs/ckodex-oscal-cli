@@ -19,9 +19,13 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
 
-export const dynamic = "force-static";
 import { callOscalCli } from "@/lib/mcp-client";
-import { bridgeError as fail, guardBridgeRequest } from "@/lib/bridge-guard";
+import {
+  MAX_BODY_BYTES,
+  bridgeError as fail,
+  guardBridgeRequest,
+  readBoundedJsonBody,
+} from "@/lib/bridge-guard";
 
 const PROJECT_ROOT = path.resolve(process.cwd(), "../..");
 
@@ -42,7 +46,15 @@ const ALLOWED: string[][] = [
   ["doctor"],
 ];
 
-const FORBIDDEN_FLAGS = new Set(["-o", "--output", "--write", "--fix", "--apply"]);
+const FORBIDDEN_FLAGS = new Set([
+  "-o",
+  "--output",
+  "--write",
+  "--fix",
+  "--apply",
+  "--capture",
+  "--capture-dir",
+]);
 
 function isAllowed(argv: string[]): boolean {
   return ALLOWED.some((prefix) => prefix.every((tok, i) => argv[i] === tok));
@@ -142,12 +154,9 @@ export async function POST(req: NextRequest) {
   const rejected = guardBridgeRequest(req);
   if (rejected) return rejected;
 
-  let body: unknown;
-  try {
-    body = await req.json();
-  } catch {
-    return fail(400, "Body is not valid JSON");
-  }
+  const parsedBody = await readBoundedJsonBody(req, MAX_BODY_BYTES);
+  if (!parsedBody.ok) return parsedBody.response;
+  const body = parsedBody.value;
   const { argv } = (body ?? {}) as { argv?: unknown };
   if (
     !Array.isArray(argv) ||
@@ -164,18 +173,44 @@ export async function POST(req: NextRequest) {
   if (
     args.some((a) => {
       const flagName = a.includes("=") ? a.slice(0, a.indexOf("=")) : a;
-      return FORBIDDEN_FLAGS.has(flagName) || a.startsWith("-o");
+      if (FORBIDDEN_FLAGS.has(flagName) || a.startsWith("-o")) {
+        return true;
+      }
+      if (a.startsWith("-") && !a.startsWith("--")) {
+        let rest = flagName.slice(1);
+        while (rest.length > 0 && "qvh".includes(rest[0])) {
+          rest = rest.slice(1);
+        }
+        if (rest.startsWith("o")) {
+          return true;
+        }
+      }
+      return false;
     })
   ) {
     return fail(403, "Output/write flags are not permitted through the bridge");
   }
   for (const a of args) {
     if (a.startsWith("-")) {
+      if (a.includes("..")) {
+        return fail(403, `Path '${a}' is outside the repository`);
+      }
       const eqIdx = a.indexOf("=");
       if (eqIdx !== -1) {
         const val = a.slice(eqIdx + 1);
         if (looksLikeFilePath(val) && !resolveSafePath(val)) {
           return fail(403, `Path '${val}' is outside the repository`);
+        }
+      } else if (!a.startsWith("--") && a.length > 2) {
+        let rest = a.slice(1);
+        while (rest.length > 1 && "qvh".includes(rest[0])) {
+          rest = rest.slice(1);
+        }
+        const candidates = new Set([a.slice(2), rest.slice(1)]);
+        for (const val of candidates) {
+          if (val && looksLikeFilePath(val) && !resolveSafePath(val)) {
+            return fail(403, `Path '${val}' is outside the repository`);
+          }
         }
       }
       continue;

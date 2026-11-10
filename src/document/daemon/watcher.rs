@@ -20,6 +20,7 @@ use crate::{
 pub const MIN_DEBOUNCE_MS: u64 = 50;
 pub const MAX_DEBOUNCE_MS: u64 = 60_000;
 pub const DEFAULT_DEBOUNCE_MS: u64 = 500;
+const MAX_WALK_DEPTH: usize = 16;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct DaemonConfig {
@@ -57,6 +58,8 @@ pub struct DaemonCycleReport {
     pub files_scanned: usize,
     pub valid_documents: usize,
     #[serde(default)]
+    pub invalid_documents: usize,
+    #[serde(default)]
     pub corrupt_documents: usize,
     pub lint_issues: usize,
     pub cas_digests: Vec<String>,
@@ -87,12 +90,21 @@ impl ComplianceDaemon {
         Self { config, fsm, cas }
     }
 
+    pub fn with_cas(mut self, cas: CasStore) -> Self {
+        self.cas = cas;
+        self
+    }
+
     pub fn config(&self) -> &DaemonConfig {
         &self.config
     }
 
     pub fn fsm(&self) -> &FsmRuntime {
         &self.fsm
+    }
+
+    pub fn fsm_mut(&mut self) -> &mut FsmRuntime {
+        &mut self.fsm
     }
 
     pub fn cas(&self) -> &CasStore {
@@ -102,6 +114,7 @@ impl ComplianceDaemon {
     pub fn scan_and_reconcile(&mut self) -> Result<DaemonCycleReport> {
         let mut files_scanned = 0;
         let mut valid_documents = 0;
+        let mut invalid_documents = 0;
         let mut corrupt_documents = 0;
         let mut lint_issues = 0;
         let mut cas_digests = Vec::new();
@@ -116,6 +129,7 @@ impl ComplianceDaemon {
             return Ok(DaemonCycleReport {
                 files_scanned: 0,
                 valid_documents: 0,
+                invalid_documents: 0,
                 corrupt_documents: 0,
                 lint_issues: 0,
                 cas_digests: Vec::new(),
@@ -124,16 +138,23 @@ impl ComplianceDaemon {
         }
 
         for entry in walkdir(&self.config.watch_dir) {
-            let ext = entry.extension().and_then(|e| e.to_str()).unwrap_or("");
-            if ext == "json" || ext == "yaml" {
+            let ext = entry
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if matches!(ext.as_str(), "json" | "yaml" | "yml") {
                 files_scanned += 1;
                 match OscalDocument::from_file(&entry) {
                     Ok(mut doc) => {
+                        let mut is_schema_valid = false;
                         match validate_document(&doc, &val_opts) {
                             Ok(rep) => {
                                 if rep.is_valid {
                                     valid_documents += 1;
+                                    is_schema_valid = true;
                                 } else {
+                                    invalid_documents += 1;
                                     tracing::debug!(
                                         "Document '{}' has {} validation errors",
                                         entry.display(),
@@ -142,6 +163,7 @@ impl ComplianceDaemon {
                                 }
                             }
                             Err(e) => {
+                                invalid_documents += 1;
                                 tracing::warn!(
                                     "Validation execution error for '{}': {e}",
                                     entry.display()
@@ -161,21 +183,26 @@ impl ComplianceDaemon {
                             }
                         }
 
-                        match std::fs::read(&entry) {
-                            Ok(bytes) => match self.cas.put_bytes(&bytes) {
-                                Ok(digest) => cas_digests.push(digest),
+                        if is_schema_valid {
+                            match crate::document::io_safe::read_bounded_regular_file(
+                                &entry,
+                                crate::document::io_safe::MAX_OSCAL_FILE_BYTES,
+                            ) {
+                                Ok(bytes) => match self.cas.put_bytes(&bytes) {
+                                    Ok(digest) => cas_digests.push(digest),
+                                    Err(e) => {
+                                        tracing::warn!(
+                                            "Failed to store '{}' in CAS: {e}",
+                                            entry.display()
+                                        );
+                                    }
+                                },
                                 Err(e) => {
                                     tracing::warn!(
-                                        "Failed to store '{}' in CAS: {e}",
+                                        "Failed to read file bytes for CAS from '{}': {e}",
                                         entry.display()
                                     );
                                 }
-                            },
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Failed to read file bytes for CAS from '{}': {e}",
-                                    entry.display()
-                                );
                             }
                         }
                     }
@@ -191,8 +218,10 @@ impl ComplianceDaemon {
         }
 
         // Auto-FSM State Evaluation
-        if self.config.auto_fsm && valid_documents > 0 {
-            if lint_issues == 0
+        if self.config.auto_fsm {
+            if valid_documents > 0
+                && invalid_documents == 0
+                && lint_issues == 0
                 && corrupt_documents == 0
                 && self.fsm.state() == ComplianceState::Draft
             {
@@ -202,15 +231,15 @@ impl ComplianceDaemon {
                     "daemon-autonomous-worker",
                     "Automated schema & lint checks passed cleanly",
                 );
-            } else if (lint_issues > 0 || corrupt_documents > 0)
+            } else if (lint_issues > 0 || corrupt_documents > 0 || invalid_documents > 0)
                 && (self.fsm.state() == ComplianceState::Approved
                     || self.fsm.state() == ComplianceState::Operational)
             {
-                let violation_count = lint_issues + corrupt_documents;
+                let violation_count = lint_issues + corrupt_documents + invalid_documents;
                 let _ = self.fsm.transition(
                     FsmEvent::AuditViolationDetected { violation_count },
                     "daemon-autonomous-worker",
-                    "Violations or corrupt documents detected in working tree",
+                    "Violations, invalid documents, or corrupt documents detected in working tree",
                 );
             }
         }
@@ -218,6 +247,7 @@ impl ComplianceDaemon {
         let report = DaemonCycleReport {
             files_scanned,
             valid_documents,
+            invalid_documents,
             corrupt_documents,
             lint_issues,
             cas_digests,
@@ -225,9 +255,10 @@ impl ComplianceDaemon {
         };
 
         tracing::info!(
-            "Reconciliation cycle diagnostics: scanned={}, valid={}, corrupt={}, lint_issues={}, fsm_state={}",
+            "Reconciliation cycle diagnostics: scanned={}, valid={}, invalid={}, corrupt={}, lint_issues={}, fsm_state={}",
             report.files_scanned,
             report.valid_documents,
+            report.invalid_documents,
             report.corrupt_documents,
             report.lint_issues,
             report.current_fsm_state
@@ -237,9 +268,22 @@ impl ComplianceDaemon {
     }
 
     pub async fn run_continuous(&mut self, max_cycles: Option<usize>) -> Result<()> {
+        let _ = self.run_continuous_with_shutdown(max_cycles, None).await?;
+        Ok(())
+    }
+
+    pub async fn run_continuous_with_shutdown(
+        &mut self,
+        max_cycles: Option<usize>,
+        stop_flag: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    ) -> Result<DaemonCycleReport> {
+        use std::sync::{atomic::Ordering, mpsc::RecvTimeoutError};
+
         let (tx, rx) = channel();
-        let debounce = Duration::from_millis(self.config.bounded_debounce_ms());
-        let poll_interval = Duration::from_millis(self.config.bounded_debounce_ms().clamp(50, 500));
+        let debounce_ms = self.config.bounded_debounce_ms();
+        let debounce = Duration::from_millis(debounce_ms);
+        let quiet_window = Duration::from_millis(debounce_ms.min(100));
+        let poll_interval = Duration::from_millis(debounce_ms.clamp(50, 500));
 
         let mut watcher: RecommendedWatcher = Watcher::new(
             tx,
@@ -247,12 +291,16 @@ impl ComplianceDaemon {
         )
         .map_err(|e| AppError::Configuration(format!("Failed to create watcher: {e}")))?;
 
+        let mut watch_attached = false;
         if self.config.watch_dir.exists() {
-            if let Err(e) = watcher.watch(&self.config.watch_dir, RecursiveMode::Recursive) {
-                tracing::warn!(
-                    "Failed to watch directory '{}': {e}; continuing in periodic reconciliation mode",
-                    self.config.watch_dir.display()
-                );
+            match watcher.watch(&self.config.watch_dir, RecursiveMode::Recursive) {
+                Ok(()) => watch_attached = true,
+                Err(e) => {
+                    tracing::warn!(
+                        "Failed to watch directory '{}': {e}; continuing in periodic reconciliation mode",
+                        self.config.watch_dir.display()
+                    );
+                }
             }
         } else {
             tracing::warn!(
@@ -268,46 +316,79 @@ impl ComplianceDaemon {
         );
 
         let mut cycles = 0;
-        // Initial scan with error containment
-        match self.scan_and_reconcile() {
+        let mut last_report = match self.scan_and_reconcile() {
             Ok(initial_rep) => {
                 tracing::info!(
-                    "Initial scan diagnostics: {} files scanned, {} valid, {} corrupt, {} lint issues",
+                    "Initial scan diagnostics: {} files scanned, {} valid, {} invalid, {} corrupt, {} lint issues",
                     initial_rep.files_scanned,
                     initial_rep.valid_documents,
+                    initial_rep.invalid_documents,
                     initial_rep.corrupt_documents,
                     initial_rep.lint_issues
                 );
+                initial_rep
             }
             Err(e) => {
                 tracing::warn!("Initial scan error contained: {e}");
+                DaemonCycleReport {
+                    files_scanned: 0,
+                    valid_documents: 0,
+                    invalid_documents: 0,
+                    corrupt_documents: 0,
+                    lint_issues: 0,
+                    cas_digests: Vec::new(),
+                    current_fsm_state: self.fsm.state(),
+                }
             }
-        }
+        };
+
+        let mut last_reconcile = std::time::Instant::now();
+        let mut disconnected_warned = false;
 
         loop {
+            if let Some(ref flag) = stop_flag
+                && flag.load(Ordering::Relaxed)
+            {
+                break;
+            }
             if let Some(max) = max_cycles
                 && cycles >= max
             {
                 break;
             }
 
-            match rx.recv_timeout(debounce) {
+            let wait_slice = if stop_flag.is_some() {
+                debounce.min(Duration::from_millis(200))
+            } else {
+                debounce
+            };
+
+            match rx.recv_timeout(wait_slice) {
                 Ok(Ok(Event { .. })) => {
-                    // Drain any queued events within debounce window
-                    while let Ok(Ok(_)) = rx.try_recv() {}
+                    // Coalesce burst events over a short quiet debounce window so mid-save
+                    // editor truncations settle before reading.
+                    for _ in 0..10 {
+                        match rx.recv_timeout(quiet_window) {
+                            Ok(Ok(_)) => while let Ok(Ok(_)) = rx.try_recv() {},
+                            _ => break,
+                        }
+                    }
 
                     cycles += 1;
+                    last_reconcile = std::time::Instant::now();
                     match self.scan_and_reconcile() {
                         Ok(rep) => {
                             tracing::info!(
-                                "Cycle {} diagnostics: scanned={}, valid={}, corrupt={}, lint_issues={}, fsm_state={}",
+                                "Cycle {} diagnostics: scanned={}, valid={}, invalid={}, corrupt={}, lint_issues={}, fsm_state={}",
                                 cycles,
                                 rep.files_scanned,
                                 rep.valid_documents,
+                                rep.invalid_documents,
                                 rep.corrupt_documents,
                                 rep.lint_issues,
                                 rep.current_fsm_state
                             );
+                            last_report = rep;
                         }
                         Err(e) => {
                             tracing::error!("Cycle {} reconciliation error contained: {e}", cycles);
@@ -317,21 +398,34 @@ impl ComplianceDaemon {
                 Ok(Err(e)) => {
                     tracing::warn!("Watch event error: {e}");
                 }
-                Err(_) => {
-                    // Timeout (debounce window / idle tick)
-                    if max_cycles.is_some() {
+                Err(RecvTimeoutError::Timeout) => {
+                    if last_reconcile.elapsed() < debounce {
+                        continue;
+                    }
+                    if !watch_attached
+                        && self.config.watch_dir.exists()
+                        && watcher
+                            .watch(&self.config.watch_dir, RecursiveMode::Recursive)
+                            .is_ok()
+                    {
+                        watch_attached = true;
+                    }
+                    if max_cycles.is_some() || !watch_attached {
                         cycles += 1;
+                        last_reconcile = std::time::Instant::now();
                         match self.scan_and_reconcile() {
                             Ok(rep) => {
                                 tracing::info!(
-                                    "Periodic cycle {} diagnostics: scanned={}, valid={}, corrupt={}, lint_issues={}, fsm_state={}",
+                                    "Periodic cycle {} diagnostics: scanned={}, valid={}, invalid={}, corrupt={}, lint_issues={}, fsm_state={}",
                                     cycles,
                                     rep.files_scanned,
                                     rep.valid_documents,
+                                    rep.invalid_documents,
                                     rep.corrupt_documents,
                                     rep.lint_issues,
                                     rep.current_fsm_state
                                 );
+                                last_report = rep;
                             }
                             Err(e) => {
                                 tracing::error!(
@@ -340,28 +434,82 @@ impl ComplianceDaemon {
                                 );
                             }
                         }
+                    } else {
+                        last_reconcile = std::time::Instant::now();
+                    }
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    if !disconnected_warned {
+                        tracing::warn!(
+                            "File watcher channel disconnected; falling back to bounded sleep without spinning"
+                        );
+                        disconnected_warned = true;
+                    }
+                    watch_attached = false;
+                    if max_cycles.is_none() && stop_flag.is_none() {
+                        break;
+                    }
+                    tokio::time::sleep(wait_slice).await;
+                    if last_reconcile.elapsed() >= debounce {
+                        cycles += 1;
+                        last_reconcile = std::time::Instant::now();
+                        if let Ok(rep) = self.scan_and_reconcile() {
+                            last_report = rep;
+                        }
                     }
                 }
             }
         }
 
-        Ok(())
+        Ok(last_report)
     }
 }
 
 fn walkdir(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
-    if !dir.exists() {
-        return files;
+    walkdir_bounded(dir, 0, &mut files);
+    files
+}
+
+fn walkdir_bounded(dir: &Path, depth: usize, files: &mut Vec<PathBuf>) {
+    if depth > MAX_WALK_DEPTH {
+        return;
     }
-    if dir.is_dir() {
+    let meta = if depth == 0 {
+        let Ok(m) = std::fs::metadata(dir) else {
+            return;
+        };
+        m
+    } else {
+        let Ok(m) = std::fs::symlink_metadata(dir) else {
+            return;
+        };
+        if m.file_type().is_symlink() {
+            return;
+        }
+        m
+    };
+    if meta.file_type().is_dir() {
         match std::fs::read_dir(dir) {
             Ok(entries) => {
                 for entry in entries.flatten() {
                     let path = entry.path();
-                    if path.is_dir() {
-                        files.extend(walkdir(&path));
-                    } else {
+                    let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+                    if matches!(
+                        file_name,
+                        ".git" | "node_modules" | "target" | ".next" | ".mizan"
+                    ) {
+                        continue;
+                    }
+                    let Ok(entry_meta) = std::fs::symlink_metadata(&path) else {
+                        continue;
+                    };
+                    if entry_meta.file_type().is_symlink() {
+                        continue;
+                    }
+                    if entry_meta.file_type().is_dir() {
+                        walkdir_bounded(&path, depth + 1, files);
+                    } else if entry_meta.file_type().is_file() {
                         files.push(path);
                     }
                 }
@@ -373,10 +521,9 @@ fn walkdir(dir: &Path) -> Vec<PathBuf> {
                 );
             }
         }
-    } else {
+    } else if meta.file_type().is_file() {
         files.push(dir.to_path_buf());
     }
-    files
 }
 
 #[cfg(test)]
@@ -418,6 +565,7 @@ mod tests {
 
         assert_eq!(rep.files_scanned, 1);
         assert_eq!(rep.valid_documents, 1);
+        assert_eq!(rep.invalid_documents, 0);
         assert_eq!(rep.corrupt_documents, 0);
         assert_eq!(rep.lint_issues, 0);
         assert_eq!(rep.current_fsm_state, ComplianceState::UnderReview);
@@ -552,6 +700,67 @@ mod tests {
         let rep = res.unwrap();
         assert_eq!(rep.files_scanned, 0);
         assert_eq!(rep.valid_documents, 0);
+        assert_eq!(rep.invalid_documents, 0);
         assert_eq!(rep.corrupt_documents, 0);
+    }
+
+    #[test]
+    fn test_daemon_schema_invalid_blocks_promotion_and_skips_symlink_loops() {
+        let temp_dir = std::env::temp_dir().join(format!(
+            "mizan-daemon-invalid-symlink-{}",
+            uuid::Uuid::new_v4()
+        ));
+        let cas_dir = temp_dir.join("isolated-cas");
+        let watch_dir = temp_dir.join("workspace");
+        std::fs::create_dir_all(&watch_dir).unwrap();
+
+        // 1. Valid catalog + schema-invalid catalog (missing metadata & invalid uuid)
+        std::fs::write(watch_dir.join("good.json"), SAMPLE_CATALOG).unwrap();
+        let invalid_catalog = r#"{
+            "catalog": {
+                "uuid": "not-a-valid-uuid"
+            }
+        }"#;
+        std::fs::write(watch_dir.join("invalid.yml"), invalid_catalog).unwrap();
+
+        // 2. Symlink cycle inside workspace
+        #[cfg(unix)]
+        {
+            let loop_link = watch_dir.join("loop_self");
+            std::os::unix::fs::symlink(&watch_dir, &loop_link).unwrap();
+        }
+
+        let config = DaemonConfig {
+            watch_dir: watch_dir.clone(),
+            debounce_ms: 50,
+            auto_fsm: true,
+        };
+
+        let mut daemon = ComplianceDaemon::new(config).with_cas(CasStore::new(cas_dir));
+        let rep = daemon
+            .scan_and_reconcile()
+            .expect("scan should succeed despite symlink loop and invalid doc");
+
+        assert_eq!(rep.files_scanned, 2);
+        assert_eq!(rep.valid_documents, 1);
+        assert_eq!(rep.invalid_documents, 1);
+        assert_eq!(
+            rep.cas_digests.len(),
+            1,
+            "invalid documents must NOT be cached in CAS"
+        );
+        assert_eq!(
+            rep.current_fsm_state,
+            ComplianceState::Draft,
+            "Draft -> UnderReview promotion must be blocked when invalid_documents > 0"
+        );
+
+        // 3. When state is Approved or Operational, invalid_documents transitions -> Degraded
+        *daemon.fsm_mut() =
+            FsmRuntime::new(ComplianceState::Approved, EvidenceLevel::E3FedrampPassed);
+        let rep_deg = daemon.scan_and_reconcile().unwrap();
+        assert_eq!(rep_deg.current_fsm_state, ComplianceState::Degraded);
+
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }

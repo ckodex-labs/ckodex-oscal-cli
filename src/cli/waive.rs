@@ -31,17 +31,18 @@ pub(super) fn run_waive(args: &WaiveCliArgs, format: OutputFormat) -> Result<()>
                             );
                         } else {
                             for w in manager.list() {
+                                let scope_display: String = if w.scope.chars().count() > 10 {
+                                    w.scope.chars().take(10).collect()
+                                } else {
+                                    w.scope.clone()
+                                };
                                 println!(
                                     "{:<18} {:<16} {:<10} {:<14} {:<12} {}",
                                     w.id,
                                     w.rule_id,
                                     w.status.to_string(),
                                     w.time_remaining_display(),
-                                    if w.scope.len() > 10 {
-                                        &w.scope[..10]
-                                    } else {
-                                        &w.scope
-                                    },
+                                    scope_display,
                                     w.reason
                                 );
                             }

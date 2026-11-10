@@ -213,8 +213,8 @@ fn scan_ssp_dependents(
                             id: comp_uuid.to_string(),
                             kind: "Component".to_string(),
                             relation: "implements-via-component".to_string(),
-                            title: if desc.len() > 30 {
-                                format!("{}...", &desc[..27])
+                            title: if desc.chars().count() > 30 {
+                                format!("{}...", desc.chars().take(27).collect::<String>())
                             } else {
                                 desc.to_string()
                             },

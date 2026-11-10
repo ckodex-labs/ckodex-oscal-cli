@@ -83,10 +83,13 @@ pub(super) fn short_endpoint(endpoint: &str) -> String {
 }
 
 pub(super) fn digest_preview(digest: &str) -> String {
-    if digest.len() <= 22 {
+    let char_count = digest.chars().count();
+    if char_count <= 22 {
         return digest.to_owned();
     }
-    format!("{}…{}", &digest[..9], &digest[digest.len() - 4..])
+    let prefix: String = digest.chars().take(9).collect();
+    let suffix: String = digest.chars().skip(char_count - 4).collect();
+    format!("{prefix}…{suffix}")
 }
 
 pub(super) fn projection_timeline_lines(response: &ListProjectionEventsResponse) -> Vec<String> {

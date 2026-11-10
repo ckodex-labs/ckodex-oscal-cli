@@ -16,6 +16,7 @@ pub mod fix;
 pub mod fsm;
 pub mod init;
 pub mod inspector;
+pub mod io_safe;
 pub mod k8s;
 pub mod linter;
 pub mod parser;
@@ -61,6 +62,9 @@ pub use fix::{FixEngine, FixReport};
 pub use fsm::{ComplianceState, EvidenceLevel, FsmEvent, FsmHistory, FsmRuntime, TransitionRecord};
 pub use init::{DiscoveredAsset, InitReport, RepoInitializer};
 pub use inspector::{DocumentSummary, inspect_document};
+pub use io_safe::{
+    MAX_OSCAL_FILE_BYTES, atomic_write_bytes, read_bounded_regular_file, read_bounded_utf8_file,
+};
 pub use k8s::{KubeAuditReport, KubeAuditor, KubeClusterClient};
 pub use linter::{LintReport, lint_document};
 pub use parser::{FileFormat, OscalDocument};

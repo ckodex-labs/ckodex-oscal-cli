@@ -89,13 +89,12 @@ impl FsmRuntime {
                 ComplianceState::Operational
             }
             (
-                ComplianceState::Operational,
+                ComplianceState::Approved | ComplianceState::Operational,
                 FsmEvent::AuditViolationDetected { violation_count },
             ) => {
                 if *violation_count == 0 {
                     return Err(AppError::Configuration(
-                        "Cannot transition OPERATIONAL -> DEGRADED with zero violations"
-                            .to_string(),
+                        "Cannot transition to DEGRADED with zero violations".to_string(),
                     ));
                 }
                 ComplianceState::Degraded

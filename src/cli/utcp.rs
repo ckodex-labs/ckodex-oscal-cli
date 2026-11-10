@@ -22,7 +22,7 @@ pub(super) fn run_utcp(args: &UtcpCliArgs, format: OutputFormat) -> Result<()> {
             let manual = UtcpManual::build_mizan_manual(t_type, base_url);
             let json_str = serde_json::to_string_pretty(&manual)?;
             if let Some(out_path) = output {
-                fs::write(out_path, &json_str).map_err(|e| io_error(out_path, e))?;
+                crate::document::atomic_write_bytes(out_path, json_str.as_bytes())?;
             }
             match format {
                 OutputFormat::Json | OutputFormat::Jsonl => {
@@ -53,13 +53,16 @@ pub(super) fn run_utcp(args: &UtcpCliArgs, format: OutputFormat) -> Result<()> {
             let cfg = build_utcp_config(base_url);
             let json_str = serde_json::to_string_pretty(&cfg)?;
             if let Some(out_path) = output {
-                fs::write(out_path, &json_str).map_err(|e| io_error(out_path, e))?;
+                crate::document::atomic_write_bytes(out_path, json_str.as_bytes())?;
             }
             println!("{json_str}");
             Ok(())
         }
         UtcpCliAction::Validate { file, strict } => {
-            let content = fs::read_to_string(file).map_err(|e| io_error(file, e))?;
+            let content = crate::document::read_bounded_utf8_file(
+                file,
+                crate::document::MAX_OSCAL_FILE_BYTES,
+            )?;
             let val: serde_json::Value = serde_json::from_str(&content)?;
             let report = UtcpManual::validate_json_with_options(&val, *strict);
 
@@ -131,7 +134,7 @@ pub(super) fn run_utcp(args: &UtcpCliArgs, format: OutputFormat) -> Result<()> {
             })?;
             let snippet = generate_sdk_snippet(sdk_lang, base_url);
             if let Some(out_path) = output {
-                fs::write(out_path, &snippet).map_err(|e| io_error(out_path, e))?;
+                crate::document::atomic_write_bytes(out_path, snippet.as_bytes())?;
             }
             print!("{snippet}");
             Ok(())
@@ -139,7 +142,8 @@ pub(super) fn run_utcp(args: &UtcpCliArgs, format: OutputFormat) -> Result<()> {
         UtcpCliAction::Search { query, limit } => {
             let manual =
                 UtcpManual::build_mizan_manual(UtcpTransportType::Cli, "http://localhost:3000");
-            let matches = manual.search_tools(query, *limit);
+            let clamped_limit = (*limit).clamp(1, 100);
+            let matches = manual.search_tools(query, clamped_limit);
             match format {
                 OutputFormat::Json | OutputFormat::Jsonl => {
                     println!("{}", serde_json::to_string_pretty(&matches)?);

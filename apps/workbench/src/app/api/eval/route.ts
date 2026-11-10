@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callOscalCli } from "@/lib/mcp-client";
-import { bridgeError, guardBridgeRequest } from "@/lib/bridge-guard";
+import {
+  MAX_BODY_BYTES,
+  bridgeError,
+  guardBridgeRequest,
+  readBoundedJsonBody,
+} from "@/lib/bridge-guard";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -8,15 +13,26 @@ import path from "path";
 export async function POST(req: NextRequest) {
   const rejected = guardBridgeRequest(req);
   if (rejected) return rejected;
-  let tempFilePath: string | null = null;
+
+  const parsedBody = await readBoundedJsonBody(req, MAX_BODY_BYTES);
+  if (!parsedBody.ok) return parsedBody.response;
+
+  let tempDir: string | null = null;
   try {
-    const body = await req.json();
+    const body = (parsedBody.value ?? {}) as Record<string, unknown>;
     const { rule, payload } = body;
 
-    if (typeof rule !== "string" || !/^[A-Za-z0-9._:-]+$/.test(rule) || rule.startsWith("-")) {
+    if (
+      typeof rule !== "string" ||
+      !/^[A-Za-z0-9._:-]+$/.test(rule) ||
+      rule.startsWith("-")
+    ) {
       return bridgeError(400, "Invalid rule identifier");
     }
-    if (typeof payload !== "string" || payload.length > 1_000_000) {
+    if (
+      typeof payload !== "string" ||
+      Buffer.byteLength(payload, "utf8") > MAX_BODY_BYTES
+    ) {
       return bridgeError(400, "Payload must be a string under 1 MB");
     }
     if (!rule || !payload) {
@@ -26,12 +42,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const tempDir = os.tmpdir();
-    tempFilePath = path.join(
-      tempDir,
-      `mizan-eval-${Date.now()}-${Math.random().toString(36).slice(2)}.json`,
-    );
-    fs.writeFileSync(tempFilePath, payload, "utf-8");
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "mizan-eval-"));
+    const tempFilePath = path.join(tempDir, "input.json");
+    fs.writeFileSync(tempFilePath, payload, { encoding: "utf-8", mode: 0o600 });
 
     const output = await callOscalCli([
       "policy",
@@ -60,9 +73,9 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   } finally {
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
+    if (tempDir) {
       try {
-        fs.unlinkSync(tempFilePath);
+        fs.rmSync(tempDir, { recursive: true, force: true });
       } catch {
         // ignore cleanup error
       }

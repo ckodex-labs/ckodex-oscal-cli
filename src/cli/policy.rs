@@ -79,11 +79,17 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
             query,
             strict,
         } => {
-            let input_str = std::fs::read_to_string(input).map_err(|e| io_error(input, e))?;
-            let input_json: serde_json::Value = if input.extension().and_then(|e| e.to_str())
-                == Some("yaml")
-                || input.extension().and_then(|e| e.to_str()) == Some("yml")
-            {
+            let input_str = crate::document::read_bounded_utf8_file(
+                input,
+                crate::document::MAX_OSCAL_FILE_BYTES,
+            )?;
+            let is_yaml = input
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|ext| {
+                    ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml")
+                });
+            let input_json: serde_json::Value = if is_yaml {
                 serde_yaml::from_str(&input_str)
                     .map_err(|e| AppError::Configuration(e.to_string()))?
             } else {
@@ -178,11 +184,17 @@ pub(super) fn run_policy(args: &PolicyCliArgs, format: OutputFormat) -> Result<(
                 input,
                 strict,
             } => {
-                let input_str = std::fs::read_to_string(input).map_err(|e| io_error(input, e))?;
-                let input_json: serde_json::Value = if input.extension().and_then(|e| e.to_str())
-                    == Some("yaml")
-                    || input.extension().and_then(|e| e.to_str()) == Some("yml")
-                {
+                let input_str = crate::document::read_bounded_utf8_file(
+                    input,
+                    crate::document::MAX_OSCAL_FILE_BYTES,
+                )?;
+                let is_yaml = input
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .is_some_and(|ext| {
+                        ext.eq_ignore_ascii_case("yaml") || ext.eq_ignore_ascii_case("yml")
+                    });
+                let input_json: serde_json::Value = if is_yaml {
                     serde_yaml::from_str(&input_str)
                         .map_err(|e| AppError::Configuration(e.to_string()))?
                 } else {

@@ -1,0 +1,2108 @@
+{
+  "manual_version": "1.0.0",
+  "utcp_version": "1.0.1",
+  "version": "1.0",
+  "name": "mizan-oscal",
+  "description": "Mizan High-Assurance OSCAL v1.2.3 Compliance Kernel & Workbench — Universal Tool Calling Protocol (UTCP) Manual",
+  "info": {
+    "description": "Mizan High-Assurance OSCAL v1.2.3 Compliance Kernel & Workbench — Universal Tool Calling Protocol (UTCP) Manual",
+    "title": "mizan-oscal",
+    "version": "1.0.0"
+  },
+  "allowed_communication_protocols": [
+    "cli",
+    "http",
+    "grpc",
+    "mcp",
+    "sse",
+    "text"
+  ],
+  "homepage": "https://github.com/universal-tool-calling-protocol",
+  "specification_url": "https://github.com/universal-tool-calling-protocol/utcp-specification",
+  "supported_repositories": [
+    "https://github.com/universal-tool-calling-protocol",
+    "https://github.com/universal-tool-calling-protocol/utcp-specification",
+    "https://github.com/universal-tool-calling-protocol/utcp-mcp",
+    "https://github.com/universal-tool-calling-protocol/rs-utcp",
+    "https://github.com/universal-tool-calling-protocol/typescript-utcp",
+    "https://github.com/universal-tool-calling-protocol/go-utcp",
+    "https://github.com/universal-tool-calling-protocol/python-utcp"
+  ],
+  "tools": [
+    {
+      "name": "query_control",
+      "description": "Query an OSCAL catalog for control text, parameters, and guidance (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "catalog_file": {
+            "description": "Path to catalog JSON/YAML",
+            "type": "string"
+          },
+          "control_id": {
+            "description": "Control identifier (e.g. ac-1, sc-7)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalog_file",
+          "control_id"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_query_control",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=query_control",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=query_control",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "inspect_document",
+      "description": "Inspect an OSCAL document summary, kinds, control counts, and metadata (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "OSCAL document file path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_inspect_document",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=inspect_document",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=inspect_document",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "compute_blast_radius",
+      "description": "Calculate the downstream compliance blast radius for a control or component (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "Primary document path",
+            "type": "string"
+          },
+          "target": {
+            "description": "Target ID (e.g. ac-1)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "target"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_compute_blast_radius",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=compute_blast_radius",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=compute_blast_radius",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "validate_fedramp",
+      "description": "Run high-assurance FedRAMP PMO baseline validation on an SSP (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "fedramp"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "baseline": {
+            "default": "moderate",
+            "enum": [
+              "low",
+              "moderate",
+              "high"
+            ],
+            "type": "string"
+          },
+          "ssp_file": {
+            "description": "Path to SSP document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ssp_file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_validate_fedramp",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=validate_fedramp",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=validate_fedramp",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "audit_kubernetes_cluster",
+      "description": "Audit live Kubernetes cluster or workload against NIST 800-53 controls and optionally write OSCAL assessment results (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "namespace": {
+            "description": "Target namespace to scan",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional output path for OSCAL assessment-results.json",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_audit_kubernetes_cluster",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=audit_kubernetes_cluster",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=audit_kubernetes_cluster",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "evaluate_rego_policy",
+      "description": "Evaluate an input JSON artifact against compiled OSCAL Rego rules using Microsoft Regorus (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "input_data": {
+            "description": "JSON payload to evaluate",
+            "type": "object"
+          },
+          "policy_file": {
+            "description": "Path to Rego policy file or directory",
+            "type": "string"
+          },
+          "query_package": {
+            "description": "Rego query package (e.g. oscal.ac_2 or oscal.k8s)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_file",
+          "input_data",
+          "query_package"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_evaluate_rego_policy",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=evaluate_rego_policy",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=evaluate_rego_policy",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "sync_3way_merge",
+      "description": "Perform 3-way GitOps AST merge across base, upstream, and local documents (transform)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "base_file": {
+            "description": "Path to base ancestor document",
+            "type": "string"
+          },
+          "local_file": {
+            "description": "Path to local modified document",
+            "type": "string"
+          },
+          "strategy": {
+            "default": "manual",
+            "enum": [
+              "manual",
+              "ours",
+              "theirs"
+            ],
+            "type": "string"
+          },
+          "upstream_file": {
+            "description": "Path to upstream document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "base_file",
+          "upstream_file",
+          "local_file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_sync_3way_merge",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=sync_3way_merge",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=sync_3way_merge",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "split_oscal_markdown",
+      "description": "Split a monolithic OSCAL document into an agile Markdown authoring workspace (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "Path to source OSCAL document",
+            "type": "string"
+          },
+          "output_dir": {
+            "description": "Directory to populate with Markdown chapters",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file",
+          "output_dir"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_split_oscal_markdown",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=split_oscal_markdown",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=split_oscal_markdown",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "assemble_oscal_markdown",
+      "description": "Assemble an agile Markdown authoring workspace back into a validated OSCAL document (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "input_dir": {
+            "description": "Directory containing Markdown chapters",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Output path for the assembled OSCAL document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_dir",
+          "output_file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_assemble_oscal_markdown",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=assemble_oscal_markdown",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=assemble_oscal_markdown",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "export_baseline_catalog",
+      "description": "Retrieve an embedded built-in tri-jurisdictional compliance catalog (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "jurisdiction": {
+            "default": "us",
+            "enum": [
+              "us",
+              "ca",
+              "eu",
+              "enterprise"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "jurisdiction"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_export_baseline_catalog",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=export_baseline_catalog",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=export_baseline_catalog",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "extend_enterprise_catalog",
+      "description": "Build an enterprise custom compliance catalog inheriting base standards with custom controls and parameter overlays (transform)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "base_jurisdiction": {
+            "default": "us",
+            "enum": [
+              "us",
+              "ca",
+              "eu"
+            ],
+            "type": "string"
+          },
+          "custom_control_description": {
+            "description": "Custom control description",
+            "type": "string"
+          },
+          "custom_control_id": {
+            "description": "Custom control ID (e.g. corp-sec-01)",
+            "type": "string"
+          },
+          "custom_control_title": {
+            "description": "Custom control title",
+            "type": "string"
+          },
+          "title": {
+            "description": "Enterprise catalog title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_extend_enterprise_catalog",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=extend_enterprise_catalog",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=extend_enterprise_catalog",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "generate_slsa_provenance",
+      "description": "Generate a SLSA v1.2 / v1.0 supply chain provenance attestation statement with OSCAL evidence Merkle proof (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation",
+        "slsa"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "evidence_file": {
+            "description": "Optional path to evidence bundle JSON",
+            "type": "string"
+          },
+          "slsa_version": {
+            "default": "v1.2",
+            "enum": [
+              "v1.2",
+              "v1.0"
+            ],
+            "type": "string"
+          },
+          "subject_digest": {
+            "description": "SHA-256 digest of artifact",
+            "type": "string"
+          },
+          "subject_name": {
+            "description": "Artifact name (e.g. container image, binary)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "subject_name",
+          "subject_digest"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_generate_slsa_provenance",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=generate_slsa_provenance",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=generate_slsa_provenance",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "verify_slsa_provenance",
+      "description": "Cryptographically verify a SLSA v1.2 / v1.0 supply chain provenance statement (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "slsa"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "statement_json": {
+            "description": "JSON string of the in-toto SLSA statement",
+            "type": "string"
+          }
+        },
+        "required": [
+          "statement_json"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_verify_slsa_provenance",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=verify_slsa_provenance",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=verify_slsa_provenance",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "query_cas_store",
+      "description": "Query local Content-Addressable Storage (CAS) for object contents or stats (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "digest": {
+            "description": "Cryptographic digest of object (sha256:...)",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_query_cas_store",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=query_cas_store",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=query_cas_store",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "export_sarif",
+      "description": "Convert an OSCAL compliance document into an OASIS SARIF v2.1.0 report, optionally saving to disk (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "Path to source OSCAL document",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional output path to save the SARIF report",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_export_sarif",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=export_sarif",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=export_sarif",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "export_gitlab",
+      "description": "Convert an OSCAL compliance document into GitLab Security Scanner Report v15.0.0, optionally saving to disk (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "Path to source OSCAL document",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional output path to save the GitLab report",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_export_gitlab",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=export_gitlab",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=export_gitlab",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "import_sbom_cyclonedx",
+      "description": "Convert CycloneDX v1.5/v1.6 or SPDX SBOM JSON into an OSCAL component-definition, optionally saving to disk (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "file": {
+            "description": "Path to source SBOM JSON file",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional output path to save the OSCAL component-definition",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_import_sbom_cyclonedx",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=import_sbom_cyclonedx",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=import_sbom_cyclonedx",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "evaluate_policy_rulepack",
+      "description": "Evaluate verified built-in Rego compliance rules (CIS K8s 5.2.1, 5.2.6, FedRAMP AC-2, CCCS ITSG-33) against workload JSON/YAML (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "input_data": {
+            "description": "JSON string of Kubernetes/cloud workload resource",
+            "type": "string"
+          },
+          "rule_id": {
+            "description": "Rule ID to evaluate",
+            "enum": [
+              "cis-k8s-5.2.1",
+              "cis-k8s-5.2.6",
+              "fedramp-ac-2",
+              "itsg33-boundary-isolation"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "rule_id",
+          "input_data"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_evaluate_policy_rulepack",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=evaluate_policy_rulepack",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=evaluate_policy_rulepack",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "execute_compliance_pipeline",
+      "description": "Execute full end-to-end compliance pipeline: Ingest SBOM -> Evaluate Policies -> OSCAL Assessment -> SLSA v1.2 Provenance -> SARIF & GitLab Export (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "jurisdiction": {
+            "default": "us",
+            "enum": [
+              "us",
+              "ca",
+              "eu",
+              "enterprise"
+            ],
+            "type": "string"
+          },
+          "output_dir": {
+            "default": "mizan-pipeline-output",
+            "description": "Output directory for pipeline artifacts",
+            "type": "string"
+          },
+          "sbom_file": {
+            "description": "Optional path to SBOM JSON",
+            "type": "string"
+          },
+          "subject_name": {
+            "default": "production-service",
+            "description": "Subject artifact name",
+            "type": "string"
+          },
+          "workload_file": {
+            "description": "Optional path to workload manifest JSON/YAML",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_execute_compliance_pipeline",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=execute_compliance_pipeline",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=execute_compliance_pipeline",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "fabric_status",
+      "description": "Inspect Root Fabric status: active tenants, SPIFFE trust domain, and isolated DataStore partitions (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "zero-trust-fabric"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {},
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_fabric_status",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=fabric_status",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=fabric_status",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "fabric_validate_spiffe",
+      "description": "Validate a SPIFFE Workload Identity ID URI (spiffe://<trust-domain>/<path>) (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "zero-trust-fabric"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "spiffe_id": {
+            "description": "SPIFFE ID URI string",
+            "type": "string"
+          }
+        },
+        "required": [
+          "spiffe_id"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_fabric_validate_spiffe",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=fabric_validate_spiffe",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=fabric_validate_spiffe",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "ingest_security_report_to_poam",
+      "description": "Ingest a SARIF v2.1.0 or GitLab Security scan report and generate/update an OSCAL Plan of Action and Milestones (POA&M) with mapped controls (write)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "governed-mutation"
+      ],
+      "read_only": false,
+      "inputs": {
+        "properties": {
+          "existing_poam_file": {
+            "description": "Optional path to an existing POA&M document to append findings to",
+            "type": "string"
+          },
+          "format": {
+            "default": "auto",
+            "description": "Report format hint",
+            "enum": [
+              "auto",
+              "sarif",
+              "gitlab"
+            ],
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional output path to write the POA&M document",
+            "type": "string"
+          },
+          "report_file": {
+            "description": "Path to SARIF or GitLab Security Report JSON",
+            "type": "string"
+          },
+          "title": {
+            "default": "Automated Security Remediation POA&M",
+            "description": "Title of the POA&M document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_file"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_ingest_security_report_to_poam",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=ingest_security_report_to_poam",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=ingest_security_report_to_poam",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "export_utcp_manual",
+      "description": "Generate the Universal Tool Calling Protocol (UTCP v1.0.1) manual for Mizan across CLI, HTTP, gRPC, or MCP transports (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "utcp"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "base_url": {
+            "default": "http://localhost:3000",
+            "description": "Base URL for HTTP/gRPC endpoints",
+            "type": "string"
+          },
+          "output_file": {
+            "description": "Optional workspace-confined output file path to write the UTCP manual JSON",
+            "type": "string"
+          },
+          "transport": {
+            "default": "http",
+            "description": "Target UTCP call_template_type / provider_type",
+            "enum": [
+              "cli",
+              "http",
+              "grpc",
+              "mcp",
+              "sse",
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_export_utcp_manual",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=export_utcp_manual",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=export_utcp_manual",
+        "http_method": "POST"
+      }
+    },
+    {
+      "name": "search_utcp_tools",
+      "description": "Search Mizan UTCP tools by keyword, tag, or description and inspect tool call templates (read-only)",
+      "tags": [
+        "oscal",
+        "compliance",
+        "read-only",
+        "utcp"
+      ],
+      "read_only": true,
+      "inputs": {
+        "properties": {
+          "base_url": {
+            "default": "http://localhost:3000",
+            "type": "string"
+          },
+          "limit": {
+            "default": 10,
+            "description": "Maximum number of tools to return",
+            "type": "integer"
+          },
+          "query": {
+            "description": "Search query matching tool name, tags, or description",
+            "type": "string"
+          },
+          "transport": {
+            "default": "http",
+            "enum": [
+              "cli",
+              "http",
+              "grpc",
+              "mcp",
+              "sse",
+              "text"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      },
+      "outputs": {
+        "properties": {
+          "output": {
+            "type": [
+              "object",
+              "string",
+              "array"
+            ]
+          },
+          "receipt_id": {
+            "description": "SHA-256 execution receipt identifier",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "VERIFIED",
+              "OK",
+              "ERROR"
+            ],
+            "type": "string"
+          },
+          "tool_name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "tool_name",
+          "status",
+          "output"
+        ],
+        "type": "object"
+      },
+      "tool_call_template": {
+        "call_template_type": "http",
+        "name": "mizan_http_search_utcp_tools",
+        "allowed_communication_protocols": [
+          "cli",
+          "http",
+          "grpc",
+          "mcp",
+          "sse",
+          "text"
+        ],
+        "output_format": "json",
+        "url": "http://localhost:3000/api/utcp?tool=search_utcp_tools",
+        "http_method": "POST",
+        "content_type": "application/json",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      "tool_provider": {
+        "provider_type": "http",
+        "url": "http://localhost:3000/api/utcp?tool=search_utcp_tools",
+        "http_method": "POST"
+      }
+    }
+  ],
+  "manual_digest": "sha256:52a93181f54fcbd1e8d0802e2c44c086dd60f05af6fa736d3626b3e3c8b7d4b2"
+}

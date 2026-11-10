@@ -1,0 +1,193 @@
+{
+  "utcp_version": "1.0.1",
+  "manual_version": "1.0.0",
+  "variables": {
+    "MIZAN_BASE_URL": "http://localhost:3000"
+  },
+  "manual_call_templates": [
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "args": [
+        "utcp",
+        "manual",
+        "--transport",
+        "cli",
+        "--format",
+        "json"
+      ],
+      "call_template_type": "cli",
+      "command": "mizan",
+      "command_name": "mizan",
+      "commands": [
+        {
+          "append_to_final_output": true,
+          "command": "mizan utcp manual --transport cli --format json"
+        }
+      ],
+      "name": "mizan_cli",
+      "provider_type": "cli"
+    },
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "call_template_type": "http",
+      "content_type": "application/json",
+      "http_method": "GET",
+      "name": "mizan_http",
+      "provider_type": "http",
+      "url": "http://localhost:3000/api/utcp"
+    },
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "args": [
+        "mcp"
+      ],
+      "call_template_type": "mcp",
+      "command": "mizan",
+      "command_name": "mizan",
+      "config": {
+        "mcpServers": {
+          "mizan-mcp": {
+            "args": [
+              "mcp"
+            ],
+            "command": "mizan",
+            "transport": "stdio"
+          }
+        }
+      },
+      "name": "mizan_mcp_bridge",
+      "provider_type": "mcp"
+    }
+  ],
+  "providers": [
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "args": [
+        "utcp",
+        "manual",
+        "--transport",
+        "cli",
+        "--format",
+        "json"
+      ],
+      "call_template_type": "cli",
+      "command": "mizan",
+      "command_name": "mizan",
+      "commands": [
+        {
+          "append_to_final_output": true,
+          "command": "mizan utcp manual --transport cli --format json"
+        }
+      ],
+      "name": "mizan_cli",
+      "provider_type": "cli"
+    },
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "call_template_type": "http",
+      "content_type": "application/json",
+      "http_method": "GET",
+      "name": "mizan_http",
+      "provider_type": "http",
+      "url": "http://localhost:3000/api/utcp"
+    },
+    {
+      "allowed_communication_protocols": [
+        "cli",
+        "http",
+        "grpc",
+        "mcp",
+        "sse",
+        "text"
+      ],
+      "args": [
+        "mcp"
+      ],
+      "call_template_type": "mcp",
+      "command": "mizan",
+      "command_name": "mizan",
+      "config": {
+        "mcpServers": {
+          "mizan-mcp": {
+            "args": [
+              "mcp"
+            ],
+            "command": "mizan",
+            "transport": "stdio"
+          }
+        }
+      },
+      "name": "mizan_mcp_bridge",
+      "provider_type": "mcp"
+    }
+  ],
+  "manuals": [
+    {
+      "name": "mizan-oscal-http",
+      "transport": "http",
+      "url": "http://localhost:3000/api/utcp"
+    },
+    {
+      "command": "mizan utcp manual --transport cli",
+      "name": "mizan-oscal-cli",
+      "transport": "cli"
+    }
+  ],
+  "tool_repository": {
+    "tool_repository_type": "in_memory"
+  },
+  "tool_search_strategy": {
+    "tool_search_strategy_type": "tag_and_description_word_match"
+  },
+  "mcp_servers": {
+    "mizan-oscal": {
+      "args": [
+        "mcp"
+      ],
+      "command": "mizan",
+      "transport": "stdio"
+    }
+  },
+  "sdk_endpoints": {
+    "go-utcp": "https://github.com/universal-tool-calling-protocol/go-utcp",
+    "python-utcp": "https://github.com/universal-tool-calling-protocol/python-utcp",
+    "rs-utcp": "https://github.com/universal-tool-calling-protocol/rs-utcp",
+    "typescript-utcp": "https://github.com/universal-tool-calling-protocol/typescript-utcp",
+    "utcp-mcp": "https://github.com/universal-tool-calling-protocol/utcp-mcp"
+  }
+}

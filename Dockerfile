@@ -4,9 +4,9 @@
 # ------------------------------------------------------------------------------
 
 # Stage 1: Build & Static Linkage
-FROM rust:1.88-alpine AS builder
+FROM rust:alpine AS builder
 
-RUN apk add --no-cache musl-dev protobuf-dev protoc git build-base linux-headers
+RUN apk add --no-cache musl-dev protobuf-dev protoc git build-base linux-headers perl
 
 WORKDIR /usr/src/mizan
 

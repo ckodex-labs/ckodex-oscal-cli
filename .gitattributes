@@ -1,0 +1,24 @@
+# Enforce LF line endings across all platforms (critical for Windows checkouts
+# where build.rs verifies SHA-256 digests of proto/**/*.proto against proto.lock).
+* text=auto eol=lf
+
+*.proto text eol=lf
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.toml  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.rs    text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.mjs   text eol=lf
+*.js    text eol=lf
+*.sh    text eol=lf
+*.md    text eol=lf
+
+# Binary assets
+*.png   binary
+*.ico   binary
+*.icns  binary
+*.woff  binary
+*.woff2 binary

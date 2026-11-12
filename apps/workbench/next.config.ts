@@ -14,6 +14,7 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   env: {
     NEXT_PUBLIC_BASE_PATH: exportBasePath,
+    NEXT_PUBLIC_STATIC_EXPORT: isExport ? "true" : "false",
   },
   ...(isExport
     ? {

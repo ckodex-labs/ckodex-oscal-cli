@@ -88,6 +88,7 @@ if [[ -d "${WORKBENCH_DIR}" ]] && command -v npm &> /dev/null; then
     (
         cd "${WORKBENCH_DIR}"
         npm run build:export
+        rm -rf "${PUBLIC_DIR}/_next" "${PUBLIC_DIR}/_not-found" "${PUBLIC_DIR}/404" "${PUBLIC_DIR}"/__next* "${PUBLIC_DIR}/index.html" "${PUBLIC_DIR}/index.txt" "${PUBLIC_DIR}/404.html"
         cp -r out/* "${PUBLIC_DIR}/"
     )
 else

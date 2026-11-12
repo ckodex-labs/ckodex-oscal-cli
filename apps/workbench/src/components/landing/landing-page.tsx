@@ -10,7 +10,7 @@ interface LandingPageProps {
 export function LandingPage({ onLaunchWorkbench }: LandingPageProps) {
   const { manifest } = useEngine();
   const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
-  const [activeTab, setActiveTab] = React.useState<"install" | "validate" | "capsule" | "pipeline">("install");
+  const [activeTab, setActiveTab] = React.useState<"install" | "validate" | "capsule" | "pipeline" | "utcp">("install");
   const [copied, setCopied] = React.useState(false);
 
   const SNIPPETS = {
@@ -27,7 +27,7 @@ mizan validate examples/sample-ssp.json --strict
 mizan lint examples/sample-ssp.json --fix`,
     capsule: `# Export standalone air-gap verifiable Merkle evidence capsule
 mizan export capsule \\
-  --assessment results.json \\
+  --assessment examples/sample-assessment-results.json \\
   --output public/capsule.html
 
 # Open in any browser: Zero phone-home, 100% offline WebCrypto`,
@@ -37,6 +37,10 @@ mizan pipeline run \\
   --sbom examples/inventory-sbom.json \\
   --workload examples/sample-ssp.json \\
   --output-dir pipeline-output`,
+    utcp: `# Native 24-Tool MCP Server & UTCP v1.0.1 Manual
+mizan mcp
+mizan utcp manual --transport cli -o utcp-manual.json
+mizan utcp call --tool inspect_document --input '{"file":"examples/sample-ssp.json"}'`,
   };
 
   const copySnippet = () => {
@@ -132,7 +136,7 @@ mizan pipeline run \\
             <p className="text-base sm:text-lg text-[#8e949c] font-sans leading-relaxed">
               Mizan is the high-assurance Rust semantic kernel and tactical workbench for NIST OSCAL v1.2.3.
               Drop-in parity with NIST <code className="font-mono text-white text-sm bg-white/10 px-1 py-0.5 rounded">oscal-cli</code>,
-              3-way GitOps AST synchronization, native Frontier AI threat governance, and offline Merkle evidence capsules.
+              3-way GitOps AST synchronization, 24-tool MCP &amp; UTCP v1.0.1 agent protocols, native Frontier AI threat governance, and offline Merkle evidence capsules.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
@@ -178,7 +182,7 @@ mizan pipeline run \\
             </div>
 
             <div role="tablist" aria-label="Terminal commands showcase" className="flex border-b border-white/10 bg-[#0c101c] font-mono text-xs overflow-x-auto">
-              {(["install", "validate", "capsule", "pipeline"] as const).map((tab) => (
+              {(["install", "validate", "capsule", "pipeline", "utcp"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -195,6 +199,7 @@ mizan pipeline run \\
                   {tab === "validate" && "Strict Validation"}
                   {tab === "capsule" && "Merkle Capsule"}
                   {tab === "pipeline" && "CI/CD Pipeline"}
+                  {tab === "utcp" && "MCP & UTCP"}
                 </button>
               ))}
             </div>
@@ -458,7 +463,7 @@ mizan pipeline run \\
             Experience the Tactical Workbench
           </h2>
           <p className="text-sm sm:text-base text-[#8e949c] max-w-2xl mx-auto">
-            Explore 10 live operational surfaces: Hexagonal Family Topology, Cross-Family Corridors, 3-Way AST Composer, Audit Ledger, POA&amp;M Docket, Pipeline Runner, and AI Threat Simulator.
+            Explore 13 live operational surfaces: Hexagonal Family Topology, Cross-Family Corridors, 3-Way AST Composer, Audit Ledger, POA&amp;M Docket, Pipeline Runner, and AI Threat Simulator.
           </p>
           <div className="pt-2">
             <button

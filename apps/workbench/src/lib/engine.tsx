@@ -18,6 +18,8 @@ import {
 } from "@/lib/provenance";
 
 export const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+export const IS_STATIC_EXPORT =
+  process.env.NEXT_PUBLIC_STATIC_EXPORT === "true";
 
 export type EngineStatus =
   | { kind: "probing" }
@@ -59,6 +61,7 @@ export async function loadManifest(): Promise<SnapshotManifest | null> {
 }
 
 async function probeLive(): Promise<string | null> {
+  if (IS_STATIC_EXPORT) return null;
   try {
     const r = await fetchJson<{ success: boolean; version?: string }>(
       `${BASE_PATH}/api/cli`,

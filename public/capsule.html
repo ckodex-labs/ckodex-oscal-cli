@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mizan Continuous Assurance Report · Mizan Evidence Capsule</title>
+<title>Mizan Automated Compliance Pipeline Assessment · Mizan Evidence Capsule</title>
 <style>
   :root {
     --bg: #090d16;
@@ -171,7 +171,7 @@
         <span>MIZAN</span>
         <span class="logo-badge">Evidence Capsule</span>
       </div>
-      <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Mizan Continuous Assurance Report</p>
+      <p style="color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem;">Mizan Automated Compliance Pipeline Assessment</p>
     </div>
     <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
       <nav style="display: flex; gap: 1rem; align-items: center;">
@@ -203,7 +203,7 @@
 
   <div class="merkle-banner">
     <div style="color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 0.25rem;">Cryptographic Merkle Root</div>
-    <div id="merkle-root-display">urn:mizan:merkle:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855</div>
+    <div id="merkle-root-display">sha256:78139209a3875cab795fb57ed606cf8606ac8fbf3aad9a616fbd768d23188b33</div>
   </div>
 
   <div class="tabs">
@@ -230,20 +230,122 @@
 
   <div id="tab-assessment" class="tab-pane">
     <pre><code>{
-  "assessment-results": {
-    "metadata": {
-      "remarks": "Verified by Mizan Zero-Trust Cryptographic Evidence Fabric",
-      "title": "Mizan Continuous Assurance Report",
-      "version": "1.0.0"
+  &quot;assessment-results&quot;: {
+    &quot;import-ap&quot;: {
+      &quot;href&quot;: &quot;#assessment-plan-001&quot;
     },
-    "uuid": "mizan-portal-001"
+    &quot;metadata&quot;: {
+      &quot;last-modified&quot;: &quot;2026-11-12T18:54:36.014132+00:00&quot;,
+      &quot;oscal-version&quot;: &quot;1.2.3&quot;,
+      &quot;title&quot;: &quot;Mizan Automated Compliance Pipeline Assessment&quot;,
+      &quot;version&quot;: &quot;1.0&quot;
+    },
+    &quot;results&quot;: [
+      {
+        &quot;description&quot;: &quot;Evaluated 4 rules against jurisdiction US (NIST SP 800-53 Rev 5 / FedRAMP)&quot;,
+        &quot;findings&quot;: [
+          {
+            &quot;description&quot;: &quot;NetworkPolicy must define explicit ingress isolation rules&quot;,
+            &quot;props&quot;: [
+              {
+                &quot;name&quot;: &quot;rule-id&quot;,
+                &quot;value&quot;: &quot;itsg33-boundary-isolation&quot;
+              },
+              {
+                &quot;name&quot;: &quot;status&quot;,
+                &quot;value&quot;: &quot;WAIVED&quot;
+              },
+              {
+                &quot;name&quot;: &quot;waiver-id&quot;,
+                &quot;value&quot;: &quot;waiver-10c7407e&quot;
+              },
+              {
+                &quot;name&quot;: &quot;reason&quot;,
+                &quot;value&quot;: &quot;Sprint 45 migration waiver&quot;
+              },
+              {
+                &quot;name&quot;: &quot;expires-at&quot;,
+                &quot;value&quot;: &quot;2026-11-16T06:11:16.334686+00:00&quot;
+              }
+            ],
+            &quot;target&quot;: {
+              &quot;status&quot;: {
+                &quot;reason&quot;: &quot;other&quot;,
+                &quot;state&quot;: &quot;satisfied&quot;
+              },
+              &quot;target-id&quot;: &quot;itsg33-boundary-isolation&quot;,
+              &quot;type&quot;: &quot;statement-id&quot;
+            },
+            &quot;title&quot;: &quot;Finding for itsg33-boundary-isolation&quot;,
+            &quot;uuid&quot;: &quot;5fd84337-bce5-4649-acea-4a196c77c241&quot;
+          }
+        ],
+        &quot;reviewed-controls&quot;: {
+          &quot;control-selections&quot;: [
+            {
+              &quot;include-all&quot;: {}
+            }
+          ]
+        },
+        &quot;start&quot;: &quot;2026-11-12T18:54:36.014130+00:00&quot;,
+        &quot;title&quot;: &quot;Pipeline Continuous Evaluation&quot;,
+        &quot;uuid&quot;: &quot;2a84ee38-fcd9-45ab-bd17-837bab5853ca&quot;
+      }
+    ],
+    &quot;uuid&quot;: &quot;fc8f8536-c2eb-4948-a0ba-ceb59d13e45f&quot;
   }
 }</code></pre>
   </div>
 
   <div id="tab-bundle" class="tab-pane">
     <pre><code>{
-  "observations": []
+  &quot;bundle_id&quot;: &quot;bundle-fb80007a-a3f8-43da-b356-4ca5f4b38435&quot;,
+  &quot;document_digest&quot;: &quot;sha256:c224e89b074fa9260a961a06c51a306a6eda012cd523647b88844c784fea112c&quot;,
+  &quot;document_uuid&quot;: &quot;fc8f8536-c2eb-4948-a0ba-ceb59d13e45f&quot;,
+  &quot;evidence_level&quot;: &quot;e4_audit_passed&quot;,
+  &quot;merkle_root&quot;: &quot;sha256:78139209a3875cab795fb57ed606cf8606ac8fbf3aad9a616fbd768d23188b33&quot;,
+  &quot;observations&quot;: [
+    {
+      &quot;control_id&quot;: &quot;cis-k8s-5.2.1&quot;,
+      &quot;evaluator_engine&quot;: &quot;regorus-0.3.4&quot;,
+      &quot;observation_id&quot;: &quot;obs-8a1376a8-1f88-4994-9eb5-6dbfdc297aa3&quot;,
+      &quot;proof_digest&quot;: &quot;sha256:19bc02a3ae3dc8ff886528ffe63582d3727243592df1cd21501d5350e20f64ff&quot;,
+      &quot;status&quot;: &quot;PASSED&quot;,
+      &quot;target&quot;: &quot;workload.yaml&quot;
+    },
+    {
+      &quot;control_id&quot;: &quot;cis-k8s-5.2.6&quot;,
+      &quot;evaluator_engine&quot;: &quot;regorus-0.3.4&quot;,
+      &quot;observation_id&quot;: &quot;obs-423b74f8-28d8-4882-8783-f2a8e292d63b&quot;,
+      &quot;proof_digest&quot;: &quot;sha256:318ede088115db200392c8c122f3bbd36d0e471efb1d3a05109a0ac18016ca17&quot;,
+      &quot;status&quot;: &quot;PASSED&quot;,
+      &quot;target&quot;: &quot;workload.yaml&quot;
+    },
+    {
+      &quot;control_id&quot;: &quot;fedramp-ac-2&quot;,
+      &quot;evaluator_engine&quot;: &quot;regorus-0.3.4&quot;,
+      &quot;observation_id&quot;: &quot;obs-c7c889b9-0145-482e-b09f-8dbd5c854a1a&quot;,
+      &quot;proof_digest&quot;: &quot;sha256:53aa48f803ae6ea8be146ebdd4fc5ab5b2bb59d0be761cc5496494a74173811e&quot;,
+      &quot;status&quot;: &quot;PASSED&quot;,
+      &quot;target&quot;: &quot;workload.yaml&quot;
+    },
+    {
+      &quot;control_id&quot;: &quot;itsg33-boundary-isolation&quot;,
+      &quot;evaluator_engine&quot;: &quot;regorus-0.3.4&quot;,
+      &quot;observation_id&quot;: &quot;obs-602e5b9f-d5cc-4409-b9c5-918cbd950087&quot;,
+      &quot;proof_digest&quot;: &quot;sha256:805a51a0404696ee1815064555427dcfc1e08d855c57f0cca387fc5682fab945&quot;,
+      &quot;status&quot;: &quot;WAIVED&quot;,
+      &quot;target&quot;: &quot;workload.yaml&quot;
+    }
+  ],
+  &quot;signature&quot;: {
+    &quot;algorithm&quot;: &quot;Ed25519&quot;,
+    &quot;key_id&quot;: &quot;urn:mizan:ed25519:mizan-orchestrator-engine:6a63af1a10edb8ce&quot;,
+    &quot;public_key_hex&quot;: &quot;6a63af1a10edb8ceee9dc0c0a44ddcb6c15e30e1d5301ad9645d4eb7a23e6fbb&quot;,
+    &quot;signature_hex&quot;: &quot;6dd756f74bac4b829275b26eda765a513d63cc792f708689caeb0224d23e2a3c2c8f1796f2d3fe3a32900b3f62a3cd3d36affc7a1c13b54a20f43d1d65a62b02&quot;,
+    &quot;signed_by&quot;: &quot;mizan-orchestrator-engine&quot;
+  },
+  &quot;timestamp&quot;: &quot;2026-11-12T18:54:36.033649+00:00&quot;
 }</code></pre>
   </div>
 </div>
@@ -251,18 +353,120 @@
 <script id="mizan-data-assessment" type="application/json">
 {
   "assessment-results": {
-    "metadata": {
-      "remarks": "Verified by Mizan Zero-Trust Cryptographic Evidence Fabric",
-      "title": "Mizan Continuous Assurance Report",
-      "version": "1.0.0"
+    "import-ap": {
+      "href": "#assessment-plan-001"
     },
-    "uuid": "mizan-portal-001"
+    "metadata": {
+      "last-modified": "2026-11-12T18:54:36.014132+00:00",
+      "oscal-version": "1.2.3",
+      "title": "Mizan Automated Compliance Pipeline Assessment",
+      "version": "1.0"
+    },
+    "results": [
+      {
+        "description": "Evaluated 4 rules against jurisdiction US (NIST SP 800-53 Rev 5 / FedRAMP)",
+        "findings": [
+          {
+            "description": "NetworkPolicy must define explicit ingress isolation rules",
+            "props": [
+              {
+                "name": "rule-id",
+                "value": "itsg33-boundary-isolation"
+              },
+              {
+                "name": "status",
+                "value": "WAIVED"
+              },
+              {
+                "name": "waiver-id",
+                "value": "waiver-10c7407e"
+              },
+              {
+                "name": "reason",
+                "value": "Sprint 45 migration waiver"
+              },
+              {
+                "name": "expires-at",
+                "value": "2026-11-16T06:11:16.334686+00:00"
+              }
+            ],
+            "target": {
+              "status": {
+                "reason": "other",
+                "state": "satisfied"
+              },
+              "target-id": "itsg33-boundary-isolation",
+              "type": "statement-id"
+            },
+            "title": "Finding for itsg33-boundary-isolation",
+            "uuid": "5fd84337-bce5-4649-acea-4a196c77c241"
+          }
+        ],
+        "reviewed-controls": {
+          "control-selections": [
+            {
+              "include-all": {}
+            }
+          ]
+        },
+        "start": "2026-11-12T18:54:36.014130+00:00",
+        "title": "Pipeline Continuous Evaluation",
+        "uuid": "2a84ee38-fcd9-45ab-bd17-837bab5853ca"
+      }
+    ],
+    "uuid": "fc8f8536-c2eb-4948-a0ba-ceb59d13e45f"
   }
 }
 </script>
 <script id="mizan-data-bundle" type="application/json">
 {
-  "observations": []
+  "bundle_id": "bundle-fb80007a-a3f8-43da-b356-4ca5f4b38435",
+  "document_digest": "sha256:c224e89b074fa9260a961a06c51a306a6eda012cd523647b88844c784fea112c",
+  "document_uuid": "fc8f8536-c2eb-4948-a0ba-ceb59d13e45f",
+  "evidence_level": "e4_audit_passed",
+  "merkle_root": "sha256:78139209a3875cab795fb57ed606cf8606ac8fbf3aad9a616fbd768d23188b33",
+  "observations": [
+    {
+      "control_id": "cis-k8s-5.2.1",
+      "evaluator_engine": "regorus-0.3.4",
+      "observation_id": "obs-8a1376a8-1f88-4994-9eb5-6dbfdc297aa3",
+      "proof_digest": "sha256:19bc02a3ae3dc8ff886528ffe63582d3727243592df1cd21501d5350e20f64ff",
+      "status": "PASSED",
+      "target": "workload.yaml"
+    },
+    {
+      "control_id": "cis-k8s-5.2.6",
+      "evaluator_engine": "regorus-0.3.4",
+      "observation_id": "obs-423b74f8-28d8-4882-8783-f2a8e292d63b",
+      "proof_digest": "sha256:318ede088115db200392c8c122f3bbd36d0e471efb1d3a05109a0ac18016ca17",
+      "status": "PASSED",
+      "target": "workload.yaml"
+    },
+    {
+      "control_id": "fedramp-ac-2",
+      "evaluator_engine": "regorus-0.3.4",
+      "observation_id": "obs-c7c889b9-0145-482e-b09f-8dbd5c854a1a",
+      "proof_digest": "sha256:53aa48f803ae6ea8be146ebdd4fc5ab5b2bb59d0be761cc5496494a74173811e",
+      "status": "PASSED",
+      "target": "workload.yaml"
+    },
+    {
+      "control_id": "itsg33-boundary-isolation",
+      "evaluator_engine": "regorus-0.3.4",
+      "observation_id": "obs-602e5b9f-d5cc-4409-b9c5-918cbd950087",
+      "proof_digest": "sha256:805a51a0404696ee1815064555427dcfc1e08d855c57f0cca387fc5682fab945",
+      "status": "WAIVED",
+      "target": "workload.yaml"
+    }
+  ],
+  "signature": {
+    "algorithm": "Ed25519",
+    "key_id": "urn:mizan:ed25519:mizan-orchestrator-engine:6a63af1a10edb8ce",
+    "public_key_hex": "6a63af1a10edb8ceee9dc0c0a44ddcb6c15e30e1d5301ad9645d4eb7a23e6fbb",
+    "signature_hex": "6dd756f74bac4b829275b26eda765a513d63cc792f708689caeb0224d23e2a3c2c8f1796f2d3fe3a32900b3f62a3cd3d36affc7a1c13b54a20f43d1d65a62b02",
+    "signed_by": "mizan-orchestrator-engine"
+  },
+  "timestamp": "2026-11-12T18:54:36.033649+00:00"
 }
 </script>
 
@@ -272,6 +476,15 @@
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tabId).classList.add('active');
     evt.currentTarget.classList.add('active');
+  }
+
+  function escHtml(val) {
+    return String(val ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   // Populate Observations
@@ -286,11 +499,11 @@
       const tr = document.createElement('tr');
       const statusClass = obs.status === 'PASSED' ? 'status-passed' : (obs.status === 'WAIVED' ? 'status-waived' : 'status-failed');
       tr.innerHTML = `
-        <td style="font-weight: 600;">${obs.control_id}</td>
-        <td><span class="status-tag ${statusClass}">${obs.status}</span></td>
-        <td style="color: var(--text-muted);">${obs.target}</td>
-        <td style="font-family: var(--mono); font-size: 0.75rem;">${obs.evaluator_engine}</td>
-        <td style="font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted);">${obs.proof_digest}</td>
+        <td style="font-weight: 600;">${escHtml(obs.control_id)}</td>
+        <td><span class="status-tag ${statusClass}">${escHtml(obs.status)}</span></td>
+        <td style="color: var(--text-muted);">${escHtml(obs.target)}</td>
+        <td style="font-family: var(--mono); font-size: 0.75rem;">${escHtml(obs.evaluator_engine)}</td>
+        <td style="font-family: var(--mono); font-size: 0.75rem; color: var(--text-muted);">${escHtml(obs.proof_digest)}</td>
       `;
       tbody.appendChild(tr);
     });

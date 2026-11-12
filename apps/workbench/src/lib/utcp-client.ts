@@ -123,21 +123,25 @@ export async function fetchMizanUtcpManual(
   }
 
   const resolvedEndpoint = withBasePath(endpoint);
-  try {
-    const sep = resolvedEndpoint.includes("?") ? "&" : "?";
-    const res = await fetch(
-      `${resolvedEndpoint}${sep}transport=${encodeURIComponent(transport)}`,
-      {
-        method: "GET",
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(8_000),
-      },
-    );
-    if (res.ok) {
-      return (await res.json()) as UtcpManual;
+  const skipStaticApiProbe =
+    process.env.NEXT_PUBLIC_STATIC_EXPORT === "true" && endpoint === "/api/utcp";
+  if (!skipStaticApiProbe) {
+    try {
+      const sep = resolvedEndpoint.includes("?") ? "&" : "?";
+      const res = await fetch(
+        `${resolvedEndpoint}${sep}transport=${encodeURIComponent(transport)}`,
+        {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8_000),
+        },
+      );
+      if (res.ok) {
+        return (await res.json()) as UtcpManual;
+      }
+    } catch {
+      // Fall through to static snapshot fallback
     }
-  } catch {
-    // Fall through to static snapshot fallback
   }
 
   const snapshotUrl = `${getBasePath()}/snapshot/utcp-manual.json`;
